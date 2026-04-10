@@ -141,16 +141,14 @@
 
     <!-- iOS Install Overlay -->
     <style>
-        #installOverlay{position:fixed;inset:0;background:#000;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);z-index:99999;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+        #installOverlay{position:fixed;inset:0;background:#fff;z-index:99999;display:none;flex-direction:column;align-items:center;justify-content:center;color:#1a1a1a;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
         #installOverlay:target{display:flex!important}
-        html:has(#installOverlay:target),html:has(#installOverlay:target) body,html:has(#installOverlay:target) #app{background:#000!important}
-        #installOverlay{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
         .install-content{max-width:400px;width:100%;padding:2rem;text-align:center;position:relative}
-        .install-close{position:absolute;top:0;right:1.5rem;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:1.5rem;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+        .install-close{position:absolute;top:0;right:1.5rem;background:rgba(0,0,0,.06);border:none;color:#333;font-size:1.5rem;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
         .phone-mockup{width:220px;height:260px;margin:0 auto 2rem;border:6px solid #333;border-radius:40px 40px 0 0;border-bottom:none;position:relative;overflow:hidden;background:linear-gradient(to bottom,#1a1a1a,#000)}
         .phone-mockup::before{content:'';position:absolute;top:12px;left:50%;transform:translateX(-50%);width:70px;height:20px;background:#000;border-radius:10px;z-index:10}
         .phone-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:50px 20px 0;opacity:.15}
-        .phone-grid-item{aspect-ratio:1;background:#fff;border-radius:10px}
+        .phone-grid-item{aspect-ratio:1;background:#ccc;border-radius:10px}
         .phone-app-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:18px;box-shadow:0 12px 24px rgba(0,0,0,.6);z-index:2}
         .install-title{font-size:1.4rem;font-weight:700;margin-bottom:2rem;line-height:1.3}
         .install-steps{text-align:left;font-size:1.1rem;line-height:1.8;margin-bottom:3rem;padding:0 1rem}
@@ -185,9 +183,9 @@
         window.addEventListener('hashchange',function(){
             var m=document.getElementById('metaThemeColor');
             if(location.hash==='#installOverlay'){
-                if(m)m.content='#000000';
-                document.documentElement.style.backgroundColor='#000';
-                document.body.style.backgroundColor='#000';
+                if(m)m.content='#ffffff';
+                document.documentElement.style.backgroundColor='#fff';
+                document.body.style.backgroundColor='#fff';
             }else{
                 var d=document.body.getAttribute('data-theme')==='dark';
                 var c=d?'#000000':'#ffffff';
