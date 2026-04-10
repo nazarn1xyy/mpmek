@@ -41,6 +41,9 @@ body {
     overflow-x: hidden;
     min-height: 100vh;
     min-height: 100dvh;
+}
+
+body.theme-transitioning {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 

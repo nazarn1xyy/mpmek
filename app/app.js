@@ -70,9 +70,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     themeToggle.addEventListener('change', (e) => {
         const dark = e.target.checked;
+        document.body.classList.add('theme-transitioning');
         document.body.setAttribute('data-theme', dark ? 'dark' : '');
         if (!dark) document.body.removeAttribute('data-theme');
         localStorage.setItem('theme', dark ? 'dark' : 'light');
+        setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
     });
 
     changeGroupBtn.addEventListener('click', () => {
