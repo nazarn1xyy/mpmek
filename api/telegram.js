@@ -68,38 +68,34 @@ module.exports = async function handler(req, res) {
         };
       }
 
-      for (const theme of ['dark', 'light']) {
-        const label = theme === 'dark' ? 'Темна' : 'Світла';
+      // Today
+      results.push(makeResult(
+        `${group}-today-${Date.now()}`,
+        todayDay,
+        `${group} — Сьогодні`,
+        UK_DAYS_FULL[todayDay] || 'Понеділок',
+        'light'
+      ));
 
-        // Today
+      // Week
+      results.push(makeResult(
+        `${group}-week-${Date.now()}`,
+        'week',
+        `${group} — Вся неділя`,
+        'Розклад на тиждень',
+        'light'
+      ));
+
+      // Individual days
+      for (let d = 1; d <= 5; d++) {
+        if (d === todayDay) continue;
         results.push(makeResult(
-          `${group}-today-${theme}-${Date.now()}`,
-          todayDay,
-          `${group} — Сьогодні`,
-          `${UK_DAYS_FULL[todayDay] || 'Понеділок'} · ${label}`,
-          theme
+          `${group}-d${d}-${Date.now()}`,
+          d,
+          `${UK_DAYS_SHORT[d]} ${group}`,
+          UK_DAYS_FULL[d],
+          'light'
         ));
-
-        // Week
-        results.push(makeResult(
-          `${group}-week-${theme}-${Date.now()}`,
-          'week',
-          `${group} — Вся неділя`,
-          `Розклад на тиждень · ${label}`,
-          theme
-        ));
-
-        // Individual days
-        for (let d = 1; d <= 5; d++) {
-          if (d === todayDay) continue;
-          results.push(makeResult(
-            `${group}-d${d}-${theme}-${Date.now()}`,
-            d,
-            `${UK_DAYS_SHORT[d]} ${group}`,
-            `${UK_DAYS_FULL[d]} · ${label}`,
-            theme
-          ));
-        }
       }
     }
 
