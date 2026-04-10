@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v7';
+const CACHE_NAME = 'rozklad-v8';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,7 @@ const STATIC_ASSETS = [
   './app.js',
   './schedule.json',
   './manifest.json',
-  './icon.svg'
+  './icon.png'
 ];
 
 // Pre-cache on install
