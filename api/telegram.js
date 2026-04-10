@@ -43,52 +43,59 @@ module.exports = async function handler(req, res) {
 
     const results = [];
 
-    const v = Math.floor(Date.now() / 60000); // changes every minute
+    const v = Math.floor(Date.now() / 60000);
     for (const group of matched.slice(0, 5)) {
       const encodedGroup = encodeURIComponent(group);
-
-      // Today
       const todayIdx = new Date().getDay();
       const todayDay = (todayIdx >= 1 && todayIdx <= 5) ? todayIdx : 1;
-      results.push({
-        type: 'photo',
-        id: `${group}-today-${Date.now()}`,
-        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
-        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
-        photo_width: 1200,
-        photo_height: 800,
-        title: `📅 ${group} — Сьогодні`,
-        description: UK_DAYS_FULL[todayDay] || 'Понеділок',
-        caption: `📚 ${group} — ${UK_DAYS_FULL[todayDay] || 'Понеділок'}\nmpmek.site`
-      });
+
+      // Helper: hidden image link + text below
+      function makeResult(id, day, title, description) {
+        const imgUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${day}&theme=dark&v=${v}`;
+        const thumbUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`;
+        return {
+          type: 'article',
+          id,
+          title,
+          description,
+          thumbnail_url: thumbUrl,
+          input_message_content: {
+            message_text: `<a href="${imgUrl}">&#8205;</a>\n📚 <b>${group}</b> — ${description}\n🌐 mpmek.site`,
+            parse_mode: 'HTML',
+            link_preview_options: {
+              url: imgUrl,
+              prefer_large_media: true,
+              show_above_text: true
+            }
+          }
+        };
+      }
+
+      // Today
+      results.push(makeResult(
+        `${group}-today-${Date.now()}`,
+        todayDay,
+        `📅 ${group} — Сьогодні`,
+        UK_DAYS_FULL[todayDay] || 'Понеділок'
+      ));
 
       // Week
-      results.push({
-        type: 'photo',
-        id: `${group}-week-${Date.now()}`,
-        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=week&theme=dark&v=${v}`,
-        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
-        photo_width: 1200,
-        photo_height: 2000,
-        title: `📋 ${group} — Вся неділя`,
-        description: 'Розклад на тиждень',
-        caption: `📚 ${group} — Розклад на тиждень\nmpmek.site`
-      });
+      results.push(makeResult(
+        `${group}-week-${Date.now()}`,
+        'week',
+        `📋 ${group} — Вся неділя`,
+        'Розклад на тиждень'
+      ));
 
       // Individual days
       for (let d = 1; d <= 5; d++) {
         if (d === todayDay) continue;
-        results.push({
-          type: 'photo',
-          id: `${group}-d${d}-${Date.now()}`,
-          photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark&v=${v}`,
-          thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark&v=${v}`,
-          photo_width: 1200,
-          photo_height: 800,
-          title: `${UK_DAYS_SHORT[d]} ${group}`,
-          description: UK_DAYS_FULL[d],
-          caption: `📚 ${group} — ${UK_DAYS_FULL[d]}\nmpmek.site`
-        });
+        results.push(makeResult(
+          `${group}-d${d}-${Date.now()}`,
+          d,
+          `${UK_DAYS_SHORT[d]} ${group}`,
+          UK_DAYS_FULL[d]
+        ));
       }
     }
 
