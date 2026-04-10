@@ -88,6 +88,10 @@ body {
     align-items: center;
     justify-content: center;
     user-select: none;
+    transition: transform 0.2s, background-color 0.2s;
+}
+.icon-btn:active {
+    transform: scale(0.95);
 }
 
 .btn {
@@ -104,6 +108,10 @@ body {
     align-items: center;
     justify-content: center;
     user-select: none;
+    transition: transform 0.2s, background-color 0.2s;
+}
+.btn:active {
+    transform: scale(0.95);
 }
 
 /* Onboarding */
@@ -198,6 +206,25 @@ input[type="text"]:focus {
     padding-bottom: 0.2rem;
 }
 
+.is-today h2 {
+    color: var(--bg-color);
+    background-color: var(--text-color);
+    border-bottom: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 12px;
+}
+
+.today-badge {
+    font-size: 0.65rem;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-left: 0.5rem;
+    vertical-align: text-top;
+    font-weight: 800;
+}
+
 .diary-item {
     background-color: var(--surface-color);
     border: 1px solid var(--border-color);
@@ -227,6 +254,15 @@ input[type="text"]:focus {
     border: 1px solid var(--border-color);
 }
 
+.diary-item-time {
+    font-size: 0.8rem;
+    color: #888;
+    background: var(--surface-color);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px dashed var(--border-color);
+}
+
 .diary-item-subject {
     font-size: 1.1rem;
     font-weight: 600;
@@ -253,6 +289,10 @@ input[type="text"]:focus {
     gap: 0.5rem;
     min-height: 44px;
     user-select: none;
+    transition: transform 0.2s, background-color 0.2s;
+}
+.homework-btn:active {
+    transform: scale(0.95);
 }
 
 /* Settings and Homework Empty States */
@@ -275,6 +315,35 @@ input[type="text"]:focus {
     text-align: center;
     color: #888;
     margin-top: 3rem;
+}
+
+.empty-state-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+}
+
+.empty-state-icon {
+    opacity: 0.2;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.empty-state-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-desc {
+    font-size: 0.9rem;
+    max-width: 280px;
+    line-height: 1.4;
 }
 
 /* Toggle Switch */
@@ -343,7 +412,11 @@ input:checked + .slider:before {
     gap: 4px;
     width: 30%;
     height: 65px;
-    transition: color 0.2s;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.nav-item:active {
+    transform: scale(0.92);
 }
 
 .nav-item svg {
@@ -445,6 +518,12 @@ input:checked + .slider:before {
     min-height: 48px;
     border: none;
     user-select: none;
+    transition: transform 0.2s;
+}
+
+.modal-btn-cancel:active,
+.modal-btn-save:active {
+    transform: scale(0.95);
 }
 
 .modal-btn-cancel {
@@ -550,6 +629,11 @@ input:checked + .slider:before {
     align-items: center;
     gap: 0.35rem;
     user-select: none;
+    transition: transform 0.2s;
+}
+
+.hw-card-actions button:active {
+    transform: scale(0.95);
 }
 
 .hw-card-actions .hw-delete {

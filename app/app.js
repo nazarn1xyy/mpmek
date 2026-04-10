@@ -6,6 +6,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
 
+    const LESSON_TIMES = {
+        1: "08:30 - 10:05",
+        2: "10:20 - 11:55",
+        3: "12:10 - 13:45",
+        4: "14:15 - 15:50",
+        5: "16:00 - 17:35",
+        6: "17:40 - 19:15"
+    };
+
+    const SVG_EMPTY_SCHEDULE = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>`;
+    const SVG_EMPTY_HOMEWORK = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="9" y1="14" x2="15" y2="14"></line></svg>`;
+
+    const ukDays = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
+
     // Homework storage with in-memory cache
     function getHomework() {
         if (_hwCache) return _hwCache;
@@ -111,7 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await fetch('schedule.json');
         scheduleData = await response.json();
     } catch (e) {
-        diaryContainer.innerHTML = '<p class="empty-state">Помилка завантаження розкладу.</p>';
+        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
         return;
     }
 
@@ -159,8 +173,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         hwModalInput.value = existingText || '';
         hwModalTitle.textContent = existingText ? 'Редагувати завдання' : 'Додати завдання';
         hwModal.classList.remove('hidden');
+        
+        // Auto-expand setup
+        hwModalInput.style.height = '100px'; 
+        setTimeout(() => {
+            if(hwModalInput.scrollHeight > 100) {
+                hwModalInput.style.height = hwModalInput.scrollHeight + 'px';
+            }
+        }, 10);
+
         requestAnimationFrame(() => hwModalInput.focus());
     }
+
+    hwModalInput.addEventListener('input', function() {
+        this.style.height = '100px'; // base height
+        this.style.height = Math.min(this.scrollHeight, 250) + 'px';
+    });
 
     function closeHomeworkModal() {
         hwModal.classList.add('hidden');
@@ -207,10 +235,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btnLabel = savedText ? 'Редагувати' : 'Додати завдання';
         const btnIcon = savedText ? SVG_EDIT : SVG_PLUS;
         const teacherHtml = pair.teacher ? `<div class="diary-item-teacher">${pair.teacher}</div>` : '';
+        const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
 
         const div = document.createElement('div');
         div.className = 'diary-item';
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span></div><div class="diary-item-subject">${pair.subject}</div>${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div><div class="diary-item-subject">${pair.subject}</div>${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
@@ -266,12 +295,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (!weekData || (Array.isArray(weekData) && weekData.length === 0)) {
-            diaryContainer.innerHTML = '<p class="empty-state">Розклад відсутній.</p>';
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Розклад відсутній</p><p class="empty-state-desc">Для вибраного тижня немає пар.</p></div>`;
             return;
         }
 
         const hw = getHomework(); // read once per render
         const frag = document.createDocumentFragment();
+        const todayLabel = ukDays[new Date().getDay()];
 
         if (currentWeekType === 'ПІДВІСКА') {
             const groupedByDate = {};
@@ -308,6 +338,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const title = document.createElement('h2');
                 title.textContent = day;
+                
+                const isToday = currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
+                if (isToday) {
+                    dayEl.classList.add('is-today');
+                    dayEl.id = 'today-marker';
+                    const badge = document.createElement('span');
+                    badge.className = 'today-badge';
+                    badge.textContent = 'Сьогодні';
+                    title.appendChild(badge);
+                }
+
                 dayEl.appendChild(title);
 
                 const pairs = [...weekData[day]].sort((a, b) => a.number - b.number);
@@ -320,6 +361,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         diaryContainer.innerHTML = '';
         diaryContainer.appendChild(frag);
+
+        if (currentWeekType !== 'ПІДВІСКА') {
+            requestAnimationFrame(() => {
+                const todayMarker = document.getElementById('today-marker');
+                if (todayMarker) {
+                    // Small delay to ensure render is complete
+                    setTimeout(() => {
+                        todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                }
+            });
+        }
     }
 
     // ===== Render Homework Tab =====
@@ -336,7 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (entries.length === 0) {
-            homeworkContainer.innerHTML = '<p class="empty-state">Тут будуть ваші домашні завдання.</p>';
+            homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">Ура! Ви ще не додали жодного домашнього завдання.</p></div>`;
             return;
         }
 
