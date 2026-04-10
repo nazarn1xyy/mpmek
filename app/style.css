@@ -76,12 +76,18 @@ body.theme-transitioning {
 .top-nav h1 {
     font-size: 1.25rem;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .top-nav-actions {
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .share-btn {
