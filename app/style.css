@@ -84,13 +84,14 @@ body.theme-transitioning {
 }
 
 .share-btn {
-    padding: 0.5rem;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
 }
 
 /* Buttons */
