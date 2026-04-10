@@ -644,6 +644,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         let html = '<div style="width:40px;height:4px;background:var(--border-color,#ddd);border-radius:2px;margin:0 auto 1rem"></div>';
         html += '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;text-align:center">Оберіть день</h3>';
 
+        html += `<button class="share-day-btn" data-day="week" style="display:flex;align-items:center;justify-content:center;width:100%;padding:.9rem 1rem;margin-bottom:.75rem;border:none;border-radius:14px;background:var(--accent-color,#000);color:var(--bg-color,#fff);font-size:1rem;font-weight:700;cursor:pointer;gap:8px"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Вся неділя</button>`;
+
         for (const day of days) {
             const isToday = day.idx === todayIdx;
             const badge = isToday ? ' <span style="font-size:.75rem;background:var(--accent-color);color:var(--bg-color);padding:2px 8px;border-radius:8px;margin-left:8px">Сьогодні</span>' : '';
@@ -657,13 +659,170 @@ document.addEventListener('DOMContentLoaded', async () => {
         overlay.addEventListener('click', (e) => {
             const btn = e.target.closest('.share-day-btn');
             if (btn) {
-                const dayIdx = parseInt(btn.dataset.day);
+                const day = btn.dataset.day;
                 overlay.remove();
-                shareScheduleForDay(dayIdx);
+                if (day === 'week') {
+                    shareWeek();
+                } else {
+                    shareScheduleForDay(parseInt(day));
+                }
                 return;
             }
             if (e.target === overlay) overlay.remove();
         });
+    }
+
+    async function shareWeek() {
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const W = 600;
+        const padX = 32;
+        const cardH = 56;
+        const cardGap = 8;
+        const dayHeaderH = 44;
+        const topH = 80;
+        const footerH = 50;
+
+        const allDays = [1, 2, 3, 4, 5];
+        const dayLabels = { 1: 'Понеділок', 2: 'Вівторок', 3: 'Середа', 4: 'Четвер', 5: "П'ятниця" };
+        const weekData = [];
+        let totalCards = 0;
+        let daysWithData = 0;
+
+        for (const idx of allDays) {
+            const data = getPairsForDay(idx);
+            if (data && data.pairs.length > 0) {
+                weekData.push({ ...data, idx });
+                totalCards += data.pairs.length;
+                daysWithData++;
+            }
+        }
+
+        if (weekData.length === 0) {
+            alert('Немає розкладу на цей тиждень');
+            return;
+        }
+
+        const H = topH + daysWithData * dayHeaderH + totalCards * (cardH + cardGap) + footerH + 20;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W * 2;
+        canvas.height = H * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+
+        const bg = isDark ? '#000' : '#fff';
+        const fg = isDark ? '#f5f5f5' : '#1a1a1a';
+        const surface = isDark ? '#111' : '#f5f5f5';
+        const muted = isDark ? '#888' : '#888';
+        const accent = isDark ? '#fff' : '#000';
+        const subColor = '#f59e0b';
+
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = fg;
+        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(selectedGroup, padX, 42);
+
+        ctx.fillStyle = muted;
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const today = new Date();
+        const monOffset = 1 - (today.getDay() || 7);
+        const mon = new Date(today); mon.setDate(today.getDate() + monOffset);
+        const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+        const rangeStr = `${String(mon.getDate()).padStart(2,'0')}.${String(mon.getMonth()+1).padStart(2,'0')} — ${String(fri.getDate()).padStart(2,'0')}.${String(fri.getMonth()+1).padStart(2,'0')}`;
+        ctx.fillText(rangeStr, padX, 64);
+
+        let y = topH;
+        const todayIdx = today.getDay();
+
+        for (const dayData of weekData) {
+            const isToday = dayData.idx === todayIdx;
+
+            ctx.fillStyle = isToday ? accent : fg;
+            ctx.font = `bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.fillText(dayData.dayName.toUpperCase(), padX, y + 20);
+
+            ctx.fillStyle = muted;
+            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(dayData.dateStr, padX + ctx.measureText(dayData.dayName.toUpperCase()).width + 10, y + 20);
+
+            if (isToday) {
+                const label = 'Сьогодні';
+                ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
+                const tw = ctx.measureText(label).width;
+                const bx = W - padX - tw - 16;
+                ctx.fillStyle = accent;
+                roundRect(ctx, bx, y + 6, tw + 16, 20, 6);
+                ctx.fill();
+                ctx.fillStyle = bg;
+                ctx.fillText(label, bx + 8, y + 20);
+            }
+
+            y += dayHeaderH;
+
+            for (const pair of dayData.pairs) {
+                ctx.fillStyle = surface;
+                roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
+                ctx.fill();
+
+                if (pair.isSubstitution) {
+                    ctx.strokeStyle = subColor;
+                    ctx.lineWidth = 1.5;
+                    roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
+                    ctx.stroke();
+                }
+
+                const circleX = padX + 22;
+                const circleY = y + cardH / 2;
+                ctx.fillStyle = pair.isSubstitution ? subColor : accent;
+                ctx.beginPath();
+                ctx.arc(circleX, circleY, 14, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
+                ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(pair.number, circleX, circleY + 4.5);
+                ctx.textAlign = 'left';
+
+                ctx.fillStyle = fg;
+                ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(truncText(ctx, pair.subject, W - padX * 2 - 70), padX + 46, y + 22);
+
+                ctx.fillStyle = muted;
+                ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                const time = LESSON_TIMES[pair.number] || '';
+                const teacher = pair.teacher || '';
+                const meta = [time, teacher].filter(Boolean).join('  ·  ');
+                ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
+
+                y += cardH + cardGap;
+            }
+        }
+
+        ctx.fillStyle = muted;
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Розклад Студента · mpmek.site', W / 2, H - 18);
+        ctx.textAlign = 'left';
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const file = new File([blob], `rozklad-week-${rangeStr}.png`, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: `Розклад на тиждень`, text: `${selectedGroup} — ${rangeStr}` });
+                } catch {}
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `rozklad-week.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }, 'image/png');
     }
 
     async function shareScheduleForDay(dayIdx) {
