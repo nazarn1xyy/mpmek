@@ -49,8 +49,8 @@ module.exports = async function handler(req, res) {
       const todayIdx = new Date().getDay();
       const todayDay = (todayIdx >= 1 && todayIdx <= 5) ? todayIdx : 1;
 
-      function makeResult(id, day, title, description) {
-        const imgUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${day}&theme=dark&v=${v}`;
+      function makeResult(id, day, title, description, theme) {
+        const imgUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${day}&theme=${theme}&v=${v}`;
         return {
           type: 'article',
           id,
@@ -68,31 +68,39 @@ module.exports = async function handler(req, res) {
         };
       }
 
-      // Today
-      results.push(makeResult(
-        `${group}-today-${Date.now()}`,
-        todayDay,
-        `📅 ${group} — Сьогодні`,
-        UK_DAYS_FULL[todayDay] || 'Понеділок'
-      ));
+      for (const theme of ['dark', 'light']) {
+        const icon = theme === 'dark' ? '🌙' : '☀️';
+        const label = theme === 'dark' ? 'Темна' : 'Світла';
 
-      // Week
-      results.push(makeResult(
-        `${group}-week-${Date.now()}`,
-        'week',
-        `📋 ${group} — Вся неділя`,
-        'Розклад на тиждень'
-      ));
-
-      // Individual days
-      for (let d = 1; d <= 5; d++) {
-        if (d === todayDay) continue;
+        // Today
         results.push(makeResult(
-          `${group}-d${d}-${Date.now()}`,
-          d,
-          `${UK_DAYS_SHORT[d]} ${group}`,
-          UK_DAYS_FULL[d]
+          `${group}-today-${theme}-${Date.now()}`,
+          todayDay,
+          `${icon} ${group} — Сьогодні`,
+          `${UK_DAYS_FULL[todayDay] || 'Понеділок'} · ${label}`,
+          theme
         ));
+
+        // Week
+        results.push(makeResult(
+          `${group}-week-${theme}-${Date.now()}`,
+          'week',
+          `${icon} ${group} — Вся неділя`,
+          `Розклад на тиждень · ${label}`,
+          theme
+        ));
+
+        // Individual days
+        for (let d = 1; d <= 5; d++) {
+          if (d === todayDay) continue;
+          results.push(makeResult(
+            `${group}-d${d}-${theme}-${Date.now()}`,
+            d,
+            `${icon} ${UK_DAYS_SHORT[d]} ${group}`,
+            `${UK_DAYS_FULL[d]} · ${label}`,
+            theme
+          ));
+        }
       }
     }
 
