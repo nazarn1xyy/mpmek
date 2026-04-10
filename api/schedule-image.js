@@ -4,20 +4,28 @@ const fs = require('fs');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '16:00 - 17:20', 6: '17:40 - 19:00' };
-const FONT = 'Inter';
+const FONT = 'SF Pro Display';
+const FONT_BOLD = 'SF Pro Display Bold';
 
 let fontLoaded = false;
 async function ensureFont() {
   if (fontLoaded) return;
-  const localFont = path.join(__dirname, '_fonts', 'Inter-Regular.ttf');
-  if (fs.existsSync(localFont)) {
-    GlobalFonts.registerFromPath(localFont, 'Inter');
-  } else {
-    // Fallback: fetch variable font from Google Fonts
+  const fontsDir = path.join(__dirname, '_fonts');
+  const regular = path.join(fontsDir, 'SF-Pro-Display-Regular.otf');
+  const bold = path.join(fontsDir, 'SF-Pro-Display-Bold.otf');
+  if (fs.existsSync(regular)) {
+    GlobalFonts.registerFromPath(regular, 'SF Pro Display');
+  }
+  if (fs.existsSync(bold)) {
+    GlobalFonts.registerFromPath(bold, 'SF Pro Display Bold');
+  }
+  // Fallback to Inter if SF Pro not found
+  if (!fs.existsSync(regular)) {
     try {
       const resp = await fetch('https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf');
       const buf = Buffer.from(await resp.arrayBuffer());
-      GlobalFonts.register(buf, 'Inter');
+      GlobalFonts.register(buf, 'SF Pro Display');
+      GlobalFonts.register(buf, 'SF Pro Display Bold');
     } catch {}
   }
   fontLoaded = true;
@@ -104,10 +112,10 @@ function renderDayImage(group, data, dark) {
   ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = fg;
-  ctx.font = `bold 28px ${FONT}`;
+  ctx.font = `28px ${FONT_BOLD}`;
   ctx.fillText(group, padX, 50);
 
-  ctx.font = `bold 20px ${FONT}`;
+  ctx.font = `20px ${FONT_BOLD}`;
   ctx.fillStyle = accent;
   ctx.fillText(dayName, padX, 82);
 
@@ -135,13 +143,13 @@ function renderDayImage(group, data, dark) {
     ctx.fill();
 
     ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
-    ctx.font = `bold 16px ${FONT}`;
+    ctx.font = `16px ${FONT_BOLD}`;
     ctx.textAlign = 'center';
     ctx.fillText(String(pair.number), cx, cy + 5.5);
     ctx.textAlign = 'left';
 
     ctx.fillStyle = fg;
-    ctx.font = `600 16px ${FONT}`;
+    ctx.font = `16px ${FONT_BOLD}`;
     ctx.fillText(truncText(ctx, pair.subject, W - padX * 2 - 80), padX + 56, y + 30);
 
     ctx.fillStyle = muted;
@@ -198,7 +206,7 @@ function renderWeekImage(group, scheduleData, dark) {
   ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = fg;
-  ctx.font = `bold 26px ${FONT}`;
+  ctx.font = `26px ${FONT_BOLD}`;
   ctx.fillText(group, padX, 42);
 
   const monOffset = 1 - (today.getDay() || 7);
@@ -215,7 +223,7 @@ function renderWeekImage(group, scheduleData, dark) {
     const isToday = dayData.idx === todayIdx;
 
     ctx.fillStyle = isToday ? accent : fg;
-    ctx.font = `bold 15px ${FONT}`;
+    ctx.font = `15px ${FONT_BOLD}`;
     ctx.fillText(dayData.dayName.toUpperCase(), padX, y + 20);
 
     ctx.fillStyle = muted;
@@ -224,7 +232,7 @@ function renderWeekImage(group, scheduleData, dark) {
 
     if (isToday) {
       const label = 'Сьогодні';
-      ctx.font = `bold 10px ${FONT}`;
+      ctx.font = `10px ${FONT_BOLD}`;
       const tw = ctx.measureText(label).width;
       const bx = W - padX - tw - 16;
       ctx.fillStyle = accent;
@@ -255,13 +263,13 @@ function renderWeekImage(group, scheduleData, dark) {
       ctx.fill();
 
       ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
-      ctx.font = `bold 13px ${FONT}`;
+      ctx.font = `13px ${FONT_BOLD}`;
       ctx.textAlign = 'center';
       ctx.fillText(String(pair.number), cx, cy + 4.5);
       ctx.textAlign = 'left';
 
       ctx.fillStyle = fg;
-      ctx.font = `600 14px ${FONT}`;
+      ctx.font = `14px ${FONT_BOLD}`;
       ctx.fillText(truncText(ctx, pair.subject, W - padX * 2 - 70), padX + 46, y + 22);
 
       ctx.fillStyle = muted;
