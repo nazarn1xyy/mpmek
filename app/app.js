@@ -62,6 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notifPromptClose = document.getElementById('notifPromptClose');
     const notifTimeSelect = document.getElementById('notifTimeSelect');
     const notifTimeRow = document.getElementById('notifTimeRow');
+    const installRow = document.getElementById('installRow');
+    const installBtn = document.getElementById('installBtn');
+    const installOverlay = document.getElementById('installOverlay');
+    const installClose = document.getElementById('installClose');
     const hwModal = document.getElementById('hwModal');
     const hwModalTitle = document.getElementById('hwModalTitle');
     const hwModalSubject = document.getElementById('hwModalSubject');
@@ -85,6 +89,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('theme', dark ? 'dark' : 'light');
         setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
     });
+
+    // ===== Install Overlay =====
+    // Hide install button if already in standalone mode (PWA installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (isStandalone && installRow) {
+        installRow.style.display = 'none';
+    }
+
+    if (installBtn) {
+        installBtn.addEventListener('click', () => {
+            installOverlay.classList.remove('hidden');
+        });
+    }
+
+    if (installClose) {
+        installClose.addEventListener('click', () => {
+            installOverlay.classList.add('hidden');
+        });
+    }
+
+    if (installOverlay) {
+        installOverlay.addEventListener('click', (e) => {
+            if (e.target === installOverlay) {
+                installOverlay.classList.add('hidden');
+            }
+        });
+    }
 
     // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
@@ -977,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v20';
+        const DEPLOY_VERSION = 'rozklad-v21';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

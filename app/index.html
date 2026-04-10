@@ -111,6 +111,10 @@
                         <option value="10:00">10:00</option>
                     </select>
                 </div>
+                <div class="setting-item" id="installRow">
+                    <span>Додати на екран</span>
+                    <button id="installBtn" class="btn" style="background-color: #0A84FF; color: white;">Встановити</button>
+                </div>
                 <div class="setting-item">
                     <span>Змінити групу</span>
                     <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
@@ -129,6 +133,30 @@
             <div class="modal-actions">
                 <button id="hwModalCancel" class="modal-btn-cancel">Скасувати</button>
                 <button id="hwModalSave" class="modal-btn-save">Зберегти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- iOS Install Overlay -->
+    <div id="installOverlay" class="install-overlay hidden">
+        <div class="install-content">
+            <button class="install-close" id="installClose" aria-label="Закрити">&times;</button>
+            <div class="phone-mockup">
+                <div class="phone-grid">
+                    <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
+                    <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
+                    <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
+                    <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
+                </div>
+                <img src="icon.png" class="phone-app-icon" alt="App Icon">
+            </div>
+            <h2 class="install-title">Додати Розклад на екран</h2>
+            <div class="install-steps">
+                <p>1. Натисніть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> на нижній панелі</p>
+                <p>2. Оберіть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" ry="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> <strong>На екран «Домой»</strong></p>
+            </div>
+            <div class="install-tooltip">
+                Натисніть <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
             </div>
         </div>
     </div>

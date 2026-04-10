@@ -618,6 +618,154 @@ input:checked + .slider:before {
     to { opacity: 1; }
 }
 
+/* iOS Install Overlay */
+.install-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 15, 15, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    animation: fadeIn 0.3s ease;
+}
+
+.install-content {
+    max-width: 400px;
+    width: 100%;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+}
+
+.install-close {
+    position: absolute;
+    top: 0;
+    right: 1.5rem;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.phone-mockup {
+    width: 220px;
+    height: 260px;
+    margin: 0 auto 2rem;
+    border: 6px solid #333;
+    border-radius: 40px 40px 0 0;
+    border-bottom: none;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(to bottom, #1a1a1a, #000);
+}
+
+.phone-mockup::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 20px;
+    background: #000;
+    border-radius: 10px;
+    z-index: 10;
+}
+
+.phone-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 50px 20px 0;
+    opacity: 0.15;
+}
+
+.phone-grid-item {
+    aspect-ratio: 1;
+    background: #fff;
+    border-radius: 10px;
+}
+
+.phone-app-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    border-radius: 18px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.6);
+    z-index: 2;
+}
+
+.install-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    line-height: 1.3;
+}
+
+.install-steps {
+    text-align: left;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 3rem;
+    padding: 0 1rem;
+}
+
+.install-steps p {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.8rem;
+}
+
+.install-steps svg {
+    color: #0A84FF;
+}
+
+.install-tooltip {
+    background: #0A84FF;
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    position: relative;
+    animation: bounce 2s infinite;
+}
+
+.install-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 8px 0;
+    border-style: solid;
+    border-color: #0A84FF transparent transparent transparent;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
 @keyframes slideUp {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
