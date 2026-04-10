@@ -676,3 +676,58 @@ input:checked + .slider:before {
     color: #cc0000;
     border-color: #cc000040;
 }
+
+/* Notification Prompt Banner */
+.notif-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin: 8px 16px 0;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    gap: 12px;
+}
+.notif-prompt-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.notif-prompt-icon {
+    font-size: 1.3rem;
+}
+.notif-prompt-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.notif-prompt-enable {
+    background: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.notif-prompt-enable:active {
+    opacity: 0.7;
+}
+.notif-prompt-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.4;
+}
+.notif-prompt-dismiss:active {
+    opacity: 0.8;
+}

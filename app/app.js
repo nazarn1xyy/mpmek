@@ -55,6 +55,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeToggle = document.getElementById('themeToggle');
     const changeGroupBtn = document.getElementById('changeGroupBtn');
     const notifToggle = document.getElementById('notifToggle');
+    const notifPrompt = document.getElementById('notifPrompt');
+    const notifPromptBtn = document.getElementById('notifPromptBtn');
+    const notifPromptClose = document.getElementById('notifPromptClose');
     const hwModal = document.getElementById('hwModal');
     const hwModalTitle = document.getElementById('hwModalTitle');
     const hwModalSubject = document.getElementById('hwModalSubject');
@@ -79,8 +82,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
     });
 
-    // ===== Notifications Toggle =====
+    // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
+
+    function showNotifPrompt() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') return;
+        if (localStorage.getItem('notifPromptDismissed')) return;
+        notifPrompt.classList.remove('hidden');
+    }
+
+    function hideNotifPrompt() {
+        notifPrompt.classList.add('hidden');
+    }
+
+    notifPromptBtn.addEventListener('click', async () => {
+        const perm = await Notification.requestPermission();
+        hideNotifPrompt();
+        if (perm === 'granted') {
+            localStorage.setItem('notifications', 'true');
+            notificationsEnabled = true;
+            notifToggle.checked = true;
+            storeNotifConfig();
+            showDailyNotification(true);
+        }
+    });
+
+    notifPromptClose.addEventListener('click', () => {
+        hideNotifPrompt();
+        localStorage.setItem('notifPromptDismissed', '1');
+    });
 
     notifToggle.addEventListener('change', async (e) => {
         if (e.target.checked) {
@@ -658,13 +689,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         storeNotifConfig();
         // Show daily notification
         showDailyNotification();
+        // Show notification prompt banner if permission not yet granted
+        showNotifPrompt();
         // If opened from notification, scroll to today
         if (viewToday) {
             scrollToToday();
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v14';
+        const DEPLOY_VERSION = 'rozklad-v15';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {
