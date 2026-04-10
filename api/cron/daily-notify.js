@@ -17,23 +17,14 @@ module.exports = async function handler(req, res) {
       VAPID_PRIVATE_KEY
     );
 
-    // Current time in UTC+3 (Kyiv)
-    const now = new Date();
-    const utc3 = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-    const dayIdx = utc3.getUTCDay();
-
     // Skip weekends
+    const today = new Date();
+    const dayIdx = today.getDay();
     if (dayIdx === 0 || dayIdx === 6) {
       return res.status(200).json({ ok: true, skipped: 'weekend' });
     }
 
-    // Current time slot in HH:MM format (rounded to 00 or 30)
-    const currentHour = String(utc3.getUTCHours()).padStart(2, '0');
-    const currentMin = utc3.getUTCMinutes() < 30 ? '00' : '30';
-    const currentSlot = `${currentHour}:${currentMin}`;
-
     const dayName = UK_DAYS[dayIdx];
-    const today = utc3;
 
     // Fetch schedule data from the same deployment
     const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
@@ -72,18 +63,9 @@ module.exports = async function handler(req, res) {
     let failed = 0;
     const toDelete = [];
 
-    let skipped = 0;
     for (const entry of entries) {
       try {
-        const { id, subscription, group, notifyTime } = entry;
-
-        // Only send to users whose preferred time matches current slot
-        const userTime = notifyTime || '08:00';
-        if (userTime !== currentSlot) {
-          skipped++;
-          continue;
-        }
-
+        const { id, subscription, group } = entry;
         const groupData = scheduleData[group];
         if (!groupData) continue;
 
@@ -136,7 +118,7 @@ module.exports = async function handler(req, res) {
       await redis('HDEL', 'push-subs', id);
     }
 
-    return res.status(200).json({ ok: true, sent, failed, skipped, cleaned: toDelete.length, slot: currentSlot });
+    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length });
   } catch (error) {
     console.error('Cron error:', error);
     return res.status(500).json({ error: 'Internal server error' });
