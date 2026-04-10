@@ -69,14 +69,13 @@ module.exports = async function handler(req, res) {
       }
 
       for (const theme of ['dark', 'light']) {
-        const icon = theme === 'dark' ? '🌙' : '☀️';
         const label = theme === 'dark' ? 'Темна' : 'Світла';
 
         // Today
         results.push(makeResult(
           `${group}-today-${theme}-${Date.now()}`,
           todayDay,
-          `${icon} ${group} — Сьогодні`,
+          `${group} — Сьогодні`,
           `${UK_DAYS_FULL[todayDay] || 'Понеділок'} · ${label}`,
           theme
         ));
@@ -85,7 +84,7 @@ module.exports = async function handler(req, res) {
         results.push(makeResult(
           `${group}-week-${theme}-${Date.now()}`,
           'week',
-          `${icon} ${group} — Вся неділя`,
+          `${group} — Вся неділя`,
           `Розклад на тиждень · ${label}`,
           theme
         ));
@@ -96,7 +95,7 @@ module.exports = async function handler(req, res) {
           results.push(makeResult(
             `${group}-d${d}-${theme}-${Date.now()}`,
             d,
-            `${icon} ${UK_DAYS_SHORT[d]} ${group}`,
+            `${UK_DAYS_SHORT[d]} ${group}`,
             `${UK_DAYS_FULL[d]} · ${label}`,
             theme
           ));
