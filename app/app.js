@@ -697,11 +697,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v15';
+        const DEPLOY_VERSION = 'rozklad-v16';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {
-                setTimeout(() => showDailyNotification(true), 5 * 60 * 1000);
+                setTimeout(() => showDailyNotification(true), 60 * 1000);
             }
         }
     }
