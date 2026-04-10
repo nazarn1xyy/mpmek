@@ -5,12 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
+    let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
 
     let LESSON_TIMES = {
-        1: "08:30 - 10:05",
-        2: "10:20 - 11:55",
-        3: "12:10 - 13:45",
-        4: "14:15 - 15:50",
+        1: "08:30 - 09:50",
+        2: "10:00 - 11:20",
+        3: "11:50 - 13:10",
+        4: "13:20 - 14:40",
         5: "16:00 - 17:35",
         6: "17:40 - 19:15"
     };
@@ -53,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const navItems = document.querySelectorAll('.nav-item');
     const themeToggle = document.getElementById('themeToggle');
     const changeGroupBtn = document.getElementById('changeGroupBtn');
+    const notifToggle = document.getElementById('notifToggle');
     const hwModal = document.getElementById('hwModal');
     const hwModalTitle = document.getElementById('hwModalTitle');
     const hwModalSubject = document.getElementById('hwModalSubject');
@@ -75,6 +77,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!dark) document.body.removeAttribute('data-theme');
         localStorage.setItem('theme', dark ? 'dark' : 'light');
         setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
+    });
+
+    // ===== Notifications Toggle =====
+    notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
+
+    notifToggle.addEventListener('change', async (e) => {
+        if (e.target.checked) {
+            if (!('Notification' in window)) {
+                e.target.checked = false;
+                return;
+            }
+            if (Notification.permission === 'denied') {
+                alert('Сповіщення заблоковані в налаштуваннях браузера. Розблокуйте їх вручну.');
+                e.target.checked = false;
+                return;
+            }
+            if (Notification.permission !== 'granted') {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') {
+                    e.target.checked = false;
+                    return;
+                }
+            }
+            localStorage.setItem('notifications', 'true');
+            notificationsEnabled = true;
+            storeNotifConfig();
+            showDailyNotification(true);
+        } else {
+            localStorage.setItem('notifications', 'false');
+            notificationsEnabled = false;
+        }
     });
 
     changeGroupBtn.addEventListener('click', () => {
@@ -477,6 +510,143 @@ document.addEventListener('DOMContentLoaded', async () => {
         homeworkContainer.appendChild(frag);
     }
 
+    // ===== Daily Notification =====
+    function getTodayScheduleText() {
+        if (!scheduleData || !selectedGroup) return null;
+
+        const today = new Date();
+        let dayIndex = today.getDay();
+        let prefix = 'Сьогодні';
+
+        // Weekend — show Monday's schedule
+        if (dayIndex === 0 || dayIndex === 6) {
+            prefix = dayIndex === 6 ? 'У понеділок' : 'Завтра';
+            dayIndex = 1;
+        }
+
+        const dayName = ukDays[dayIndex];
+        const groupData = scheduleData[selectedGroup];
+        if (!groupData) return null;
+
+        let weekType = currentWeekType;
+        let weekData = groupData[weekType];
+        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+            weekType = 'ОСНОВНИЙ РОЗКЛАД';
+            weekData = groupData[weekType];
+        }
+        if (!weekData) {
+            const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+            if (types.length === 0) return null;
+            weekType = types[0];
+            weekData = groupData[weekType];
+        }
+        if (!weekData || !weekData[dayName]) return null;
+
+        let pairs = [...weekData[dayName]];
+
+        // Merge substitutions for the target day
+        const currentDayOfWeek = today.getDay() || 7;
+        const targetDayOfWeek = dayIndex || 7;
+        const offset = targetDayOfWeek - currentDayOfWeek;
+        const d = new Date(today);
+        d.setDate(today.getDate() + offset);
+        const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+
+        const subs = groupData['ПІДВІСКА'] || [];
+        const subsForDate = subs.filter(s => s.date === dateStr);
+        subsForDate.forEach(sub => {
+            pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+            pairs.push({ ...sub, isSubstitution: true });
+        });
+
+        if (pairs.length === 0) return null;
+        pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
+
+        const lines = pairs.map(p => {
+            const time = LESSON_TIMES[p.number];
+            const startTime = time ? time.split(' - ')[0] : '';
+            const sub = p.isSubstitution ? ' ⚡' : '';
+            return `${p.number}. ${p.subject}${startTime ? ' — ' + startTime : ''}${sub}`;
+        });
+
+        return {
+            title: `📚 ${prefix} — ${dayName}`,
+            body: lines.join('\n'),
+            pairsCount: pairs.length
+        };
+    }
+
+    async function storeNotifConfig() {
+        try {
+            const cache = await caches.open('notif-config');
+            await cache.put('/config', new Response(JSON.stringify({
+                group: selectedGroup,
+                lessonTimes: LESSON_TIMES
+            })));
+        } catch {}
+    }
+
+    async function showDailyNotification(force) {
+        if (!notificationsEnabled) return;
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+        if (!scheduleData || !selectedGroup) return;
+
+        const today = new Date().toDateString();
+        if (!force && localStorage.getItem('lastNotifDate') === today) return;
+
+        const data = getTodayScheduleText();
+        if (!data) return;
+
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification(data.title, {
+                body: data.body,
+                icon: './icon.png',
+                badge: './icon.png',
+                tag: 'daily-schedule',
+                data: { url: '?view=today' },
+                renotify: true
+            });
+            localStorage.setItem('lastNotifDate', today);
+        } catch (e) {
+            try {
+                new Notification(data.title, {
+                    body: data.body,
+                    icon: './icon.png',
+                    tag: 'daily-schedule'
+                });
+                localStorage.setItem('lastNotifDate', today);
+            } catch {}
+        }
+    }
+
+    function scrollToToday() {
+        showScreen('schedule');
+        navItems.forEach(n => n.classList.remove('active'));
+        navItems[0].classList.add('active');
+        requestAnimationFrame(() => {
+            const marker = document.getElementById('today-marker');
+            if (marker) {
+                setTimeout(() => marker.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+            }
+        });
+    }
+
+    // Listen for SW postMessage (notification click while app is open)
+    navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'SHOW_TODAY') {
+            scrollToToday();
+        }
+    });
+
+    // Handle ?view=today from notification click (app was closed)
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewToday = urlParams.get('view') === 'today';
+    if (viewToday) {
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
     // ===== Init =====
     if (!selectedGroup) {
         showScreen('onboarding');
@@ -484,12 +654,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         navItems[0].classList.add('active');
         showScreen('schedule');
+        // Store config for SW background notifications
+        storeNotifConfig();
+        // Show daily notification
+        showDailyNotification();
+        // If opened from notification, scroll to today
+        if (viewToday) {
+            scrollToToday();
+        }
     }
 });
 
-// PWA Service Worker Registration
+// PWA Service Worker Registration + Periodic Sync
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').then(async reg => {
+            // Try registering periodic sync for background notifications
+            if ('periodicSync' in reg) {
+                try {
+                    await reg.periodicSync.register('daily-schedule', {
+                        minInterval: 12 * 60 * 60 * 1000 // 12 hours
+                    });
+                } catch {}
+            }
+        }).catch(() => {});
     });
 }
