@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Адмін-панель — Розклад</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="color-scheme" content="light dark">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body data-theme="dark">
+
+    <!-- PIN Screen -->
+    <div id="pinScreen" class="pin-screen">
+        <div class="pin-card">
+            <div class="pin-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h1>Адмін-панель</h1>
+            <p id="pinHint">Введіть PIN-код для входу</p>
+            <div class="pin-dots">
+                <span class="pin-dot" data-filled="false"></span>
+                <span class="pin-dot" data-filled="false"></span>
+                <span class="pin-dot" data-filled="false"></span>
+                <span class="pin-dot" data-filled="false"></span>
+            </div>
+            <div class="pin-keypad">
+                <button class="pin-key" data-val="1">1</button>
+                <button class="pin-key" data-val="2">2</button>
+                <button class="pin-key" data-val="3">3</button>
+                <button class="pin-key" data-val="4">4</button>
+                <button class="pin-key" data-val="5">5</button>
+                <button class="pin-key" data-val="6">6</button>
+                <button class="pin-key" data-val="7">7</button>
+                <button class="pin-key" data-val="8">8</button>
+                <button class="pin-key" data-val="9">9</button>
+                <button class="pin-key pin-key-empty"></button>
+                <button class="pin-key" data-val="0">0</button>
+                <button class="pin-key pin-key-delete" id="pinDelete">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
+                        <line x1="18" y1="9" x2="12" y2="15"></line>
+                        <line x1="12" y1="9" x2="18" y2="15"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="admin-panel hidden">
+        <!-- Sidebar / Top Nav -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>⚙️ Адмін</h2>
+                <a href="../" class="back-link">← На сайт</a>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="sidebar-item active" data-section="groups">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Групи</span>
+                </button>
+                <button class="sidebar-item" data-section="schedule">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Розклад</span>
+                </button>
+                <button class="sidebar-item" data-section="bells">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Дзвінки</span>
+                </button>
+                <button class="sidebar-item" data-section="config">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>Налашт.</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="admin-main">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <span id="statusText">Завантаження...</span>
+                <button id="publishBtn" class="publish-btn" disabled>
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                    Опублікувати
+                </button>
+            </div>
+
+            <!-- Section: Groups -->
+            <section id="sec-groups" class="section active">
+                <div class="section-header">
+                    <h2>Управління групами</h2>
+                    <button id="addGroupBtn" class="btn-primary">+ Додати групу</button>
+                </div>
+                <div id="groupsList" class="groups-grid">
+                    <!-- Rendered dynamically -->
+                </div>
+            </section>
+
+            <!-- Section: Schedule Editor -->
+            <section id="sec-schedule" class="section hidden">
+                <div class="section-header">
+                    <h2>Редагування розкладу</h2>
+                </div>
+                <div class="schedule-controls">
+                    <select id="schedGroupSelect" class="select">
+                        <option value="">Оберіть групу...</option>
+                    </select>
+                    <select id="schedWeekSelect" class="select">
+                        <option value="">Тип тижня...</option>
+                    </select>
+                    <button id="addWeekTypeBtn" class="btn-secondary" title="Додати тип тижня">+ Тиждень</button>
+                </div>
+                <div id="schedEditor" class="sched-editor">
+                    <p class="placeholder-text">Оберіть групу та тип тижня для редагування</p>
+                </div>
+            </section>
+
+            <!-- Section: Bell Schedule -->
+            <section id="sec-bells" class="section hidden">
+                <div class="section-header">
+                    <h2>Розклад дзвінків</h2>
+                </div>
+                <div id="bellsEditor" class="bells-editor">
+                    <!-- 6 lesson time inputs -->
+                </div>
+            </section>
+
+            <!-- Section: Settings -->
+            <section id="sec-config" class="section hidden">
+                <div class="section-header">
+                    <h2>Налаштування</h2>
+                </div>
+                <div class="config-form">
+                    <div class="config-group">
+                        <label>GitHub Personal Access Token</label>
+                        <p class="config-hint">Потрібен для збереження змін. Створіть на <a href="https://github.com/settings/tokens/new?scopes=repo&description=mpmek-admin" target="_blank" rel="noopener">github.com/settings/tokens</a> з правом <code>repo</code>.</p>
+                        <input type="password" id="ghTokenInput" class="input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+                        <button id="saveTokenBtn" class="btn-secondary">Зберегти токен</button>
+                    </div>
+                    <hr>
+                    <div class="config-group">
+                        <label>Репозиторій</label>
+                        <div class="config-row">
+                            <input type="text" id="ghOwnerInput" class="input" placeholder="owner" value="nazarn1xyy">
+                            <span>/</span>
+                            <input type="text" id="ghRepoInput" class="input" placeholder="repo" value="mpmek">
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="config-group">
+                        <label>Змінити PIN-код</label>
+                        <input type="password" id="newPinInput" class="input" placeholder="Новий 4-значний PIN" maxlength="4" inputmode="numeric">
+                        <button id="changePinBtn" class="btn-secondary">Змінити PIN</button>
+                    </div>
+                    <hr>
+                    <div class="config-group">
+                        <label>Версія кешу Service Worker</label>
+                        <p class="config-hint">Поточна версія: <strong id="currentCacheVersion">—</strong></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Confirm Delete -->
+    <div id="confirmModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="confirmTitle">Підтвердження</h3>
+            <p id="confirmText">Ви впевнені?</p>
+            <div class="modal-actions">
+                <button id="confirmCancel" class="btn-secondary">Скасувати</button>
+                <button id="confirmOk" class="btn-danger">Видалити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Rename Group -->
+    <div id="groupModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="groupModalTitle">Додати групу</h3>
+            <input type="text" id="groupNameInput" class="input" placeholder="Назва групи (напр. КСМ-24-1)">
+            <div class="modal-actions">
+                <button id="groupModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="groupModalOk" class="btn-primary">Додати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Week Type -->
+    <div id="weekModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>Додати тип тижня</h3>
+            <select id="weekTypeSelect" class="select">
+                <option value="ЧИСЕЛЬНИК">ЧИСЕЛЬНИК</option>
+                <option value="ЗНАМЕННИК">ЗНАМЕННИК</option>
+            </select>
+            <div class="modal-actions">
+                <button id="weekModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="weekModalOk" class="btn-primary">Додати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

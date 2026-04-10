@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v9';
+const CACHE_NAME = 'rozklad-v10';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,11 @@ self.addEventListener('activate', event => {
 
 // Stale-while-revalidate: serve from cache instantly, update in background
 self.addEventListener('fetch', event => {
+  // Skip caching for admin panel — always fetch fresh
+  if (event.request.url.includes('/admin')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request).then(networkResponse => {

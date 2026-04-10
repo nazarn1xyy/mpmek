@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
 
-    const LESSON_TIMES = {
+    let LESSON_TIMES = {
         1: "08:30 - 10:05",
         2: "10:20 - 11:55",
         3: "12:10 - 13:45",
@@ -126,6 +126,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const response = await fetch('schedule.json');
         scheduleData = await response.json();
+
+        // Extract settings (lesson times, etc.) if present
+        if (scheduleData._settings) {
+            if (scheduleData._settings.lessonTimes) {
+                LESSON_TIMES = scheduleData._settings.lessonTimes;
+            }
+            delete scheduleData._settings;
+        }
     } catch (e) {
         diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
         return;
@@ -135,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderGroupList(filter = '') {
         const frag = document.createDocumentFragment();
         const lowerFilter = filter.toLowerCase();
-        const groups = Object.keys(scheduleData);
+        const groups = Object.keys(scheduleData).filter(k => k !== '_settings');
 
         for (let i = 0; i < groups.length; i++) {
             const group = groups[i];
