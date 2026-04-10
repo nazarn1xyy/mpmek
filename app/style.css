@@ -1,0 +1,558 @@
+/* Minimalist Black and White Theme */
+:root {
+    /* Light Theme (Default) */
+    --bg-color: #ffffff;
+    --text-color: #1a1a1a;
+    --surface-color: #f5f5f5;
+    --border-color: #e0e0e0;
+    --accent-color: #000000;
+    --nav-bg: rgba(255, 255, 255, 0.9);
+    --nav-border: #eeeeee;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+[data-theme="dark"] {
+    /* Dark Theme */
+    --bg-color: #000000;
+    --text-color: #f5f5f5;
+    --surface-color: #111111;
+    --border-color: #222222;
+    --accent-color: #ffffff;
+    --nav-bg: rgba(0, 0, 0, 0.9);
+    --nav-border: #1a1a1a;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    line-height: 1.5;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+#app {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-bottom: calc(70px + env(safe-area-inset-bottom)); /* Space for bottom nav */
+}
+
+/* Headers */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem 1rem 1rem;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-color);
+    z-index: 10;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.top-nav h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+/* Buttons */
+.icon-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.btn {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+/* Onboarding */
+#onboarding {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 1rem calc(2rem + env(safe-area-inset-bottom, 0px)) 1rem;
+}
+
+.onboarding-content {
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.onboarding-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.onboarding-content p {
+    color: #888;
+    margin-bottom: 2rem;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    outline: none;
+}
+
+input[type="text"]:focus {
+    border-color: var(--accent-color);
+}
+
+.group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.group-item {
+    padding: 1rem;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: transform 0.1s;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    user-select: none;
+}
+
+.group-item:active {
+    transform: scale(0.98);
+    will-change: transform;
+}
+
+/* Diary Container */
+.diary-container {
+    padding: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+    contain: content;
+}
+
+.diary-day {
+    margin-bottom: 2rem;
+}
+
+.diary-day h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--accent-color);
+    display: inline-block;
+    padding-bottom: 0.2rem;
+}
+
+.diary-item {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    contain: layout style;
+}
+
+.diary-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.diary-item-number {
+    font-weight: 700;
+    color: var(--accent-color);
+    background: var(--bg-color);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.diary-item-subject {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.diary-item-teacher {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.homework-btn {
+    align-self: flex-start;
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    user-select: none;
+}
+
+/* Settings and Homework Empty States */
+.settings-container, .homework-container {
+    padding: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    min-height: 48px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #888;
+    margin-top: 3rem;
+}
+
+/* Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+.switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border-color);
+    transition: .4s;
+    border-radius: 34px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: var(--bg-color);
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: var(--accent-color);
+}
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(65px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--nav-bg);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--nav-border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 100;
+    user-select: none;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #888;
+    gap: 4px;
+    width: 30%;
+    height: 65px;
+    transition: color 0.2s;
+}
+
+.nav-item svg {
+    opacity: 0.7;
+}
+
+.nav-item span {
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.nav-item.active {
+    color: var(--accent-color);
+}
+
+.nav-item.active svg {
+    opacity: 1;
+}
+
+/* Utility to hide scrollbar but keep functionality */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+/* ===== Modal (Bottom Sheet) ===== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-sheet {
+    background-color: var(--bg-color);
+    width: 100%;
+    max-width: 500px;
+    border-radius: 20px 20px 0 0;
+    padding: 1rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
+    animation: slideUp 0.3s ease;
+}
+
+.modal-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin: 0 auto 1rem auto;
+}
+
+.modal-sheet h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.modal-subject {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 1rem;
+}
+
+.modal-sheet textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    margin-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-sheet textarea:focus {
+    border-color: var(--accent-color);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.modal-btn-cancel,
+.modal-btn-save {
+    flex: 1;
+    padding: 0.75rem;
+    border-radius: 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 48px;
+    border: none;
+    user-select: none;
+}
+
+.modal-btn-cancel {
+    background: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.modal-btn-save {
+    background: var(--accent-color);
+    color: var(--bg-color);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+/* ===== Saved Homework on Lesson Card ===== */
+.hw-saved {
+    border-left: 3px solid var(--accent-color);
+    padding: 0.4rem 0.75rem;
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.hw-saved-header {
+    display: none;
+}
+
+.hw-delete-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    min-width: 28px;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ===== Homework Tab Cards ===== */
+.hw-card {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.hw-card-subject {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.hw-card-meta {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.hw-card-text {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 0.25rem;
+}
+
+.hw-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.hw-card-actions button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 0.4rem 1rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    user-select: none;
+}
+
+.hw-card-actions .hw-delete {
+    color: #cc0000;
+    border-color: #cc000040;
+}
