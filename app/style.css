@@ -127,6 +127,9 @@ body {
     max-width: 400px;
     margin: 0 auto;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .onboarding-content h1 {
@@ -159,9 +162,12 @@ input[type="text"]:focus {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    max-height: 60vh;
+    flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 3rem; /* Additional padding to scroll completely past the edge */
+    -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
 }
 
 .group-item {
