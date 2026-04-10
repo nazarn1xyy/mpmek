@@ -716,7 +716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Subject
             ctx.fillStyle = fg;
             ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            const subjectText = pair.subject + (pair.isSubstitution ? ' ⚡' : '');
+            const subjectText = pair.subject;
             ctx.fillText(truncText(ctx, subjectText, W - padX * 2 - 80), padX + 56, y + 30);
 
             // Time + teacher
