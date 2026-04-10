@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { subscription, group } = req.body;
+    const { subscription, group, notifyTime } = req.body;
     if (!subscription || !subscription.endpoint || !group) {
       return res.status(400).json({ error: 'Missing subscription or group' });
     }
@@ -18,7 +18,11 @@ module.exports = async function handler(req, res) {
       .digest('hex')
       .slice(0, 16);
 
-    await redis('HSET', 'push-subs', id, JSON.stringify({ subscription, group }));
+    await redis('HSET', 'push-subs', id, JSON.stringify({
+      subscription,
+      group,
+      notifyTime: notifyTime || '08:00'
+    }));
 
     return res.status(200).json({ ok: true, id });
   } catch (error) {

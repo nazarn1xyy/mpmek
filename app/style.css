@@ -347,6 +347,22 @@ input[type="text"]:focus {
     min-height: 48px;
 }
 
+.time-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 32px 8px 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
 .empty-state {
     text-align: center;
     color: #888;

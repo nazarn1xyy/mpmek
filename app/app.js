@@ -59,6 +59,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notifPrompt = document.getElementById('notifPrompt');
     const notifPromptBtn = document.getElementById('notifPromptBtn');
     const notifPromptClose = document.getElementById('notifPromptClose');
+    const notifTimeSelect = document.getElementById('notifTimeSelect');
+    const notifTimeRow = document.getElementById('notifTimeRow');
     const hwModal = document.getElementById('hwModal');
     const hwModalTitle = document.getElementById('hwModalTitle');
     const hwModalSubject = document.getElementById('hwModalSubject');
@@ -86,6 +88,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
 
+    // Notification time preference
+    const savedNotifTime = localStorage.getItem('notifTime') || '08:00';
+    notifTimeSelect.value = savedNotifTime;
+    notifTimeRow.style.display = notifToggle.checked ? '' : 'none';
+
+    notifTimeSelect.addEventListener('change', () => {
+        localStorage.setItem('notifTime', notifTimeSelect.value);
+        if (notificationsEnabled && Notification.permission === 'granted') {
+            subscribeToPush();
+        }
+    });
+
     function showNotifPrompt() {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') return;
@@ -104,6 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('notifications', 'true');
             notificationsEnabled = true;
             notifToggle.checked = true;
+            notifTimeRow.style.display = '';
             storeNotifConfig();
             subscribeToPush();
             showDailyNotification(true);
@@ -136,11 +151,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('notifications', 'true');
             notificationsEnabled = true;
             storeNotifConfig();
+            notifTimeRow.style.display = '';
             subscribeToPush();
             showDailyNotification(true);
         } else {
             localStorage.setItem('notifications', 'false');
             notificationsEnabled = false;
+            notifTimeRow.style.display = 'none';
             unsubscribeFromPush();
         }
     });
@@ -639,7 +656,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     subscription: subscription.toJSON(),
-                    group: selectedGroup
+                    group: selectedGroup,
+                    notifyTime: localStorage.getItem('notifTime') || '08:00'
                 })
             });
         } catch (err) {
@@ -759,7 +777,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v18';
+        const DEPLOY_VERSION = 'rozklad-v19';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {
