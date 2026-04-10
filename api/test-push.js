@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
         const { subscription, group } = entry;
         const groupData = scheduleData[group];
 
-        let body = `Група: ${group}\nРозклад недоступний`;
+        let body = null;
 
         if (groupData) {
           let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
@@ -67,6 +67,7 @@ module.exports = async function handler(req, res) {
           }
 
           if (weekData && weekData[dayName] && weekData[dayName].length > 0) {
+            body = '';
             let pairs = [...weekData[dayName]];
             const subs = groupData['ПІДВІСКА'] || [];
             subs.filter(s => s.date === dateStr).forEach(sub => {
@@ -83,6 +84,8 @@ module.exports = async function handler(req, res) {
             body = lines.join('\n');
           }
         }
+
+        if (!body) body = 'Сьогодні пар немає! 🎉';
 
         const payload = JSON.stringify({
           title: `📚 ${prefix} — ${dayName}`,
