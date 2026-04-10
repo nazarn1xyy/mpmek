@@ -97,22 +97,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         installRow.style.display = 'none';
     }
 
-    // Event delegation on document for install overlay
-    document.addEventListener('click', (e) => {
-        if (e.target.closest('#installBtn')) {
-            e.preventDefault();
-            if (installOverlay) installOverlay.classList.remove('hidden');
-            return;
-        }
-        if (e.target.closest('#installClose')) {
-            e.preventDefault();
-            if (installOverlay) installOverlay.classList.add('hidden');
-            return;
-        }
-        if (e.target === installOverlay) {
-            installOverlay.classList.add('hidden');
-        }
-    });
 
     // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
