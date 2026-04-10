@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v8';
+const CACHE_NAME = 'rozklad-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',
