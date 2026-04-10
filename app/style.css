@@ -626,12 +626,16 @@ input:checked + .slider:before {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     z-index: 99999;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: #fff;
     animation: fadeIn 0.3s ease;
+}
+
+.install-overlay:target {
+    display: flex !important;
 }
 
 .install-content {
@@ -657,6 +661,7 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
+    text-decoration: none;
 }
 
 .phone-mockup {

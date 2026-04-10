@@ -113,7 +113,7 @@
                 </div>
                 <div class="setting-item" id="installRow">
                     <span>Додати на екран</span>
-                    <button class="btn" style="background-color: #0A84FF; color: white;" onclick="document.getElementById('installOverlay').classList.remove('hidden')">Встановити</button>
+                    <a href="#installOverlay" class="btn" style="background-color: #0A84FF; color: white; text-decoration: none;">Встановити</a>
                 </div>
                 <div class="setting-item">
                     <span>Змінити групу</span>
@@ -138,9 +138,9 @@
     </div>
 
     <!-- iOS Install Overlay -->
-    <div id="installOverlay" class="install-overlay hidden">
+    <div id="installOverlay" class="install-overlay">
         <div class="install-content">
-            <button class="install-close" onclick="document.getElementById('installOverlay').classList.add('hidden')" aria-label="Закрити">&times;</button>
+            <a href="#_" class="install-close" aria-label="Закрити">&times;</a>
             <div class="phone-mockup">
                 <div class="phone-grid">
                     <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
