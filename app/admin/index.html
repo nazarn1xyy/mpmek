@@ -116,7 +116,12 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .schedule-controls{flex-direction:column}
 .schedule-controls .select{max-width:100%}
 .lesson-row{grid-template-columns:50px 1fr 1fr 32px;gap:6px}
-.status-bar{padding:10px 16px}
+.status-bar{padding:14px 16px;flex-direction:column;align-items:stretch;gap:12px}
+.publish-btn{justify-content:center;padding:12px}
+.toast{bottom:calc(80px + env(safe-area-inset-bottom,0))}
+.bell-row{grid-template-columns:55px 1fr 12px 1fr;gap:8px;padding:12px 10px}
+.bell-row .input{padding:12px 6px;text-align:center;font-size:14px}
+.section-header h2{font-size:20px;line-height:1.2}
 }
     </style>
 </head>
