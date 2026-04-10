@@ -97,28 +97,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         installRow.style.display = 'none';
     }
 
-    if (installBtn && installOverlay) {
-        // Use pointer events for better mobile responsiveness
-        installBtn.addEventListener('click', (e) => {
+    // Event delegation on document for install overlay
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#installBtn')) {
             e.preventDefault();
-            installOverlay.classList.remove('hidden');
-        });
-    }
-
-    if (installClose && installOverlay) {
-        installClose.addEventListener('click', (e) => {
+            if (installOverlay) installOverlay.classList.remove('hidden');
+            return;
+        }
+        if (e.target.closest('#installClose')) {
             e.preventDefault();
+            if (installOverlay) installOverlay.classList.add('hidden');
+            return;
+        }
+        if (e.target === installOverlay) {
             installOverlay.classList.add('hidden');
-        });
-    }
-
-    if (installOverlay) {
-        installOverlay.addEventListener('click', (e) => {
-            if (e.target === installOverlay) {
-                installOverlay.classList.add('hidden');
-            }
-        });
-    }
+        }
+    });
 
     // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
@@ -1011,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v21';
+        const DEPLOY_VERSION = 'rozklad-v22';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {
