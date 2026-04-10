@@ -49,16 +49,13 @@ module.exports = async function handler(req, res) {
       const todayIdx = new Date().getDay();
       const todayDay = (todayIdx >= 1 && todayIdx <= 5) ? todayIdx : 1;
 
-      // Helper: hidden image link + text below
       function makeResult(id, day, title, description) {
         const imgUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${day}&theme=dark&v=${v}`;
-        const thumbUrl = `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`;
         return {
           type: 'article',
           id,
           title,
           description,
-          thumbnail_url: thumbUrl,
           input_message_content: {
             message_text: `<a href="${imgUrl}">&#8205;</a>\n📚 <b>${group}</b> — ${description}\n🌐 mpmek.site`,
             parse_mode: 'HTML',
