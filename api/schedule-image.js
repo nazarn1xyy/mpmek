@@ -1,8 +1,27 @@
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const path = require('path');
+const fs = require('fs');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '16:00 - 17:20', 6: '17:40 - 19:00' };
-const FONT = 'Arial, Helvetica, sans-serif';
+const FONT = 'Inter';
+
+let fontLoaded = false;
+async function ensureFont() {
+  if (fontLoaded) return;
+  const localFont = path.join(__dirname, '_fonts', 'Inter-Regular.ttf');
+  if (fs.existsSync(localFont)) {
+    GlobalFonts.registerFromPath(localFont, 'Inter');
+  } else {
+    // Fallback: fetch variable font from Google Fonts
+    try {
+      const resp = await fetch('https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf');
+      const buf = Buffer.from(await resp.arrayBuffer());
+      GlobalFonts.register(buf, 'Inter');
+    } catch {}
+  }
+  fontLoaded = true;
+}
 
 async function fetchSchedule() {
   const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
@@ -267,6 +286,8 @@ function renderWeekImage(group, scheduleData, dark) {
 
 module.exports = async function handler(req, res) {
   try {
+    await ensureFont();
+
     const { group, day, theme } = req.query;
     if (!group) return res.status(400).json({ error: 'group is required' });
 
