@@ -216,6 +216,14 @@ input[type="text"]:focus {
     padding-bottom: 0.2rem;
 }
 
+.date-badge {
+    color: var(--text-color);
+    opacity: 0.6;
+    font-weight: 500;
+    font-size: 0.85em;
+    margin-left: 6px;
+}
+
 .is-today h2 {
     color: var(--bg-color);
     background-color: var(--text-color);
@@ -245,6 +253,24 @@ input[type="text"]:focus {
     flex-direction: column;
     gap: 0.5rem;
     contain: layout style;
+}
+
+.diary-item.substitution {
+    border-color: #f59e0b; /* Amber/Orange standard color for warnings/changes */
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%);
+}
+
+.badge-substitution {
+    display: inline-block;
+    background-color: #f59e0b;
+    color: #fff;
+    font-size: 0.7em;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-right: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
 }
 
 .diary-item-header {

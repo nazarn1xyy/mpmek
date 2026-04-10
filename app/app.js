@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Week Type Toggle =====
     weekTypeToggle.addEventListener('click', () => {
         if (!scheduleData || !scheduleData[selectedGroup]) return;
-        const availableTypes = Object.keys(scheduleData[selectedGroup]);
+        const availableTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
         if (availableTypes.length === 0) return;
 
         let currentIndex = availableTypes.indexOf(currentWeekType);
@@ -255,7 +255,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const div = document.createElement('div');
         div.className = 'diary-item';
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div><div class="diary-item-subject">${pair.subject}</div>${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        if (pair.isSubstitution) {
+            div.classList.add('substitution');
+        }
+        
+        let subjectHtml = `<div class="diary-item-subject">${pair.subject}</div>`;
+        if (pair.isSubstitution) {
+            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">ПІДВІСКА</span> ${pair.subject}</div>`;
+        }
+
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
@@ -303,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);
         if (isDataEmpty) {
-            const availableTypes = Object.keys(scheduleData[selectedGroup]);
+            const availableTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
             currentWeekType = availableTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : availableTypes[0];
             weekData = scheduleData[selectedGroup][currentWeekType];
             if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
@@ -317,62 +326,72 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hw = getHomework(); // read once per render
         const frag = document.createDocumentFragment();
-        const todayLabel = ukDays[new Date().getDay()];
+        
+        const today = new Date();
+        const currentDayOfWeek = today.getDay() || 7; // 1-7 (Mon-Sun)
+        const todayLabel = ukDays[today.getDay()];
 
-        if (currentWeekType === 'ПІДВІСКА') {
-            const groupedByDate = {};
-            for (let i = 0; i < weekData.length; i++) {
-                const item = weekData[i];
-                if (!groupedByDate[item.date]) groupedByDate[item.date] = [];
-                groupedByDate[item.date].push(item);
+        // Compute DD.MM dates for Mon-Fri of the current week
+        const weekDates = {};
+        const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
+        for (let i = 0; i < daysOrder.length; i++) {
+            const offset = (i + 1) - currentDayOfWeek;
+            const d = new Date(today);
+            d.setDate(today.getDate() + offset);
+            const dayStr = String(d.getDate()).padStart(2, '0');
+            const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+            weekDates[daysOrder[i]] = `${dayStr}.${monthStr}`;
+        }
+
+        const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
+        const substitutionsList = scheduleData[selectedGroup]['ПІДВІСКА'] || [];
+
+        for (let d = 0; d < days.length; d++) {
+            const day = days[d];
+            const dateStr = weekDates[day];
+            
+            let pairs = [];
+            if (weekData[day]) {
+                pairs = [...weekData[day]];
+            }
+            
+            // Merge substitutions
+            const subsForDate = substitutionsList.filter(s => s.date === dateStr);
+            if (subsForDate.length > 0) {
+                subsForDate.forEach(sub => {
+                    // Remove original pair with the same number if it exists
+                    pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+                    // Add the substitution pair
+                    pairs.push({ ...sub, isSubstitution: true });
+                });
             }
 
-            const sortedDates = Object.keys(groupedByDate).sort();
-            for (let d = 0; d < sortedDates.length; d++) {
-                const date = sortedDates[d];
-                const dayEl = document.createElement('div');
-                dayEl.className = 'diary-day';
+            if (pairs.length === 0) continue;
 
-                const title = document.createElement('h2');
-                title.textContent = date;
-                dayEl.appendChild(title);
+            pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
-                const pairs = groupedByDate[date].sort((a, b) => a.number - b.number);
-                for (let p = 0; p < pairs.length; p++) {
-                    dayEl.appendChild(buildLessonCard(pairs[p], date, hw));
-                }
-                frag.appendChild(dayEl);
+            const dayEl = document.createElement('div');
+            dayEl.className = 'diary-day';
+
+            const title = document.createElement('h2');
+            title.innerHTML = `${day} <span class="date-badge">${dateStr}</span>`;
+            
+            const isToday = currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
+            if (isToday) {
+                dayEl.classList.add('is-today');
+                dayEl.id = 'today-marker';
+                const badge = document.createElement('span');
+                badge.className = 'today-badge';
+                badge.textContent = 'Сьогодні';
+                title.appendChild(badge);
             }
-        } else {
-            const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
-            for (let d = 0; d < days.length; d++) {
-                const day = days[d];
-                if (!weekData[day] || weekData[day].length === 0) continue;
 
-                const dayEl = document.createElement('div');
-                dayEl.className = 'diary-day';
+            dayEl.appendChild(title);
 
-                const title = document.createElement('h2');
-                title.textContent = day;
-                
-                const isToday = currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
-                if (isToday) {
-                    dayEl.classList.add('is-today');
-                    dayEl.id = 'today-marker';
-                    const badge = document.createElement('span');
-                    badge.className = 'today-badge';
-                    badge.textContent = 'Сьогодні';
-                    title.appendChild(badge);
-                }
-
-                dayEl.appendChild(title);
-
-                const pairs = [...weekData[day]].sort((a, b) => a.number - b.number);
-                for (let p = 0; p < pairs.length; p++) {
-                    dayEl.appendChild(buildLessonCard(pairs[p], day, hw));
-                }
-                frag.appendChild(dayEl);
+            for (let p = 0; p < pairs.length; p++) {
+                dayEl.appendChild(buildLessonCard(pairs[p], day, hw));
             }
+            frag.appendChild(dayEl);
         }
 
         diaryContainer.innerHTML = '';
