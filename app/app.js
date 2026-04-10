@@ -587,19 +587,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== Share Schedule as Image =====
-    function getTodayPairs() {
+    function getPairsForDay(targetDayIdx) {
         if (!scheduleData || !selectedGroup) return null;
         const groupData = scheduleData[selectedGroup];
         if (!groupData) return null;
 
-        const today = new Date();
-        let dayIndex = today.getDay();
-        let prefix = 'Сьогодні';
-        if (dayIndex === 0 || dayIndex === 6) {
-            prefix = dayIndex === 6 ? 'У понеділок' : 'Завтра';
-            dayIndex = 1;
-        }
-        const dayName = ukDays[dayIndex];
+        const dayName = ukDays[targetDayIdx];
 
         let weekData = groupData[currentWeekType];
         if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
@@ -611,8 +604,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             weekData = groupData[types[0]];
         }
 
+        const today = new Date();
         const currentDayOfWeek = today.getDay() || 7;
-        const targetDayOfWeek = dayIndex || 7;
+        const targetDayOfWeek = targetDayIdx || 7;
         const offset = targetDayOfWeek - currentDayOfWeek;
         const d = new Date(today);
         d.setDate(today.getDate() + offset);
@@ -628,17 +622,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pairs.length === 0) return null;
         pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
-        return { pairs, dayName, dateStr, prefix };
+        return { pairs, dayName, dateStr };
     }
 
-    async function shareSchedule() {
-        const data = getTodayPairs();
+    function showShareDayPicker() {
+        const days = [
+            { idx: 1, label: 'Понеділок' },
+            { idx: 2, label: 'Вівторок' },
+            { idx: 3, label: 'Середа' },
+            { idx: 4, label: 'Четвер' },
+            { idx: 5, label: "П'ятниця" }
+        ];
+        const todayIdx = new Date().getDay();
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease';
+
+        const sheet = document.createElement('div');
+        sheet.style.cssText = 'background:var(--surface-color,#f5f5f5);border-radius:20px 20px 0 0;padding:1.5rem;width:100%;max-width:500px;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))';
+
+        let html = '<div style="width:40px;height:4px;background:var(--border-color,#ddd);border-radius:2px;margin:0 auto 1rem"></div>';
+        html += '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;text-align:center">Оберіть день</h3>';
+
+        for (const day of days) {
+            const isToday = day.idx === todayIdx;
+            const badge = isToday ? ' <span style="font-size:.75rem;background:var(--accent-color);color:var(--bg-color);padding:2px 8px;border-radius:8px;margin-left:8px">Сьогодні</span>' : '';
+            html += `<button class="share-day-btn" data-day="${day.idx}" style="display:flex;align-items:center;width:100%;padding:.9rem 1rem;margin-bottom:.5rem;border:1px solid var(--border-color,#e0e0e0);border-radius:14px;background:var(--bg-color,#fff);color:var(--text-color,#1a1a1a);font-size:1rem;font-weight:${isToday ? '700' : '500'};cursor:pointer">${day.label}${badge}</button>`;
+        }
+
+        sheet.innerHTML = html;
+        overlay.appendChild(sheet);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            const btn = e.target.closest('.share-day-btn');
+            if (btn) {
+                const dayIdx = parseInt(btn.dataset.day);
+                overlay.remove();
+                shareScheduleForDay(dayIdx);
+                return;
+            }
+            if (e.target === overlay) overlay.remove();
+        });
+    }
+
+    async function shareScheduleForDay(dayIdx) {
+        const data = getPairsForDay(dayIdx);
         if (!data) {
-            alert('Немає розкладу для поточного дня');
+            alert('Немає розкладу для цього дня');
             return;
         }
 
-        const { pairs, dayName, dateStr, prefix } = data;
+        const { pairs, dayName, dateStr } = data;
         const isDark = document.body.getAttribute('data-theme') === 'dark';
 
         // Canvas setup
@@ -677,7 +712,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillStyle = accent;
-        ctx.fillText(`${prefix} — ${dayName}`, padX, 82);
+        ctx.fillText(dayName, padX, 82);
 
         ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillStyle = muted;
@@ -783,7 +818,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return t + '…';
     }
 
-    shareScheduleBtn.addEventListener('click', shareSchedule);
+    shareScheduleBtn.addEventListener('click', showShareDayPicker);
 
     // ===== Daily Notification =====
     function getTodayScheduleText() {
