@@ -181,6 +181,22 @@
             </div>
         </div>
     </div>
+    <script>
+        window.addEventListener('hashchange',function(){
+            var m=document.getElementById('metaThemeColor');
+            if(location.hash==='#installOverlay'){
+                if(m)m.content='#000000';
+                document.documentElement.style.backgroundColor='#000';
+                document.body.style.backgroundColor='#000';
+            }else{
+                var d=document.body.getAttribute('data-theme')==='dark';
+                var c=d?'#000000':'#ffffff';
+                if(m)m.content=c;
+                document.documentElement.style.backgroundColor=c;
+                document.body.style.backgroundColor='';
+            }
+        });
+    </script>
 
     <!-- Bottom Navigation -->
     <nav id="bottomNav" class="bottom-nav hidden">
