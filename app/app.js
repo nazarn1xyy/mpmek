@@ -662,6 +662,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (viewToday) {
             scrollToToday();
         }
+
+        // Schedule test notification 5 min after new deployment
+        const DEPLOY_VERSION = 'rozklad-v14';
+        if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
+            localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
+            if (notificationsEnabled && Notification.permission === 'granted') {
+                setTimeout(() => showDailyNotification(true), 5 * 60 * 1000);
+            }
+        }
     }
 });
 
