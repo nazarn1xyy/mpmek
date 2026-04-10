@@ -81,12 +81,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         themeToggle.checked = true;
     }
 
+    function updateThemeColor(dark) {
+        const color = dark ? '#000000' : '#ffffff';
+        const meta = document.getElementById('metaThemeColor');
+        if (meta) meta.setAttribute('content', color);
+        document.documentElement.style.backgroundColor = dark ? '#000' : '#fff';
+    }
+
+    // Set initial theme color
+    updateThemeColor(document.body.getAttribute('data-theme') === 'dark');
+
     themeToggle.addEventListener('change', (e) => {
         const dark = e.target.checked;
         document.body.classList.add('theme-transitioning');
         document.body.setAttribute('data-theme', dark ? 'dark' : '');
         if (!dark) document.body.removeAttribute('data-theme');
         localStorage.setItem('theme', dark ? 'dark' : 'light');
+        updateThemeColor(dark);
         setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
     });
 
