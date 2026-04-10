@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
           title,
           description,
           input_message_content: {
-            message_text: `<a href="${imgUrl}">&#8205;</a>\n📚 <b>${group}</b> — ${description}\n🌐 mpmek.site`,
+            message_text: `<a href="${imgUrl}">&#8205;</a>\n<b>${group}</b> — ${description}`,
             parse_mode: 'HTML',
             link_preview_options: {
               url: imgUrl,
