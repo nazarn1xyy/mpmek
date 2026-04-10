@@ -141,8 +141,8 @@
     <style>
         #installOverlay{position:fixed;inset:0;background:#000;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);z-index:99999;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff}
         #installOverlay:target{display:flex!important}
-        #installOverlay:target ~ *,#installOverlay:target{background-color:#000}
-        html:has(#installOverlay:target){background:#000}
+        html:has(#installOverlay:target),html:has(#installOverlay:target) body,html:has(#installOverlay:target) #app{background:#000!important}
+        #installOverlay{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
         .install-content{max-width:400px;width:100%;padding:2rem;text-align:center;position:relative}
         .install-close{position:absolute;top:0;right:1.5rem;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:1.5rem;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
         .phone-mockup{width:220px;height:260px;margin:0 auto 2rem;border:6px solid #333;border-radius:40px 40px 0 0;border-bottom:none;position:relative;overflow:hidden;background:linear-gradient(to bottom,#1a1a1a,#000)}
