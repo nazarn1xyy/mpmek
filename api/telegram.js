@@ -43,6 +43,7 @@ module.exports = async function handler(req, res) {
 
     const results = [];
 
+    const v = Math.floor(Date.now() / 60000); // changes every minute
     for (const group of matched.slice(0, 5)) {
       const encodedGroup = encodeURIComponent(group);
 
@@ -52,8 +53,8 @@ module.exports = async function handler(req, res) {
       results.push({
         type: 'photo',
         id: `${group}-today-${Date.now()}`,
-        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark`,
-        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark`,
+        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
+        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
         photo_width: 1200,
         photo_height: 800,
         title: `📅 ${group} — Сьогодні`,
@@ -65,8 +66,8 @@ module.exports = async function handler(req, res) {
       results.push({
         type: 'photo',
         id: `${group}-week-${Date.now()}`,
-        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=week&theme=dark`,
-        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark`,
+        photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=week&theme=dark&v=${v}`,
+        thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${todayDay}&theme=dark&v=${v}`,
         photo_width: 1200,
         photo_height: 2000,
         title: `📋 ${group} — Вся неділя`,
@@ -80,8 +81,8 @@ module.exports = async function handler(req, res) {
         results.push({
           type: 'photo',
           id: `${group}-d${d}-${Date.now()}`,
-          photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark`,
-          thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark`,
+          photo_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark&v=${v}`,
+          thumbnail_url: `${baseUrl}/api/schedule-image?group=${encodedGroup}&day=${d}&theme=dark&v=${v}`,
           photo_width: 1200,
           photo_height: 800,
           title: `${UK_DAYS_SHORT[d]} ${group}`,
@@ -94,7 +95,7 @@ module.exports = async function handler(req, res) {
     await tgApi('answerInlineQuery', {
       inline_query_id: update.inline_query.id,
       results: results.slice(0, 50),
-      cache_time: 300,
+      cache_time: 60,
       is_personal: false
     });
 
