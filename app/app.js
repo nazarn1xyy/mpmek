@@ -91,20 +91,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Install Overlay =====
-    // Hide install button if already in standalone mode (PWA installed)
+    // Always show in browser, hide only if we are absolutely sure it's standalone
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     if (isStandalone && installRow) {
         installRow.style.display = 'none';
     }
 
-    if (installBtn) {
-        installBtn.addEventListener('click', () => {
+    if (installBtn && installOverlay) {
+        // Use pointer events for better mobile responsiveness
+        installBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             installOverlay.classList.remove('hidden');
         });
     }
 
-    if (installClose) {
-        installClose.addEventListener('click', () => {
+    if (installClose && installOverlay) {
+        installClose.addEventListener('click', (e) => {
+            e.preventDefault();
             installOverlay.classList.add('hidden');
         });
     }
