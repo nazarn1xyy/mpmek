@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
+    const VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
 
     let LESSON_TIMES = {
         1: "08:30 - 09:50",
@@ -104,6 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             notificationsEnabled = true;
             notifToggle.checked = true;
             storeNotifConfig();
+            subscribeToPush();
             showDailyNotification(true);
         }
     });
@@ -134,10 +136,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('notifications', 'true');
             notificationsEnabled = true;
             storeNotifConfig();
+            subscribeToPush();
             showDailyNotification(true);
         } else {
             localStorage.setItem('notifications', 'false');
             notificationsEnabled = false;
+            unsubscribeFromPush();
         }
     });
 
@@ -607,6 +611,60 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // ===== Server Push Subscription (for iOS + all platforms) =====
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    async function subscribeToPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            let subscription = await reg.pushManager.getSubscription();
+            if (!subscription) {
+                subscription = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+            }
+            await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subscription: subscription.toJSON(),
+                    group: selectedGroup
+                })
+            });
+        } catch (err) {
+            console.error('Push subscribe failed:', err);
+        }
+    }
+
+    async function unsubscribeFromPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            const subscription = await reg.pushManager.getSubscription();
+            if (subscription) {
+                await fetch('/api/unsubscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint: subscription.endpoint })
+                });
+                await subscription.unsubscribe();
+            }
+        } catch (err) {
+            console.error('Push unsubscribe failed:', err);
+        }
+    }
+
     async function storeNotifConfig() {
         try {
             const cache = await caches.open('notif-config');
@@ -687,6 +745,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         showScreen('schedule');
         // Store config for SW background notifications
         storeNotifConfig();
+        // Subscribe to server push if notifications already enabled
+        if (notificationsEnabled && Notification.permission === 'granted') {
+            subscribeToPush();
+        }
         // Show daily notification
         showDailyNotification();
         // Show notification prompt banner if permission not yet granted
@@ -697,7 +759,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v17';
+        const DEPLOY_VERSION = 'rozklad-v18';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

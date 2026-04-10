@@ -1,5 +1,11 @@
 {
   "outputDirectory": "app",
+  "crons": [
+    {
+      "path": "/api/cron/daily-notify",
+      "schedule": "0 5 * * 1-5"
+    }
+  ],
   "headers": [
     {
       "source": "/admin/(.*)",
