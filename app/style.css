@@ -96,16 +96,17 @@ body.theme-transitioning {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    flex-shrink: 0;
 }
 
 .share-btn svg {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    min-height: 28px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
 }
 
 /* Buttons */
