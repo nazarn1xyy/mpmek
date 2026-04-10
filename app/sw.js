@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v25';
+const CACHE_NAME = 'rozklad-v26';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -27,26 +27,42 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Stale-while-revalidate: serve from cache instantly, update in background
+// Network-first for JSON (always fresh data), stale-while-revalidate for static assets
 self.addEventListener('fetch', event => {
-  // Skip caching for admin panel — always fetch fresh
-  if (event.request.url.includes('/admin')) {
+  // Skip caching for admin panel and API calls
+  if (event.request.url.includes('/admin') || event.request.url.includes('/api/')) {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request).then(networkResponse => {
+  const isJSON = event.request.url.endsWith('.json');
+
+  if (isJSON) {
+    // Network-first for schedule data — always try fresh, fallback to cache
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return networkResponse;
-      }).catch(() => cached);
+      }).catch(() => caches.match(event.request))
+    );
+  } else {
+    // Stale-while-revalidate for static assets (CSS, JS, HTML, images)
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        const fetchPromise = fetch(event.request).then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        }).catch(() => cached);
 
-      return cached || fetchPromise;
-    })
-  );
+        return cached || fetchPromise;
+      })
+    );
+  }
 });
 
 // ===== Notification click — open/focus the app and show today =====

@@ -231,7 +231,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderSchedule();
     });
 
-    // ===== Load Data =====
+    // ===== Show skeleton while loading =====
+    if (selectedGroup) {
+        diaryContainer.innerHTML = '<div class="skeleton skeleton-header"></div>' +
+            '<div class="skeleton skeleton-card"></div>'.repeat(4);
+    }
+
+    // ===== Load Data (reuse preloaded fetch if available) =====
     try {
         const response = await fetch('schedule.json');
         scheduleData = await response.json();
@@ -1068,6 +1074,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
             }
+            // Skip server call if nothing changed
+            const subKey = `pushSub_${subscription.endpoint}_${selectedGroup}_${localStorage.getItem('notifTime') || '08:00'}`;
+            if (localStorage.getItem('lastPushSub') === subKey) return;
             await fetch('/api/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1077,6 +1086,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     notifyTime: localStorage.getItem('notifTime') || '08:00'
                 })
             });
+            localStorage.setItem('lastPushSub', subKey);
         } catch (err) {
             console.error('Push subscribe failed:', err);
         }
@@ -1194,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v22';
+        const DEPLOY_VERSION = 'rozklad-v26';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {
