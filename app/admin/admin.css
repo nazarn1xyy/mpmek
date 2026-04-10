@@ -37,11 +37,13 @@ body {
 
 /* ===== PIN Screen ===== */
 .pin-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
-    min-height: 100dvh;
+    background-color: var(--bg);
     padding: 20px;
 }
 
@@ -96,9 +98,9 @@ body {
 
 .pin-keypad {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    max-width: 260px;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+    justify-content: center;
     margin: 0 auto;
 }
 
@@ -269,6 +271,10 @@ body {
 /* Sections */
 .section {
     padding: 24px;
+}
+
+.section:not(.active) {
+    display: none;
 }
 
 .section-header {

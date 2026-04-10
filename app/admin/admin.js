@@ -132,8 +132,8 @@
             const target = item.dataset.section;
             document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
             item.classList.add('active');
-            Object.values(sections).forEach(s => s.classList.add('hidden'));
-            sections[target].classList.remove('hidden');
+            Object.values(sections).forEach(s => s.classList.remove('active'));
+            sections[target].classList.add('active');
 
             if (target === 'bells') renderBells();
             if (target === 'config') renderConfig();
