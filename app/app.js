@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const homeworkContainer = document.getElementById('homeworkContainer');
     const currentGroupTitle = document.getElementById('currentGroupTitle');
     const weekTypeToggle = document.getElementById('weekTypeToggle');
+    const shareScheduleBtn = document.getElementById('shareScheduleBtn');
     const navItems = document.querySelectorAll('.nav-item');
     const themeToggle = document.getElementById('themeToggle');
     const changeGroupBtn = document.getElementById('changeGroupBtn');
@@ -562,6 +563,205 @@ document.addEventListener('DOMContentLoaded', async () => {
         homeworkContainer.appendChild(frag);
     }
 
+    // ===== Share Schedule as Image =====
+    function getTodayPairs() {
+        if (!scheduleData || !selectedGroup) return null;
+        const groupData = scheduleData[selectedGroup];
+        if (!groupData) return null;
+
+        const today = new Date();
+        let dayIndex = today.getDay();
+        let prefix = 'Сьогодні';
+        if (dayIndex === 0 || dayIndex === 6) {
+            prefix = dayIndex === 6 ? 'У понеділок' : 'Завтра';
+            dayIndex = 1;
+        }
+        const dayName = ukDays[dayIndex];
+
+        let weekData = groupData[currentWeekType];
+        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+            weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
+        }
+        if (!weekData) {
+            const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+            if (types.length === 0) return null;
+            weekData = groupData[types[0]];
+        }
+
+        const currentDayOfWeek = today.getDay() || 7;
+        const targetDayOfWeek = dayIndex || 7;
+        const offset = targetDayOfWeek - currentDayOfWeek;
+        const d = new Date(today);
+        d.setDate(today.getDate() + offset);
+        const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+
+        let pairs = weekData[dayName] ? [...weekData[dayName]] : [];
+        const subs = groupData['ПІДВІСКА'] || [];
+        subs.filter(s => s.date === dateStr).forEach(sub => {
+            pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+            pairs.push({ ...sub, isSubstitution: true });
+        });
+
+        if (pairs.length === 0) return null;
+        pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
+
+        return { pairs, dayName, dateStr, prefix };
+    }
+
+    async function shareSchedule() {
+        const data = getTodayPairs();
+        if (!data) {
+            alert('Немає розкладу для поточного дня');
+            return;
+        }
+
+        const { pairs, dayName, dateStr, prefix } = data;
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+
+        // Canvas setup
+        const W = 600;
+        const padX = 32;
+        const cardH = 72;
+        const cardGap = 12;
+        const headerH = 120;
+        const footerH = 60;
+        const H = headerH + pairs.length * (cardH + cardGap) + footerH + 20;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W * 2;
+        canvas.height = H * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+
+        // Colors
+        const bg = isDark ? '#000' : '#fff';
+        const fg = isDark ? '#f5f5f5' : '#1a1a1a';
+        const surface = isDark ? '#111' : '#f5f5f5';
+        const border = isDark ? '#222' : '#e0e0e0';
+        const muted = isDark ? '#888' : '#888';
+        const accent = isDark ? '#fff' : '#000';
+        const subColor = '#f59e0b';
+
+        // Background
+        ctx.fillStyle = bg;
+        roundRect(ctx, 0, 0, W, H, 0);
+        ctx.fill();
+
+        // Header
+        ctx.fillStyle = fg;
+        ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(selectedGroup, padX, 50);
+
+        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = accent;
+        ctx.fillText(`${prefix} — ${dayName}`, padX, 82);
+
+        ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = muted;
+        ctx.fillText(dateStr, padX, 105);
+
+        // Cards
+        let y = headerH;
+        for (const pair of pairs) {
+            // Card background
+            ctx.fillStyle = surface;
+            roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
+            ctx.fill();
+
+            // Substitution border
+            if (pair.isSubstitution) {
+                ctx.strokeStyle = subColor;
+                ctx.lineWidth = 2;
+                roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
+                ctx.stroke();
+            }
+
+            // Number circle
+            const circleX = padX + 28;
+            const circleY = y + cardH / 2;
+            ctx.fillStyle = pair.isSubstitution ? subColor : accent;
+            ctx.beginPath();
+            ctx.arc(circleX, circleY, 18, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(pair.number, circleX, circleY + 5.5);
+            ctx.textAlign = 'left';
+
+            // Subject
+            ctx.fillStyle = fg;
+            ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const subjectText = pair.subject + (pair.isSubstitution ? ' ⚡' : '');
+            ctx.fillText(truncText(ctx, subjectText, W - padX * 2 - 80), padX + 56, y + 30);
+
+            // Time + teacher
+            ctx.fillStyle = muted;
+            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const time = LESSON_TIMES[pair.number] || '';
+            const teacher = pair.teacher || '';
+            const meta = [time, teacher].filter(Boolean).join('  ·  ');
+            ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
+
+            y += cardH + cardGap;
+        }
+
+        // Footer
+        ctx.fillStyle = muted;
+        ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Розклад Студента · mpmek.site', W / 2, H - 24);
+        ctx.textAlign = 'left';
+
+        // Convert to blob and share
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const file = new File([blob], `rozklad-${dateStr}.png`, { type: 'image/png' });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Розклад на ${dayName}`,
+                        text: `${selectedGroup} — ${dayName} ${dateStr}`
+                    });
+                } catch {}
+            } else {
+                // Fallback: download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `rozklad-${dateStr}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }, 'image/png');
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    function truncText(ctx, text, maxWidth) {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        let t = text;
+        while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+        return t + '…';
+    }
+
+    shareScheduleBtn.addEventListener('click', shareSchedule);
+
     // ===== Daily Notification =====
     function getTodayScheduleText() {
         if (!scheduleData || !selectedGroup) return null;
@@ -777,7 +977,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v19';
+        const DEPLOY_VERSION = 'rozklad-v20';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

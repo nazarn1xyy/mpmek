@@ -77,6 +77,22 @@ body.theme-transitioning {
     font-weight: 600;
 }
 
+.top-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.share-btn {
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
 /* Buttons */
 .icon-btn {
     background: none;
