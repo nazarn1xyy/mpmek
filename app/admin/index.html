@@ -14,14 +14,14 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .pin-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background-color:var(--bg);padding:20px}
 .pin-card{text-align:center;max-width:320px;width:100%}
 .pin-icon{color:var(--text-muted);margin-bottom:16px}
-.pin-card h1{font-size:32px;font-weight:700;margin-bottom:8px}
-.pin-card p{color:var(--text-muted);font-size:16px;margin-bottom:24px;min-height:20px}
+.pin-card h1{font-size:24px;font-weight:700;margin-bottom:8px}
+.pin-card p{color:var(--text-muted);font-size:14px;margin-bottom:24px;min-height:20px}
 .pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:32px}
-.pin-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);transition:all .15s ease}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s ease}
 .pin-dot[data-filled="true"]{background-color:var(--accent);border-color:var(--accent)}
 .pin-screen.error .pin-dot[data-filled="true"]{background-color:var(--danger);border-color:var(--danger)}
-.pin-keypad{display:grid;grid-template-columns:repeat(3,90px);gap:24px;justify-content:center;margin:0 auto}
-.pin-key{width:90px;height:90px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:32px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s ease;user-select:none}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,72px);gap:16px;justify-content:center;margin:0 auto}
+.pin-key{width:72px;height:72px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:24px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s ease;user-select:none}
 .pin-key:active{transform:scale(.9);background:var(--surface-2)}
 .pin-key-empty{border:none;background:transparent;pointer-events:none}
 .pin-key-delete{border:none;background:transparent;color:var(--text-muted)}
@@ -123,6 +123,11 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .bell-row .input{padding:10px 0;text-align:center;font-size:14px;min-width:0}
 .bell-label{font-size:13px}
 .section-header h2{font-size:20px;line-height:1.2}
+.pin-card h1{font-size:32px}
+.pin-card p{font-size:16px}
+.pin-dot{width:20px;height:20px}
+.pin-keypad{grid-template-columns:repeat(3,90px);gap:24px}
+.pin-key{width:90px;height:90px;font-size:32px}
 }
     </style>
 </head>
