@@ -35,28 +35,8 @@
     };
 
     // ===== PIN Authentication =====
+    const ADMIN_PIN = '0411';
     let pinCode = '';
-    const storedPinHash = localStorage.getItem('adminPinHash');
-
-    function hashPin(pin) {
-        // Simple hash (not cryptographic, but sufficient for client-side PIN)
-        let h = 0;
-        for (let i = 0; i < pin.length; i++) {
-            h = ((h << 5) - h) + pin.charCodeAt(i);
-            h |= 0;
-        }
-        return 'pin_' + Math.abs(h).toString(36);
-    }
-
-    function isPinSetup() {
-        return !!storedPinHash;
-    }
-
-    if (!isPinSetup()) {
-        pinHint.textContent = 'Створіть новий PIN-код';
-    }
-
-    let firstPin = null; // for setup confirmation
 
     document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -82,31 +62,10 @@
     }
 
     function handlePinComplete() {
-        if (!isPinSetup()) {
-            // Setup flow: first entry
-            if (!firstPin) {
-                firstPin = pinCode;
-                pinCode = '';
-                updatePinDots();
-                pinHint.textContent = 'Повторіть PIN-код';
-                return;
-            }
-            // Setup flow: confirm
-            if (pinCode === firstPin) {
-                localStorage.setItem('adminPinHash', hashPin(pinCode));
-                unlockAdmin();
-            } else {
-                shakePin('PIN не співпадає. Спробуйте ще.');
-                firstPin = null;
-                pinHint.textContent = 'Створіть новий PIN-код';
-            }
+        if (pinCode === ADMIN_PIN) {
+            unlockAdmin();
         } else {
-            // Login flow
-            if (hashPin(pinCode) === storedPinHash) {
-                unlockAdmin();
-            } else {
-                shakePin('Невірний PIN-код');
-            }
+            shakePin('Невірний PIN-код');
         }
     }
 
@@ -438,16 +397,6 @@
         showToast('Токен збережено', 'success');
     });
 
-    document.getElementById('changePinBtn').addEventListener('click', () => {
-        const newPin = document.getElementById('newPinInput').value.trim();
-        if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
-            showToast('PIN має бути 4 цифри', 'error');
-            return;
-        }
-        localStorage.setItem('adminPinHash', hashPin(newPin));
-        document.getElementById('newPinInput').value = '';
-        showToast('PIN змінено', 'success');
-    });
 
     // ===== Publish (GitHub API) =====
     publishBtn.addEventListener('click', async () => {

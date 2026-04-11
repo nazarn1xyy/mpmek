@@ -308,12 +308,6 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     </div>
                     <hr>
                     <div class="config-group">
-                        <label>Змінити PIN-код</label>
-                        <input type="password" id="newPinInput" class="input" placeholder="Новий 4-значний PIN" maxlength="4" inputmode="numeric">
-                        <button id="changePinBtn" class="btn-secondary">Змінити PIN</button>
-                    </div>
-                    <hr>
-                    <div class="config-group">
                         <label>Версія кешу Service Worker</label>
                         <p class="config-hint">Поточна версія: <strong id="currentCacheVersion">—</strong></p>
                     </div>
@@ -431,28 +425,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     let newSubsAdded = [];
 
     // ===== PIN Authentication =====
+    const ADMIN_PIN = '0411';
     let pinCode = '';
-    const storedPinHash = localStorage.getItem('adminPinHash');
-
-    function hashPin(pin) {
-        // Simple hash (not cryptographic, but sufficient for client-side PIN)
-        let h = 0;
-        for (let i = 0; i < pin.length; i++) {
-            h = ((h << 5) - h) + pin.charCodeAt(i);
-            h |= 0;
-        }
-        return 'pin_' + Math.abs(h).toString(36);
-    }
-
-    function isPinSetup() {
-        return !!storedPinHash;
-    }
-
-    if (!isPinSetup()) {
-        pinHint.textContent = 'Створіть новий PIN-код';
-    }
-
-    let firstPin = null; // for setup confirmation
 
     document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -478,31 +452,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     }
 
     function handlePinComplete() {
-        if (!isPinSetup()) {
-            // Setup flow: first entry
-            if (!firstPin) {
-                firstPin = pinCode;
-                pinCode = '';
-                updatePinDots();
-                pinHint.textContent = 'Повторіть PIN-код';
-                return;
-            }
-            // Setup flow: confirm
-            if (pinCode === firstPin) {
-                localStorage.setItem('adminPinHash', hashPin(pinCode));
-                unlockAdmin();
-            } else {
-                shakePin('PIN не співпадає. Спробуйте ще.');
-                firstPin = null;
-                pinHint.textContent = 'Створіть новий PIN-код';
-            }
+        if (pinCode === ADMIN_PIN) {
+            unlockAdmin();
         } else {
-            // Login flow
-            if (hashPin(pinCode) === storedPinHash) {
-                unlockAdmin();
-            } else {
-                shakePin('Невірний PIN-код');
-            }
+            shakePin('Невірний PIN-код');
         }
     }
 
@@ -516,9 +469,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         }, 600);
     }
 
-    function unlockAdmin() {
+    async function unlockAdmin() {
         pinScreen.classList.add('hidden');
         adminPanel.classList.remove('hidden');
+        await loadAdminConfig();
         loadSchedule();
     }
 
@@ -942,42 +896,64 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         return v;
     }
 
-    // ===== Config Section =====
-    function renderConfig() {
-        const token = localStorage.getItem('ghToken') || '';
-        document.getElementById('ghTokenInput').value = token ? '••••••••' : '';
-        document.getElementById('ghOwnerInput').value = localStorage.getItem('ghOwner') || 'nazarn1xyy';
-        document.getElementById('ghRepoInput').value = localStorage.getItem('ghRepo') || 'mpmek';
+    // ===== Config Section (stored in Redis via /api/admin-config) =====
+    let adminConfig = { ghToken: '', ghOwner: 'nazarn1xyy', ghRepo: 'mpmek' };
+
+    async function loadAdminConfig() {
+        try {
+            const resp = await fetch('/api/admin-config', {
+                headers: { 'X-Admin-Pin': ADMIN_PIN }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.ghToken) adminConfig.ghToken = data.ghToken;
+                if (data.ghOwner) adminConfig.ghOwner = data.ghOwner;
+                if (data.ghRepo) adminConfig.ghRepo = data.ghRepo;
+            }
+        } catch (e) {
+            console.warn('Failed to load admin config:', e);
+        }
     }
 
-    document.getElementById('saveTokenBtn').addEventListener('click', () => {
-        const token = document.getElementById('ghTokenInput').value.trim();
-        if (!token || token === '••••••••') {
-            showToast('Введіть токен', 'error');
-            return;
+    function renderConfig() {
+        document.getElementById('ghTokenInput').value = adminConfig.ghToken ? '••••••••' : '';
+        document.getElementById('ghOwnerInput').value = adminConfig.ghOwner || 'nazarn1xyy';
+        document.getElementById('ghRepoInput').value = adminConfig.ghRepo || 'mpmek';
+    }
+
+    document.getElementById('saveTokenBtn').addEventListener('click', async () => {
+        const tokenVal = document.getElementById('ghTokenInput').value.trim();
+        const owner = document.getElementById('ghOwnerInput').value.trim();
+        const repo = document.getElementById('ghRepoInput').value.trim();
+
+        if (tokenVal && tokenVal !== '••••••••') {
+            adminConfig.ghToken = tokenVal;
         }
-        localStorage.setItem('ghToken', token);
-        localStorage.setItem('ghOwner', document.getElementById('ghOwnerInput').value.trim());
-        localStorage.setItem('ghRepo', document.getElementById('ghRepoInput').value.trim());
-        showToast('Токен збережено', 'success');
+        adminConfig.ghOwner = owner || 'nazarn1xyy';
+        adminConfig.ghRepo = repo || 'mpmek';
+
+        try {
+            const resp = await fetch('/api/admin-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': ADMIN_PIN },
+                body: JSON.stringify(adminConfig)
+            });
+            if (resp.ok) {
+                showToast('Налаштування збережено', 'success');
+            } else {
+                showToast('Помилка збереження', 'error');
+            }
+        } catch (e) {
+            showToast('Помилка з\'єднання', 'error');
+        }
     });
 
-    document.getElementById('changePinBtn').addEventListener('click', () => {
-        const newPin = document.getElementById('newPinInput').value.trim();
-        if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
-            showToast('PIN має бути 4 цифри', 'error');
-            return;
-        }
-        localStorage.setItem('adminPinHash', hashPin(newPin));
-        document.getElementById('newPinInput').value = '';
-        showToast('PIN змінено', 'success');
-    });
 
     // ===== Publish (GitHub API) =====
     publishBtn.addEventListener('click', async () => {
-        const token = localStorage.getItem('ghToken');
-        const owner = localStorage.getItem('ghOwner') || 'nazarn1xyy';
-        const repo = localStorage.getItem('ghRepo') || 'mpmek';
+        const token = adminConfig.ghToken;
+        const owner = adminConfig.ghOwner || 'nazarn1xyy';
+        const repo = adminConfig.ghRepo || 'mpmek';
 
         if (!token) {
             showToast('Спочатку додайте GitHub Token у Налаштуваннях', 'error');
