@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
     const { chat_id, group, old_group, bot_token } = req.body;
 
     // Simple auth: require bot token
-    const expectedToken = process.env.TG_BOT_TOKEN;
+    const expectedToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!expectedToken || bot_token !== expectedToken) {
       return res.status(403).json({ error: 'unauthorized' });
     }

@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const BOT_TOKEN = process.env.TG_BOT_TOKEN;
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     if (!BOT_TOKEN) {
       return res.status(500).json({ error: 'TG_BOT_TOKEN not configured' });
     }
