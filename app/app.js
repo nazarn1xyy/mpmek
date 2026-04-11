@@ -211,8 +211,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         bottomNav.classList.toggle('hidden', screenId === 'onboarding');
 
-        if (screenId === 'schedule' && selectedGroup && scheduleData) {
-            renderSchedule();
+        if (screenId === 'schedule' && selectedGroup) {
+            refreshSchedule(true);
         } else if (screenId === 'homework') {
             renderHomeworkTab();
         }
@@ -238,18 +238,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             '<div class="skeleton skeleton-card"></div>'.repeat(4);
     }
 
-    // ===== Load Data (reuse preloaded fetch if available) =====
-    try {
-        const response = await fetch('schedule.json?t=' + Date.now());
-        scheduleData = await response.json();
-
-        // Extract settings (lesson times, etc.) if present
-        if (scheduleData._settings) {
-            if (scheduleData._settings.lessonTimes) {
-                LESSON_TIMES = scheduleData._settings.lessonTimes;
+    // ===== Fetch schedule data =====
+    async function refreshSchedule(silent) {
+        try {
+            const resp = await fetch('schedule.json?t=' + Date.now());
+            const data = await resp.json();
+            if (data._settings) {
+                if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
+                delete data._settings;
             }
-            delete scheduleData._settings;
+            scheduleData = data;
+            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                renderSchedule();
+            }
+        } catch (e) {
+            if (!silent) throw e;
         }
+    }
+
+    // Refresh data when user returns to the app / tab
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && selectedGroup) refreshSchedule(true);
+    });
+
+    // ===== Load Data =====
+    try {
+        await refreshSchedule(false);
     } catch (e) {
         diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
         return;
@@ -535,16 +549,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekNav.querySelectorAll('.week-nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 weekOffset += parseInt(btn.dataset.dir);
-                renderSchedule();
+                refreshSchedule(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
 
-        // Reset to current week on double-tap center
+        // Reset to current week on tap center
         weekNav.querySelector('.week-nav-center').addEventListener('click', () => {
             if (weekOffset !== 0) {
                 weekOffset = 0;
-                renderSchedule();
+                refreshSchedule(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
@@ -1128,8 +1142,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 })
             });
             localStorage.setItem('lastPushSub', subKey);
-        } catch (err) {
-            console.error('Push subscribe failed:', err);
+        } catch (e) {
+            console.error('Push subscribe failed:', e);
         }
     }
 
