@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v27';
+const CACHE_NAME = 'rozklad-v28';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -34,18 +34,21 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const isJSON = event.request.url.endsWith('.json');
+  const url = new URL(event.request.url);
+  const isJSON = url.pathname.endsWith('.json');
 
   if (isJSON) {
     // Network-first for schedule data — always try fresh, fallback to cache
+    // Strip query params for cache key so cache-busted requests still match
+    const cacheKey = new Request(url.origin + url.pathname);
     event.respondWith(
       fetch(event.request).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
         }
         return networkResponse;
-      }).catch(() => caches.match(event.request))
+      }).catch(() => caches.match(cacheKey))
     );
   } else {
     // Stale-while-revalidate for static assets (CSS, JS, HTML, images)

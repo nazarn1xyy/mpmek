@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Load Data (reuse preloaded fetch if available) =====
     try {
-        const response = await fetch('schedule.json');
+        const response = await fetch('schedule.json?t=' + Date.now());
         scheduleData = await response.json();
 
         // Extract settings (lesson times, etc.) if present
