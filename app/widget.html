@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Розклад — Віджет</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="color-scheme" content="light dark">
+    <meta id="metaThemeColor" name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon.png">
+    <style>
+        :root {
+            --bg: #000; --surface: #111; --surface2: #1a1a1a;
+            --text: #f5f5f5; --text2: #999; --text3: #555;
+            --accent: #fff; --border: #222;
+            --green: #34c759; --orange: #ff9f0a; --red: #ff453a; --blue: #0a84ff;
+            --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f2f2f7; --surface: #fff; --surface2: #e5e5ea;
+                --text: #1c1c1e; --text2: #8e8e93; --text3: #aeaeb2;
+                --accent: #000; --border: #d1d1d6;
+                --green: #34c759; --orange: #ff9f0a; --red: #ff3b30; --blue: #007aff;
+            }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent }
+        html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased }
+        body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; overflow-x: hidden; display: flex; flex-direction: column }
+
+        .widget-container { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 12px; max-width: 500px; margin: 0 auto; width: 100% }
+
+        /* Header */
+        .widget-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0 }
+        .widget-date { font-size: 13px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px }
+        .widget-group { font-size: 13px; color: var(--text3); font-weight: 500 }
+        .widget-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-top: 2px }
+
+        /* Now card */
+        .now-card { background: var(--surface); border-radius: 16px; padding: 16px; position: relative; overflow: hidden }
+        .now-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px }
+        .now-card.active::before { background: var(--green) }
+        .now-card.upcoming::before { background: var(--blue) }
+        .now-card.done::before { background: var(--text3) }
+        .now-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; padding: 3px 8px; border-radius: 6px }
+        .now-label.active { background: rgba(52,199,89,.15); color: var(--green) }
+        .now-label.upcoming { background: rgba(10,132,255,.15); color: var(--blue) }
+        .now-label.done { background: rgba(142,142,147,.1); color: var(--text3) }
+        .now-subject { font-size: 20px; font-weight: 600; margin-bottom: 4px }
+        .now-meta { font-size: 14px; color: var(--text2) }
+        .now-time { font-size: 13px; color: var(--text2); margin-top: 6px; display: flex; align-items: center; gap: 6px }
+        .now-progress { height: 3px; background: var(--surface2); border-radius: 2px; margin-top: 10px; overflow: hidden }
+        .now-progress-bar { height: 100%; border-radius: 2px; background: var(--green); transition: width 1s linear }
+
+        /* Schedule list */
+        .schedule-list { display: flex; flex-direction: column; gap: 2px; background: var(--surface); border-radius: 16px; overflow: hidden }
+        .schedule-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; position: relative }
+        .schedule-item:not(:last-child)::after { content: ''; position: absolute; bottom: 0; left: 52px; right: 16px; height: 1px; background: var(--border) }
+        .schedule-item.is-current { background: rgba(52,199,89,.06) }
+        .schedule-item.is-past .item-subject, .schedule-item.is-past .item-teacher, .schedule-item.is-past .item-time { opacity: .4 }
+        .item-number { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0 }
+        .item-number.regular { background: var(--surface2); color: var(--text) }
+        .item-number.current { background: var(--green); color: #fff }
+        .item-number.sub { background: var(--orange); color: #fff }
+        .item-details { flex: 1; min-width: 0 }
+        .item-subject { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+        .item-teacher { font-size: 13px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+        .item-time { font-size: 12px; color: var(--text3); flex-shrink: 0; text-align: right }
+        .item-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-left: 4px }
+        .item-badge.zamina { background: rgba(255,159,10,.15); color: var(--orange) }
+        .item-badge.pidveska { background: rgba(52,199,89,.15); color: var(--green) }
+
+        /* Empty state */
+        .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text2); padding: 40px 20px; text-align: center }
+        .empty-icon { font-size: 48px }
+        .empty-title { font-size: 18px; font-weight: 600; color: var(--text) }
+        .empty-desc { font-size: 14px }
+
+        /* Footer link */
+        .widget-footer { text-align: center; padding: 8px }
+        .widget-footer a { color: var(--blue); text-decoration: none; font-size: 14px; font-weight: 500 }
+
+        /* Loading */
+        .loading { flex: 1; display: flex; align-items: center; justify-content: center }
+        .loading-spinner { width: 24px; height: 24px; border: 3px solid var(--surface2); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite }
+        @keyframes spin { to { transform: rotate(360deg) } }
+    </style>
+</head>
+<body>
+    <div class="widget-container" id="root">
+        <div class="loading"><div class="loading-spinner"></div></div>
+    </div>
+
+    <script>
+    (async () => {
+        const root = document.getElementById('root');
+        const group = localStorage.getItem('selectedGroup');
+        if (!group) {
+            root.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><div class="empty-title">Групу не обрано</div><div class="empty-desc">Відкрийте основний додаток, щоб обрати групу</div><div class="widget-footer"><a href="./">Відкрити Розклад</a></div></div>`;
+            return;
+        }
+
+        const UK_DAYS = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
+        const UK_MONTHS = ['','січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+        const TIMES = {1:"08:30-09:50",2:"10:00-11:20",3:"11:50-13:10",4:"13:20-14:40",5:"16:00-17:35",6:"17:40-19:15"};
+
+        let scheduleData;
+        try {
+            const resp = await fetch('schedule.json?t=' + Date.now());
+            scheduleData = await resp.json();
+        } catch {
+            root.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Помилка</div><div class="empty-desc">Не вдалось завантажити розклад</div></div>`;
+            return;
+        }
+
+        const groupData = scheduleData[group];
+        if (!groupData) {
+            root.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">Групу не знайдено</div><div class="widget-footer"><a href="./">Відкрити Розклад</a></div></div>`;
+            return;
+        }
+
+        const now = new Date();
+        const dayIdx = now.getDay(); // 0=Sun
+        const dayName = UK_DAYS[dayIdx];
+        const dateStr = String(now.getDate()).padStart(2,'0') + '.' + String(now.getMonth()+1).padStart(2,'0');
+
+        function getWeekType() {
+            const d = new Date(now);
+            d.setHours(0,0,0,0);
+            d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+            const week1 = new Date(d.getFullYear(), 0, 4);
+            const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+            return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+        }
+
+        function getPairs() {
+            if (dayIdx === 0 || dayIdx === 6) return [];
+            const wt = getWeekType();
+            const base = (groupData['ОСНОВНИЙ РОЗКЛАД'] || {})[dayName] || [];
+            const spec = (groupData[wt] || {})[dayName] || [];
+            const specNums = new Set(spec.map(p => p.number));
+            let pairs = base.filter(p => !specNums.has(p.number)).concat(spec);
+
+            const subs = (groupData['ПІДВІСКА'] || []).filter(s => s.date === dateStr);
+            const subNums = new Set(subs.map(s => s.number));
+            const regularNums = new Set(pairs.map(p => p.number));
+            pairs = pairs.filter(p => !subNums.has(p.number)).concat(
+                subs.map(s => ({...s, isSub: true, isZamina: regularNums.has(s.number)}))
+            );
+            pairs.sort((a,b) => a.number - b.number);
+            return pairs;
+        }
+
+        function parseTime(t) {
+            const [h,m] = t.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function getCurrentMinute() {
+            return now.getHours() * 60 + now.getMinutes();
+        }
+
+        const pairs = getPairs();
+        const currentMin = getCurrentMinute();
+        const isWeekend = dayIdx === 0 || dayIdx === 6;
+
+        // Find current/next pair
+        let currentIdx = -1, nextIdx = -1;
+        if (!isWeekend) {
+            for (let i = 0; i < pairs.length; i++) {
+                const t = TIMES[pairs[i].number];
+                if (!t) continue;
+                const [s,e] = t.split('-');
+                const start = parseTime(s), end = parseTime(e);
+                if (currentMin >= start && currentMin < end) { currentIdx = i; break; }
+                if (currentMin < start && nextIdx === -1) { nextIdx = i; }
+            }
+        }
+
+        // Render
+        let html = '';
+
+        // Header
+        html += `<div class="widget-header">
+            <div>
+                <div class="widget-date">${UK_DAYS[dayIdx]}, ${now.getDate()} ${UK_MONTHS[now.getMonth()+1]}</div>
+                <div class="widget-title">${isWeekend ? 'Вихідний 🎉' : 'Розклад'}</div>
+            </div>
+            <div class="widget-group">${group}</div>
+        </div>`;
+
+        if (isWeekend) {
+            // Show Monday's schedule
+            const monday = new Date(now);
+            monday.setDate(monday.getDate() + (8 - dayIdx) % 7);
+            const monDateStr = String(monday.getDate()).padStart(2,'0') + '.' + String(monday.getMonth()+1).padStart(2,'0');
+            const monName = 'Понеділок';
+            const base = (groupData['ОСНОВНИЙ РОЗКЛАД'] || {})[monName] || [];
+            const wt = getWeekType();
+            const spec = (groupData[wt] || {})[monName] || [];
+            const specNums = new Set(spec.map(p => p.number));
+            let monPairs = base.filter(p => !specNums.has(p.number)).concat(spec);
+            const subs = (groupData['ПІДВІСКА'] || []).filter(s => s.date === monDateStr);
+            const subNums = new Set(subs.map(s => s.number));
+            const regNums = new Set(monPairs.map(p => p.number));
+            monPairs = monPairs.filter(p => !subNums.has(p.number)).concat(
+                subs.map(s => ({...s, isSub: true, isZamina: regNums.has(s.number)}))
+            );
+            monPairs.sort((a,b) => a.number - b.number);
+
+            if (monPairs.length > 0) {
+                html += `<div style="font-size:13px;color:var(--text2);font-weight:500;margin-top:4px">Понеділок, ${monday.getDate()} ${UK_MONTHS[monday.getMonth()+1]}</div>`;
+                html += renderPairsList(monPairs, -1, -1);
+            } else {
+                html += `<div class="empty"><div class="empty-icon">🏖</div><div class="empty-title">Пар немає</div></div>`;
+            }
+        } else if (pairs.length === 0) {
+            html += `<div class="empty"><div class="empty-icon">🎉</div><div class="empty-title">Сьогодні пар немає!</div><div class="empty-desc">Насолоджуйся вільним днем</div></div>`;
+        } else {
+            // Now card
+            if (currentIdx !== -1) {
+                const p = pairs[currentIdx];
+                const t = TIMES[p.number];
+                const [s,e] = t.split('-');
+                const start = parseTime(s), end = parseTime(e);
+                const progress = Math.min(100, Math.max(0, ((currentMin - start) / (end - start)) * 100));
+                const remaining = end - currentMin;
+                html += `<div class="now-card active">
+                    <div class="now-label active"><span>●</span> Зараз</div>
+                    <div class="now-subject">${esc(p.subject)}</div>
+                    <div class="now-meta">${p.teacher ? esc(p.teacher) : ''}</div>
+                    <div class="now-time">🕐 ${s} – ${e} · залишилось ${remaining} хв</div>
+                    <div class="now-progress"><div class="now-progress-bar" style="width:${progress}%"></div></div>
+                </div>`;
+            } else if (nextIdx !== -1) {
+                const p = pairs[nextIdx];
+                const t = TIMES[p.number];
+                const [s,e] = t.split('-');
+                const start = parseTime(s);
+                const minutesUntil = start - currentMin;
+                html += `<div class="now-card upcoming">
+                    <div class="now-label upcoming"><span>◉</span> Наступна</div>
+                    <div class="now-subject">${esc(p.subject)}</div>
+                    <div class="now-meta">${p.teacher ? esc(p.teacher) : ''}</div>
+                    <div class="now-time">🕐 ${s} – ${e} · через ${minutesUntil} хв</div>
+                </div>`;
+            } else {
+                const last = pairs[pairs.length - 1];
+                const t = TIMES[last.number];
+                if (t) {
+                    const e = t.split('-')[1];
+                    html += `<div class="now-card done">
+                        <div class="now-label done"><span>✓</span> Пари закінчились</div>
+                        <div class="now-subject">Вільний час</div>
+                        <div class="now-meta">Остання пара закінчилась о ${e}</div>
+                    </div>`;
+                }
+            }
+
+            // Full list
+            html += renderPairsList(pairs, currentIdx, currentMin);
+        }
+
+        // Footer
+        html += `<div class="widget-footer"><a href="./">Відкрити повний розклад →</a></div>`;
+
+        root.innerHTML = html;
+
+        function renderPairsList(list, curIdx, curMin) {
+            let out = '<div class="schedule-list">';
+            for (let i = 0; i < list.length; i++) {
+                const p = list[i];
+                const t = TIMES[p.number];
+                let timeStr = '', isPast = false, isCur = (i === curIdx);
+                if (t) {
+                    const [s,e] = t.split('-');
+                    timeStr = s;
+                    if (curMin >= 0 && parseTime(e) <= curMin) isPast = true;
+                }
+                const cls = isCur ? ' is-current' : (isPast ? ' is-past' : '');
+                const numCls = isCur ? 'current' : (p.isSub ? 'sub' : 'regular');
+                let badge = '';
+                if (p.isSub) {
+                    badge = p.isZamina
+                        ? '<span class="item-badge zamina">заміна</span>'
+                        : '<span class="item-badge pidveska">підвіска</span>';
+                }
+                out += `<div class="schedule-item${cls}">
+                    <div class="item-number ${numCls}">${p.number}</div>
+                    <div class="item-details">
+                        <div class="item-subject">${esc(p.subject)}${badge}</div>
+                        <div class="item-teacher">${p.teacher ? esc(p.teacher) : ''}</div>
+                    </div>
+                    <div class="item-time">${timeStr}</div>
+                </div>`;
+            }
+            out += '</div>';
+            return out;
+        }
+
+        function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        // Auto-refresh every 60s
+        setInterval(() => location.reload(), 60000);
+    })();
+    </script>
+</body>
+</html>
