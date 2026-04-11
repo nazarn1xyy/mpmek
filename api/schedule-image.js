@@ -106,43 +106,49 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function drawBookIcon(ctx, x, y, size, color) {
+  // Lucide "notebook-pen" icon (24x24 viewBox) scaled to size
+  const s = size / 24;
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
   ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = size * 0.12;
+  ctx.fillStyle = 'none';
+  ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  const s = size;
-  // Left page
+
+  // Notebook body
   ctx.beginPath();
-  ctx.moveTo(x + s * 0.5, y + s * 0.15);
-  ctx.lineTo(x + s * 0.08, y + s * 0.22);
-  ctx.lineTo(x + s * 0.08, y + s * 0.88);
-  ctx.lineTo(x + s * 0.5, y + s * 0.8);
+  ctx.moveTo(13.4, 2);
+  ctx.lineTo(6, 2); ctx.quadraticCurveTo(4, 2, 4, 4);
+  ctx.lineTo(4, 20); ctx.quadraticCurveTo(4, 22, 6, 22);
+  ctx.lineTo(18, 22); ctx.quadraticCurveTo(20, 22, 20, 20);
+  ctx.lineTo(20, 12.6);
   ctx.stroke();
-  // Right page
+
+  // Binding lines
+  ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(6, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, 10); ctx.lineTo(6, 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, 14); ctx.lineTo(6, 14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, 18); ctx.lineTo(6, 18); ctx.stroke();
+
+  // Pen
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(x + s * 0.5, y + s * 0.15);
-  ctx.lineTo(x + s * 0.92, y + s * 0.22);
-  ctx.lineTo(x + s * 0.92, y + s * 0.88);
-  ctx.lineTo(x + s * 0.5, y + s * 0.8);
+  ctx.moveTo(21.378, 5.626);
+  ctx.arcTo(22.378, 4.626, 21.378, 2.622, 1);
+  ctx.lineTo(18.374, 2.622);
+  ctx.arcTo(17.374, 2.622, 18.374, 5.626, 1);
+  ctx.lineTo(13.364, 7.634);
+  ctx.quadraticCurveTo(13.1, 7.9, 12.858, 8.488);
+  ctx.lineTo(12.021, 11.358);
+  ctx.quadraticCurveTo(11.821, 11.958, 12.641, 11.978);
+  ctx.lineTo(15.511, 11.141);
+  ctx.quadraticCurveTo(16.1, 10.95, 16.365, 10.635);
+  ctx.closePath();
+  ctx.fill();
   ctx.stroke();
-  // Spine
-  ctx.beginPath();
-  ctx.moveTo(x + s * 0.5, y + s * 0.15);
-  ctx.lineTo(x + s * 0.5, y + s * 0.8);
-  ctx.stroke();
-  // Lines on left page
-  ctx.lineWidth = size * 0.06;
-  ctx.globalAlpha = 0.5;
-  ctx.beginPath();
-  ctx.moveTo(x + s * 0.18, y + s * 0.4);
-  ctx.lineTo(x + s * 0.42, y + s * 0.35);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x + s * 0.18, y + s * 0.55);
-  ctx.lineTo(x + s * 0.42, y + s * 0.5);
-  ctx.stroke();
+
   ctx.restore();
 }
 
