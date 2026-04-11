@@ -1,11 +1,11 @@
-const CACHE_NAME = 'rozklad-v29';
+const CACHE_NAME = 'rozklad-v30';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './schedule.json',
+
   './manifest.json',
   './icon.png'
 ];
@@ -29,8 +29,25 @@ self.addEventListener('activate', event => {
 
 // Network-first for JSON (always fresh data), stale-while-revalidate for static assets
 self.addEventListener('fetch', event => {
-  // Skip caching for admin panel and API calls
-  if (event.request.url.includes('/admin') || event.request.url.includes('/api/')) {
+  // Skip caching for admin panel
+  if (event.request.url.includes('/admin')) {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+
+  // Network-first for API calls (schedule data)
+  if (url.pathname.startsWith('/api/')) {
+    const cacheKey = new Request(url.origin + url.pathname);
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(cacheKey))
+    );
     return;
   }
 
@@ -124,14 +141,15 @@ async function showCachedScheduleNotification() {
 
     const times = lessonTimes || TIMES;
 
-    // Read schedule.json from any cache
+    // Read schedule data from API cache
     let scheduleData;
-    const schedResp = await caches.match(new Request(new URL('./schedule.json', self.registration.scope).href));
+    const apiUrl = new URL('/api/schedule', self.registration.scope).href;
+    const schedResp = await caches.match(new Request(apiUrl));
     if (schedResp) {
       scheduleData = await schedResp.clone().json();
     } else {
       try {
-        const r = await fetch(new URL('./schedule.json', self.registration.scope).href);
+        const r = await fetch(apiUrl + '?format=all');
         scheduleData = await r.json();
       } catch { return; }
     }

@@ -1,7 +1,6 @@
-const { redis } = require('./_lib/redis');
+const { supabase } = require('./_lib/supabase');
 
 const ADMIN_PIN = '0411';
-const REDIS_KEY = 'admin-config';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,15 +17,23 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const raw = await redis('GET', REDIS_KEY);
-      const config = raw ? JSON.parse(raw) : {};
-      return res.status(200).json(config);
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'admin-config')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return res.status(200).json(data ? data.value : {});
     }
 
     if (req.method === 'POST') {
-      const { ghToken, ghOwner, ghRepo } = req.body;
-      const config = { ghToken: ghToken || '', ghOwner: ghOwner || '', ghRepo: ghRepo || '' };
-      await redis('SET', REDIS_KEY, JSON.stringify(config));
+      // GitHub token is no longer needed, but keep the API shape for compatibility
+      const config = req.body || {};
+      await supabase
+        .from('settings')
+        .upsert({ key: 'admin-config', value: config });
+
       return res.status(200).json({ ok: true });
     }
 

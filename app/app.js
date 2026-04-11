@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Fetch schedule data =====
     async function refreshSchedule(silent) {
         try {
-            const resp = await fetch('schedule.json?t=' + Date.now());
+            const resp = await fetch('/api/schedule?format=all&t=' + Date.now());
             const data = await resp.json();
             if (data._settings) {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;

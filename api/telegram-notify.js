@@ -1,4 +1,4 @@
-const { redis } = require('./_lib/redis');
+const { supabase } = require('./_lib/supabase');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +17,6 @@ module.exports = async function handler(req, res) {
     }
 
     const { substitutions } = req.body;
-    // substitutions = [{ group, date, number, subject, teacher }, ...]
     if (!substitutions || !Array.isArray(substitutions) || substitutions.length === 0) {
       return res.json({ ok: true, sent: 0 });
     }
@@ -33,9 +32,13 @@ module.exports = async function handler(req, res) {
     let errors = 0;
 
     for (const [group, subs] of Object.entries(byGroup)) {
-      // Get subscribers for this group from Redis SET
-      const chatIds = await redis('SMEMBERS', `tg_subs:${group}`);
-      if (!chatIds || chatIds.length === 0) continue;
+      // Get subscribers for this group from Supabase
+      const { data: subscribers } = await supabase
+        .from('tg_subscribers')
+        .select('chat_id')
+        .eq('group_name', group);
+
+      if (!subscribers || subscribers.length === 0) continue;
 
       // Build message
       const lines = [`⚡ <b>Зміна розкладу (${escapeHtml(group)}):</b>\n`];
@@ -45,13 +48,13 @@ module.exports = async function handler(req, res) {
       const text = lines.join('\n');
 
       // Send to each subscriber
-      for (const chatId of chatIds) {
+      for (const { chat_id } of subscribers) {
         try {
           const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              chat_id: chatId,
+              chat_id,
               text,
               parse_mode: 'HTML',
             }),
@@ -62,7 +65,7 @@ module.exports = async function handler(req, res) {
             const err = await resp.json();
             // If user blocked bot or chat not found, remove from subscribers
             if (err.error_code === 403 || err.error_code === 400) {
-              await redis('SREM', `tg_subs:${group}`, String(chatId));
+              await supabase.from('tg_subscribers').delete().eq('chat_id', String(chat_id)).eq('group_name', group);
             }
             errors++;
           }

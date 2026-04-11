@@ -292,24 +292,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 </div>
                 <div class="config-form">
                     <div class="config-group">
-                        <label>GitHub Personal Access Token</label>
-                        <p class="config-hint">Потрібен для збереження змін. Створіть на <a href="https://github.com/settings/tokens/new?scopes=repo&description=mpmek-admin" target="_blank" rel="noopener">github.com/settings/tokens</a> з правом <code>repo</code>.</p>
-                        <input type="password" id="ghTokenInput" class="input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
-                        <button id="saveTokenBtn" class="btn-secondary">Зберегти токен</button>
-                    </div>
-                    <hr>
-                    <div class="config-group">
-                        <label>Репозиторій</label>
-                        <div class="config-row">
-                            <input type="text" id="ghOwnerInput" class="input" placeholder="owner" value="nazarn1xyy">
-                            <span>/</span>
-                            <input type="text" id="ghRepoInput" class="input" placeholder="repo" value="mpmek">
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="config-group">
-                        <label>Версія кешу Service Worker</label>
-                        <p class="config-hint">Поточна версія: <strong id="currentCacheVersion">—</strong></p>
+                        <label>База даних</label>
+                        <p class="config-hint">Дані зберігаються в Supabase PostgreSQL. Зміни публікуються миттєво через API.</p>
                     </div>
                 </div>
             </section>
@@ -495,7 +479,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     async function loadSchedule() {
         try {
             statusText.textContent = 'Завантаження даних...';
-            const resp = await fetch('../schedule.json?t=' + Date.now());
+            const resp = await fetch('/api/schedule?format=all&t=' + Date.now());
             scheduleData = await resp.json();
 
             // Extract settings if present
@@ -900,106 +884,35 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     let adminConfig = { ghToken: '', ghOwner: 'nazarn1xyy', ghRepo: 'mpmek' };
 
     async function loadAdminConfig() {
-        try {
-            const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': ADMIN_PIN }
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data.ghToken) adminConfig.ghToken = data.ghToken;
-                if (data.ghOwner) adminConfig.ghOwner = data.ghOwner;
-                if (data.ghRepo) adminConfig.ghRepo = data.ghRepo;
-            }
-        } catch (e) {
-            console.warn('Failed to load admin config:', e);
-        }
+        // Config loading is now simplified since GitHub token is no longer needed
     }
 
     function renderConfig() {
-        document.getElementById('ghTokenInput').value = adminConfig.ghToken ? '••••••••' : '';
-        document.getElementById('ghOwnerInput').value = adminConfig.ghOwner || 'nazarn1xyy';
-        document.getElementById('ghRepoInput').value = adminConfig.ghRepo || 'mpmek';
+        // Config rendered inline in HTML - no dynamic fields needed
     }
 
-    document.getElementById('saveTokenBtn').addEventListener('click', async () => {
-        const tokenVal = document.getElementById('ghTokenInput').value.trim();
-        const owner = document.getElementById('ghOwnerInput').value.trim();
-        const repo = document.getElementById('ghRepoInput').value.trim();
 
-        if (tokenVal && tokenVal !== '••••••••') {
-            adminConfig.ghToken = tokenVal;
-        }
-        adminConfig.ghOwner = owner || 'nazarn1xyy';
-        adminConfig.ghRepo = repo || 'mpmek';
-
-        try {
-            const resp = await fetch('/api/admin-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': ADMIN_PIN },
-                body: JSON.stringify(adminConfig)
-            });
-            if (resp.ok) {
-                showToast('Налаштування збережено', 'success');
-            } else {
-                showToast('Помилка збереження', 'error');
-            }
-        } catch (e) {
-            showToast('Помилка з\'єднання', 'error');
-        }
-    });
-
-
-    // ===== Publish (GitHub API) =====
+    // ===== Publish (Supabase API) =====
     publishBtn.addEventListener('click', async () => {
-        const token = adminConfig.ghToken;
-        const owner = adminConfig.ghOwner || 'nazarn1xyy';
-        const repo = adminConfig.ghRepo || 'mpmek';
-
-        if (!token) {
-            showToast('Спочатку додайте GitHub Token у Налаштуваннях', 'error');
-            return;
-        }
-
         publishBtn.disabled = true;
         statusText.textContent = '⏳ Публікація...';
 
         try {
-            // 1. Get current file SHA
-            const filePath = 'app/schedule.json';
-            const getResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                headers: { 'Authorization': `token ${token}` }
-            });
-
-            if (!getResp.ok) throw new Error('Не вдалось отримати файл з GitHub: ' + getResp.status);
-            const fileInfo = await getResp.json();
-
-            // 2. Prepare new content
-            const newContent = JSON.stringify(scheduleData, null, 2);
-            const encoded = btoa(unescape(encodeURIComponent(newContent)));
-
-            // 3. Update file
-            const putResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                method: 'PUT',
+            const resp = await fetch('/api/schedule', {
+                method: 'POST',
                 headers: {
-                    'Authorization': `token ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Admin-Pin': ADMIN_PIN
                 },
-                body: JSON.stringify({
-                    message: '📅 Оновлено розклад через адмін-панель',
-                    content: encoded,
-                    sha: fileInfo.sha
-                })
+                body: JSON.stringify({ scheduleData })
             });
 
-            if (!putResp.ok) {
-                const err = await putResp.json();
-                throw new Error(err.message || 'GitHub API error');
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'API error');
             }
 
-            // 4. Also bump sw.js cache version
-            await bumpServiceWorkerCache(token, owner, repo);
-
-            // 5. Send push + Telegram notifications about new substitutions
+            // Send push + Telegram notifications about new substitutions
             if (newSubsAdded.length > 0) {
                 statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
                 const notifyBody = JSON.stringify({ substitutions: newSubsAdded });
@@ -1022,47 +935,13 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             originalJson = JSON.stringify(scheduleData);
             hasChanges = false;
             publishBtn.disabled = true;
-            statusText.textContent = '✅ Опубліковано! Vercel оновить сайт за ~30 сек.';
+            statusText.textContent = '✅ Опубліковано! Зміни вже доступні.';
         } catch (e) {
             statusText.textContent = '❌ Помилка: ' + e.message;
             showToast('Помилка публікації: ' + e.message, 'error');
             publishBtn.disabled = false;
         }
     });
-
-    async function bumpServiceWorkerCache(token, owner, repo) {
-        try {
-            const swPath = 'app/sw.js';
-            const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${swPath}`, {
-                headers: { 'Authorization': `token ${token}` }
-            });
-            if (!resp.ok) return;
-            const swInfo = await resp.json();
-            let swContent = decodeURIComponent(escape(atob(swInfo.content.replace(/\n/g, ''))));
-
-            // Bump version number
-            const match = swContent.match(/rozklad-v(\d+)/);
-            if (match) {
-                const newVer = parseInt(match[1]) + 1;
-                swContent = swContent.replace(/rozklad-v\d+/, `rozklad-v${newVer}`);
-
-                await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${swPath}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: '🔄 Бамп версії кешу SW (v' + newVer + ')',
-                        content: btoa(unescape(encodeURIComponent(swContent))),
-                        sha: swInfo.sha
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('SW bump failed:', e);
-        }
-    }
 
     // ===== Toast =====
     let toastTimer = null;
