@@ -383,6 +383,14 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 
     // ===== Constants =====
     const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
+    const DAYS_FULL = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
+
+    function getWeekdayForDate(ddmm) {
+        const [dd, mm] = ddmm.split('.').map(Number);
+        const year = new Date().getFullYear();
+        const d = new Date(year, mm - 1, dd);
+        return { dayIndex: d.getDay(), name: DAYS_FULL[d.getDay()] };
+    }
     const DEFAULT_TIMES = {
         1: "08:30 - 10:05",
         2: "10:20 - 11:55",
@@ -817,7 +825,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             html += dates.map(date => `
                 <div class="sub-date-group">
                     <div class="sub-date-header">
-                        <span>⚡ ${escHtml(date)}</span>
+                        <span>⚡ ${escHtml(date)} (${getWeekdayForDate(date).name})</span>
                         <button class="btn-icon danger" onclick="adminApp.deleteSubDate('${escAttr(date)}')" title="Видалити всі заміни за цю дату">
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -865,6 +873,14 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         if (!dateRaw) { showToast('Оберіть дату', 'error'); return; }
         if (!number || number < 1) { showToast('Введіть номер пари', 'error'); return; }
         if (!subject) { showToast('Введіть предмет', 'error'); return; }
+
+        // Check for weekends
+        const pickedDate = new Date(dateRaw);
+        const pickedDay = pickedDate.getDay();
+        if (pickedDay === 0 || pickedDay === 6) {
+            showToast('Не можна додати заміну на вихідний (' + DAYS_FULL[pickedDay] + ')', 'error');
+            return;
+        }
 
         // Convert YYYY-MM-DD to DD.MM
         const parts = dateRaw.split('-');
