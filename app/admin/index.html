@@ -88,6 +88,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .sub-row{display:grid;grid-template-columns:60px 1fr 1fr 36px;gap:8px;align-items:center}
 .sub-row .input{padding:8px 10px;font-size:13px}
 .sub-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#f59e0b;font-weight:600}
+.sub-date-past{opacity:0.5}
+.sub-past-label{display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px;text-transform:uppercase}
 .bells-editor{display:flex;flex-direction:column;gap:12px;max-width:500px}
 .bell-row{display:grid;grid-template-columns:80px 1fr 20px 1fr;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
 .bell-label{font-weight:600;font-size:15px}
@@ -389,7 +391,9 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         const [dd, mm] = ddmm.split('.').map(Number);
         const year = new Date().getFullYear();
         const d = new Date(year, mm - 1, dd);
-        return { dayIndex: d.getDay(), name: DAYS_FULL[d.getDay()] };
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        return { dayIndex: d.getDay(), name: DAYS_FULL[d.getDay()], isPast: d < today };
     }
     const DEFAULT_TIMES = {
         1: "08:30 - 10:05",
@@ -822,10 +826,14 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         if (dates.length === 0) {
             html += '<p class="placeholder-text">Немає замін. Додайте першу!</p>';
         } else {
-            html += dates.map(date => `
-                <div class="sub-date-group">
+            html += dates.map(date => {
+                const info = getWeekdayForDate(date);
+                const pastClass = info.isPast ? ' sub-date-past' : '';
+                const pastLabel = info.isPast ? ' <span class="sub-past-label">минуло</span>' : '';
+                return `
+                <div class="sub-date-group${pastClass}">
                     <div class="sub-date-header">
-                        <span>⚡ ${escHtml(date)} (${getWeekdayForDate(date).name})</span>
+                        <span>⚡ ${escHtml(date)} (${info.name})${pastLabel}</span>
                         <button class="btn-icon danger" onclick="adminApp.deleteSubDate('${escAttr(date)}')" title="Видалити всі заміни за цю дату">
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -845,8 +853,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                             </div>
                         `).join('')}
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         subsEditor.innerHTML = html;
