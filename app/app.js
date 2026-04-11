@@ -884,9 +884,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
             }
-            // Skip server call if nothing changed
-            const subKey = `pushSub_${subscription.endpoint}_${selectedGroup}_${localStorage.getItem('notifTime') || '08:00'}`;
-            if (localStorage.getItem('lastPushSub') === subKey) return;
             await fetch('/api/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -896,7 +893,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     notifyTime: localStorage.getItem('notifTime') || '08:00'
                 })
             });
-            localStorage.setItem('lastPushSub', subKey);
         } catch (e) {
             console.error('Push subscribe failed:', e);
         }
