@@ -39,6 +39,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${group}|${day}|${number}`;
     }
 
+    // Homework server sync
+    async function syncHomeworkToServer(group, day, number, text) {
+        try {
+            await fetch('/api/homework', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group, day, number, text: text || '' })
+            });
+        } catch (e) { console.warn('HW sync push failed:', e); }
+    }
+
+    async function syncHomeworkFromServer() {
+        if (!selectedGroup) return;
+        try {
+            const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`);
+            if (!resp.ok) return;
+            const serverHw = await resp.json();
+            const localHw = getHomework();
+            let merged = { ...localHw };
+            let changed = false;
+            // Server wins for existing server keys
+            for (const [key, value] of Object.entries(serverHw)) {
+                if (merged[key] !== value) { merged[key] = value; changed = true; }
+            }
+            // Push local-only keys to server
+            const prefix = selectedGroup + '|';
+            for (const key of Object.keys(localHw)) {
+                if (key.startsWith(prefix) && !serverHw[key]) {
+                    const parts = key.split('|');
+                    syncHomeworkToServer(parts[0], parts[1], parts[2], localHw[key]);
+                }
+            }
+            if (changed) setHomework(merged);
+        } catch (e) { console.warn('HW sync fetch failed:', e); }
+    }
+
     // ===== DOM Elements (cached once) =====
     const screens = {
         onboarding: document.getElementById('onboarding'),
@@ -264,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Load Data =====
     try {
         await refreshSchedule(false);
+        syncHomeworkFromServer().catch(() => {});
     } catch (e) {
         diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
         return;
@@ -359,6 +396,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             delete hw[modalCurrentKey];
         }
         setHomework(hw);
+        const parts = modalCurrentKey.split('|');
+        if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
         closeHomeworkModal();
         renderSchedule();
     });
@@ -412,8 +451,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const delBtn = e.target.closest('.hw-delete-btn');
         if (delBtn) {
             const hw = getHomework();
-            delete hw[delBtn.dataset.key];
+            const key = delBtn.dataset.key;
+            delete hw[key];
             setHomework(hw);
+            const parts = key.split('|');
+            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
             renderSchedule();
             return;
         }
@@ -421,8 +463,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hwDelCard = e.target.closest('.hw-card-delete');
         if (hwDelCard) {
             const hw = getHomework();
-            delete hw[hwDelCard.dataset.key];
+            const key = hwDelCard.dataset.key;
+            delete hw[key];
             setHomework(hw);
+            const parts = key.split('|');
+            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
             renderHomeworkTab();
             return;
         }

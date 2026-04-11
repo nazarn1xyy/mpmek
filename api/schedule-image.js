@@ -2,36 +2,25 @@ const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 const fs = require('fs');
 
+const { redis } = require('./_lib/redis');
+
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 
-const HOMEWORK_API_URL = process.env.HOMEWORK_API_URL || '';
-const HOMEWORK_API_TOKEN = process.env.HOMEWORK_API_TOKEN || '';
-
-async function fetchHomeworkBulk(group, subjects) {
-  if (!HOMEWORK_API_URL || !HOMEWORK_API_TOKEN || subjects.length === 0) return {};
-  const result = {};
+async function fetchHomeworkFromRedis(group) {
   try {
-    const promises = subjects.map(async (subj) => {
-      try {
-        const url = new URL(HOMEWORK_API_URL);
-        url.searchParams.set('group_name', group);
-        url.searchParams.set('lesson_title', subj);
-        url.searchParams.set('token', HOMEWORK_API_TOKEN);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        const resp = await fetch(url.toString(), { signal: controller.signal });
-        clearTimeout(timeout);
-        if (resp.ok) {
-          const body = await resp.json();
-          if (body.homework && body.homework.trim()) {
-            result[subj] = body.homework.trim();
-          }
-        }
-      } catch {}
-    });
-    await Promise.all(promises);
-  } catch {}
-  return result;
+    const raw = await redis('HGETALL', `hw:${group}`);
+    if (!raw) return {};
+    if (Array.isArray(raw)) {
+      const result = {};
+      for (let i = 0; i < raw.length; i += 2) result[raw[i]] = raw[i + 1];
+      return result;
+    }
+    if (typeof raw === 'object') return raw;
+    return {};
+  } catch (e) {
+    console.error('Redis HW error:', e);
+    return {};
+  }
 }
 const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '16:00 - 17:20', 6: '17:40 - 19:00' };
 const FONT = 'SF Pro Display';
@@ -128,7 +117,7 @@ function renderDayImage(group, data, dark, homeworkMap = {}) {
   const W = 600, padX = 32, baseCardH = 72, hwExtraH = 22, cardGap = 12, headerH = 120, footerH = 60;
   let totalCardsH = 0;
   for (const p of pairs) {
-    totalCardsH += (homeworkMap[p.subject] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+    totalCardsH += (homeworkMap[`${dayName}:${p.number}`] ? baseCardH + hwExtraH : baseCardH) + cardGap;
   }
   const H = headerH + totalCardsH + footerH + 20;
 
@@ -162,7 +151,7 @@ function renderDayImage(group, data, dark, homeworkMap = {}) {
 
   let y = headerH;
   for (const pair of pairs) {
-    const hwText = homeworkMap[pair.subject] || '';
+    const hwText = homeworkMap[`${dayName}:${pair.number}`] || '';
     const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
 
     ctx.fillStyle = surface;
@@ -239,7 +228,7 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap 
   let totalCardsH = 0;
   for (const dd of weekData) {
     for (const p of dd.pairs) {
-      totalCardsH += (homeworkMap[p.subject] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+      totalCardsH += (homeworkMap[`${dd.dayName}:${p.number}`] ? baseCardH + hwExtraH : baseCardH) + cardGap;
     }
   }
   const H = topH + daysWithData * dayHeaderH + totalCardsH + footerH + 20;
@@ -299,7 +288,7 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap 
     const hwColor = dark ? '#66bb6a' : '#2e7d32';
 
     for (const pair of dayData.pairs) {
-      const hwText = homeworkMap[pair.subject] || '';
+      const hwText = homeworkMap[`${dayData.dayName}:${pair.number}`] || '';
       const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
 
       ctx.fillStyle = surface;
@@ -368,20 +357,7 @@ module.exports = async function handler(req, res) {
     const dark = theme === 'dark';
     const weekOffset = parseInt(wo) || 0;
 
-    // Collect all subjects for homework fetch
-    let allSubjects = [];
-    if (day === 'week') {
-      for (let idx = 1; idx <= 5; idx++) {
-        const dd = getPairsForDay(scheduleData, group, idx, weekOffset);
-        if (dd) allSubjects.push(...dd.pairs.map(p => p.subject));
-      }
-    } else {
-      const dayIdx = parseInt(day) || new Date().getDay();
-      const dd = getPairsForDay(scheduleData, group, dayIdx, weekOffset);
-      if (dd) allSubjects.push(...dd.pairs.map(p => p.subject));
-    }
-    allSubjects = [...new Set(allSubjects)];
-    const homeworkMap = await fetchHomeworkBulk(group, allSubjects);
+    const homeworkMap = await fetchHomeworkFromRedis(group);
 
     let buf;
 
