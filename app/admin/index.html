@@ -79,6 +79,15 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .lesson-num-input{text-align:center}
 .btn-add-lesson{width:100%;padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s ease}
 .btn-add-lesson:hover{border-color:var(--text-muted);color:var(--text)}
+.subs-controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.subs-controls .select{max-width:250px}
+.subs-editor{display:flex;flex-direction:column;gap:12px}
+.sub-date-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.sub-date-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-weight:600;font-size:15px}
+.sub-date-body{padding:12px;display:flex;flex-direction:column;gap:8px}
+.sub-row{display:grid;grid-template-columns:60px 1fr 1fr 36px;gap:8px;align-items:center}
+.sub-row .input{padding:8px 10px;font-size:13px}
+.sub-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#f59e0b;font-weight:600}
 .bells-editor{display:flex;flex-direction:column;gap:12px;max-width:500px}
 .bell-row{display:grid;grid-template-columns:80px 1fr 20px 1fr;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
 .bell-label{font-weight:600;font-size:15px}
@@ -116,6 +125,9 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .schedule-controls{flex-direction:column}
 .schedule-controls .select{max-width:100%}
 .lesson-row{grid-template-columns:50px 1fr 1fr 32px;gap:6px}
+.sub-row{grid-template-columns:50px 1fr 1fr 32px;gap:6px}
+.subs-controls{flex-direction:column}
+.subs-controls .select{max-width:100%}
 .status-bar{padding:14px 16px;flex-direction:column;align-items:stretch;gap:12px}
 .publish-btn{justify-content:center;padding:12px}
 .toast{bottom:calc(80px + env(safe-area-inset-bottom,0))}
@@ -190,6 +202,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     <span>Розклад</span>
                 </button>
+                <button class="sidebar-item" data-section="subs">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3l-7 7"/><path d="M3 3l7 7"/><path d="M16 21h5v-5"/><path d="M8 21H3v-5"/><path d="M21 21l-7-7"/><path d="M3 21l7-7"/></svg>
+                    <span>Заміни</span>
+                </button>
                 <button class="sidebar-item" data-section="bells">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Дзвінки</span>
@@ -239,6 +255,21 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 </div>
                 <div id="schedEditor" class="sched-editor">
                     <p class="placeholder-text">Оберіть групу та тип тижня для редагування</p>
+                </div>
+            </section>
+
+            <!-- Section: Substitutions -->
+            <section id="sec-subs" class="section">
+                <div class="section-header">
+                    <h2>Заміни пар</h2>
+                </div>
+                <div class="subs-controls">
+                    <select id="subsGroupSelect" class="select">
+                        <option value="">Оберіть групу...</option>
+                    </select>
+                </div>
+                <div id="subsEditor" class="subs-editor">
+                    <p class="placeholder-text">Оберіть групу для редагування замін</p>
                 </div>
             </section>
 
@@ -313,6 +344,21 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         </div>
     </div>
 
+    <!-- Modal: Add Substitution -->
+    <div id="subModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>Додати заміну</h3>
+            <input type="date" id="subDateInput" class="input">
+            <input type="number" id="subNumberInput" class="input" placeholder="Номер пари" min="1" max="8">
+            <input type="text" id="subSubjectInput" class="input" placeholder="Предмет">
+            <input type="text" id="subTeacherInput" class="input" placeholder="Викладач">
+            <div class="modal-actions">
+                <button id="subModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="subModalOk" class="btn-primary">Додати</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add Week Type -->
     <div id="weekModal" class="modal-overlay hidden">
         <div class="modal-box">
@@ -364,9 +410,13 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     const sections = {
         groups: document.getElementById('sec-groups'),
         schedule: document.getElementById('sec-schedule'),
+        subs: document.getElementById('sec-subs'),
         bells: document.getElementById('sec-bells'),
         config: document.getElementById('sec-config')
     };
+
+    // Track new substitutions added in this session (for push notification)
+    let newSubsAdded = [];
 
     // ===== PIN Authentication =====
     let pinCode = '';
@@ -469,6 +519,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             Object.values(sections).forEach(s => s.classList.remove('active'));
             sections[target].classList.add('active');
 
+            if (target === 'subs') renderSubsSection();
             if (target === 'bells') renderBells();
             if (target === 'config') renderConfig();
         });
@@ -625,7 +676,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         schedWeekSelect.innerHTML = '<option value="">Тип тижня...</option>';
 
         if (group && scheduleData[group]) {
-            const types = Object.keys(scheduleData[group]);
+            const types = Object.keys(scheduleData[group]).filter(t => t !== 'ПІДВІСКА');
             schedWeekSelect.innerHTML += types.map(t =>
                 `<option value="${escAttr(t)}">${escHtml(t)}</option>`
             ).join('');
@@ -718,6 +769,121 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 
     weekModal.addEventListener('click', e => {
         if (e.target === weekModal) weekModal.classList.add('hidden');
+    });
+
+    // ===== Substitutions Section =====
+    const subsGroupSelect = document.getElementById('subsGroupSelect');
+    const subsEditor = document.getElementById('subsEditor');
+    const subModal = document.getElementById('subModal');
+
+    function renderSubsSection() {
+        const groups = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
+        const current = subsGroupSelect.value;
+        subsGroupSelect.innerHTML = '<option value="">Оберіть групу...</option>' +
+            groups.map(g => `<option value="${escAttr(g)}"${g === current ? ' selected' : ''}>${escHtml(g)}</option>`).join('');
+        renderSubsEditor();
+    }
+
+    subsGroupSelect.addEventListener('change', () => renderSubsEditor());
+
+    function renderSubsEditor() {
+        const group = subsGroupSelect.value;
+        if (!group || !scheduleData[group]) {
+            subsEditor.innerHTML = '<p class="placeholder-text">Оберіть групу для редагування замін</p>';
+            return;
+        }
+
+        const subs = scheduleData[group]['ПІДВІСКА'] || [];
+
+        // Group by date
+        const byDate = {};
+        subs.forEach((s, i) => {
+            if (!byDate[s.date]) byDate[s.date] = [];
+            byDate[s.date].push({ ...s, _idx: i });
+        });
+
+        // Sort dates
+        const dates = Object.keys(byDate).sort((a, b) => {
+            const [da, ma] = a.split('.').map(Number);
+            const [db, mb] = b.split('.').map(Number);
+            return (ma * 100 + da) - (mb * 100 + db);
+        });
+
+        let html = '<button class="btn-primary" onclick="adminApp.openAddSub()" style="align-self:flex-start;margin-bottom:12px">+ Додати заміну</button>';
+
+        if (dates.length === 0) {
+            html += '<p class="placeholder-text">Немає замін. Додайте першу!</p>';
+        } else {
+            html += dates.map(date => `
+                <div class="sub-date-group">
+                    <div class="sub-date-header">
+                        <span>⚡ ${escHtml(date)}</span>
+                        <button class="btn-icon danger" onclick="adminApp.deleteSubDate('${escAttr(date)}')" title="Видалити всі заміни за цю дату">
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                    <div class="sub-date-body">
+                        ${byDate[date].sort((a, b) => a.number - b.number).map(s => `
+                            <div class="sub-row">
+                                <input type="number" class="input lesson-num-input" value="${s.number}" min="1" max="8"
+                                    onchange="adminApp.updateSub(${s._idx}, 'number', this.value)">
+                                <input type="text" class="input" value="${escAttr(s.subject)}" placeholder="Предмет"
+                                    onchange="adminApp.updateSub(${s._idx}, 'subject', this.value)">
+                                <input type="text" class="input" value="${escAttr(s.teacher)}" placeholder="Викладач"
+                                    onchange="adminApp.updateSub(${s._idx}, 'teacher', this.value)">
+                                <button class="btn-icon danger" onclick="adminApp.removeSub(${s._idx})" title="Видалити">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        subsEditor.innerHTML = html;
+    }
+
+    // Sub modal handlers
+    document.getElementById('subModalCancel').addEventListener('click', () => {
+        subModal.classList.add('hidden');
+    });
+
+    subModal.addEventListener('click', e => {
+        if (e.target === subModal) subModal.classList.add('hidden');
+    });
+
+    document.getElementById('subModalOk').addEventListener('click', () => {
+        const group = subsGroupSelect.value;
+        if (!group) return;
+
+        const dateRaw = document.getElementById('subDateInput').value;
+        const number = parseInt(document.getElementById('subNumberInput').value);
+        const subject = document.getElementById('subSubjectInput').value.trim();
+        const teacher = document.getElementById('subTeacherInput').value.trim();
+
+        if (!dateRaw) { showToast('Оберіть дату', 'error'); return; }
+        if (!number || number < 1) { showToast('Введіть номер пари', 'error'); return; }
+        if (!subject) { showToast('Введіть предмет', 'error'); return; }
+
+        // Convert YYYY-MM-DD to DD.MM
+        const parts = dateRaw.split('-');
+        const date = parts[2] + '.' + parts[1];
+
+        if (!scheduleData[group]['ПІДВІСКА']) {
+            scheduleData[group]['ПІДВІСКА'] = [];
+        }
+
+        const newSub = { date, number, subject, teacher };
+        scheduleData[group]['ПІДВІСКА'].push(newSub);
+
+        // Track for push notification
+        newSubsAdded.push({ group, ...newSub });
+
+        subModal.classList.add('hidden');
+        markChanged();
+        renderSubsEditor();
+        showToast('Заміну додано', 'success');
     });
 
     // ===== Bells Section =====
@@ -833,11 +999,29 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             // 4. Also bump sw.js cache version
             await bumpServiceWorkerCache(token, owner, repo);
 
+            // 5. Send push notifications about new substitutions
+            if (newSubsAdded.length > 0) {
+                statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
+                try {
+                    await fetch('/api/notify-subs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ substitutions: newSubsAdded })
+                    });
+                    showToast(`Опубліковано + ${newSubsAdded.length} сповіщень про заміни`, 'success');
+                } catch (e) {
+                    console.warn('Push notify failed:', e);
+                    showToast('Опубліковано (сповіщення не вдалось)', 'success');
+                }
+                newSubsAdded = [];
+            } else {
+                showToast('Зміни опубліковано!', 'success');
+            }
+
             originalJson = JSON.stringify(scheduleData);
             hasChanges = false;
             publishBtn.disabled = true;
             statusText.textContent = '✅ Опубліковано! Vercel оновить сайт за ~30 сек.';
-            showToast('Зміни опубліковано!', 'success');
         } catch (e) {
             statusText.textContent = '❌ Помилка: ' + e.message;
             showToast('Помилка публікації: ' + e.message, 'error');
@@ -982,6 +1166,58 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 times[num] = (parts[0] || '') + ' - ' + inputToTime(value);
             }
             markChanged();
+        },
+
+        // Substitutions
+        openAddSub() {
+            const group = subsGroupSelect.value;
+            if (!group) { showToast('Спочатку оберіть групу', 'error'); return; }
+            // Default to tomorrow
+            const tmrw = new Date();
+            tmrw.setDate(tmrw.getDate() + 1);
+            document.getElementById('subDateInput').value = tmrw.toISOString().split('T')[0];
+            document.getElementById('subNumberInput').value = '';
+            document.getElementById('subSubjectInput').value = '';
+            document.getElementById('subTeacherInput').value = '';
+            subModal.classList.remove('hidden');
+            setTimeout(() => document.getElementById('subNumberInput').focus(), 100);
+        },
+
+        removeSub(idx) {
+            const group = subsGroupSelect.value;
+            if (!group || !scheduleData[group]['ПІДВІСКА']) return;
+            scheduleData[group]['ПІДВІСКА'].splice(idx, 1);
+            if (scheduleData[group]['ПІДВІСКА'].length === 0) {
+                delete scheduleData[group]['ПІДВІСКА'];
+            }
+            markChanged();
+            renderSubsEditor();
+            showToast('Заміну видалено', 'success');
+        },
+
+        updateSub(idx, field, value) {
+            const group = subsGroupSelect.value;
+            if (!group || !scheduleData[group]['ПІДВІСКА']) return;
+            if (field === 'number') {
+                scheduleData[group]['ПІДВІСКА'][idx][field] = parseInt(value) || 1;
+            } else {
+                scheduleData[group]['ПІДВІСКА'][idx][field] = value;
+            }
+            markChanged();
+        },
+
+        deleteSubDate(date) {
+            const group = subsGroupSelect.value;
+            if (!group || !scheduleData[group]['ПІДВІСКА']) return;
+            openConfirm('Видалити заміни', `Видалити всі заміни за ${date}?`, () => {
+                scheduleData[group]['ПІДВІСКА'] = scheduleData[group]['ПІДВІСКА'].filter(s => s.date !== date);
+                if (scheduleData[group]['ПІДВІСКА'].length === 0) {
+                    delete scheduleData[group]['ПІДВІСКА'];
+                }
+                markChanged();
+                renderSubsEditor();
+                showToast('Заміни видалено', 'success');
+            });
         }
     };
 
@@ -991,6 +1227,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             groupModal.classList.add('hidden');
             confirmModal.classList.add('hidden');
             weekModal.classList.add('hidden');
+            subModal.classList.add('hidden');
         }
     });
 
