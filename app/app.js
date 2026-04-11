@@ -736,9 +736,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function shareWeek() {
         const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const hw = getHomework();
         const W = 600;
         const padX = 32;
-        const cardH = 56;
+        const baseCardH = 56;
+        const hwExtraH = 16;
         const cardGap = 8;
         const dayHeaderH = 44;
         const topH = 80;
@@ -764,7 +766,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const H = topH + daysWithData * dayHeaderH + totalCards * (cardH + cardGap) + footerH + 20;
+        let totalCardsH = 0;
+        for (const dd of weekData) {
+            for (const p of dd.pairs) {
+                const k = hwKey(selectedGroup, dd.dayName, p.number);
+                totalCardsH += (hw[k] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+            }
+        }
+        const H = topH + daysWithData * dayHeaderH + totalCardsH + footerH + 20;
 
         const canvas = document.createElement('canvas');
         canvas.width = W * 2;
@@ -823,7 +832,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             y += dayHeaderH;
 
+            const hwColor = isDark ? '#66bb6a' : '#2e7d32';
             for (const pair of dayData.pairs) {
+                const hwTextKey = hwKey(selectedGroup, dayData.dayName, pair.number);
+                const hwText = hw[hwTextKey] || '';
+                const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
+
                 ctx.fillStyle = surface;
                 roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
                 ctx.fill();
@@ -858,6 +872,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const teacher = pair.teacher || '';
                 const meta = [time, teacher].filter(Boolean).join('  ·  ');
                 ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
+
+                if (hwText) {
+                    ctx.fillStyle = hwColor;
+                    ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 70), padX + 46, y + 54);
+                }
 
                 y += cardH + cardGap;
             }
@@ -896,15 +916,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const { pairs, dayName, dateStr } = data;
         const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const hw = getHomework();
 
         // Canvas setup
         const W = 600;
         const padX = 32;
-        const cardH = 72;
+        const baseCardH = 72;
+        const hwExtraH = 22;
         const cardGap = 12;
         const headerH = 120;
         const footerH = 60;
-        const H = headerH + pairs.length * (cardH + cardGap) + footerH + 20;
+        let totalCardsH = 0;
+        for (const p of pairs) {
+            const k = hwKey(selectedGroup, dayName, p.number);
+            totalCardsH += (hw[k] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+        }
+        const H = headerH + totalCardsH + footerH + 20;
 
         const canvas = document.createElement('canvas');
         canvas.width = W * 2;
@@ -940,8 +967,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.fillText(dateStr, padX, 105);
 
         // Cards
+        const hwColor = isDark ? '#66bb6a' : '#2e7d32';
         let y = headerH;
         for (const pair of pairs) {
+            const hwTextKey = hwKey(selectedGroup, dayName, pair.number);
+            const hwText = hw[hwTextKey] || '';
+            const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
+
             // Card background
             ctx.fillStyle = surface;
             roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
@@ -982,6 +1014,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const teacher = pair.teacher || '';
             const meta = [time, teacher].filter(Boolean).join('  ·  ');
             ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
+
+            // Homework
+            if (hwText) {
+                ctx.fillStyle = hwColor;
+                ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 80), padX + 56, y + 70);
+            }
 
             y += cardH + cardGap;
         }

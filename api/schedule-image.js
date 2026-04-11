@@ -3,6 +3,36 @@ const path = require('path');
 const fs = require('fs');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
+
+const HOMEWORK_API_URL = process.env.HOMEWORK_API_URL || '';
+const HOMEWORK_API_TOKEN = process.env.HOMEWORK_API_TOKEN || '';
+
+async function fetchHomeworkBulk(group, subjects) {
+  if (!HOMEWORK_API_URL || !HOMEWORK_API_TOKEN || subjects.length === 0) return {};
+  const result = {};
+  try {
+    const promises = subjects.map(async (subj) => {
+      try {
+        const url = new URL(HOMEWORK_API_URL);
+        url.searchParams.set('group_name', group);
+        url.searchParams.set('lesson_title', subj);
+        url.searchParams.set('token', HOMEWORK_API_TOKEN);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const resp = await fetch(url.toString(), { signal: controller.signal });
+        clearTimeout(timeout);
+        if (resp.ok) {
+          const body = await resp.json();
+          if (body.homework && body.homework.trim()) {
+            result[subj] = body.homework.trim();
+          }
+        }
+      } catch {}
+    });
+    await Promise.all(promises);
+  } catch {}
+  return result;
+}
 const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '16:00 - 17:20', 6: '17:40 - 19:00' };
 const FONT = 'SF Pro Display';
 const FONT_BOLD = 'SF Pro Display Bold';
@@ -93,10 +123,14 @@ function truncText(ctx, text, maxWidth) {
   return t + '…';
 }
 
-function renderDayImage(group, data, dark) {
+function renderDayImage(group, data, dark, homeworkMap = {}) {
   const { pairs, dayName, dateStr } = data;
-  const W = 600, padX = 32, cardH = 72, cardGap = 12, headerH = 120, footerH = 60;
-  const H = headerH + pairs.length * (cardH + cardGap) + footerH + 20;
+  const W = 600, padX = 32, baseCardH = 72, hwExtraH = 22, cardGap = 12, headerH = 120, footerH = 60;
+  let totalCardsH = 0;
+  for (const p of pairs) {
+    totalCardsH += (homeworkMap[p.subject] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+  }
+  const H = headerH + totalCardsH + footerH + 20;
 
   const canvas = createCanvas(W * 2, H * 2);
   const ctx = canvas.getContext('2d');
@@ -124,8 +158,13 @@ function renderDayImage(group, data, dark) {
   ctx.fillStyle = muted;
   ctx.fillText(dateStr, padX, 105);
 
+  const hwColor = dark ? '#66bb6a' : '#2e7d32';
+
   let y = headerH;
   for (const pair of pairs) {
+    const hwText = homeworkMap[pair.subject] || '';
+    const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
+
     ctx.fillStyle = surface;
     roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
     ctx.fill();
@@ -160,6 +199,12 @@ function renderDayImage(group, data, dark) {
     const meta = [time, teacher].filter(Boolean).join('  ·  ');
     ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
 
+    if (hwText) {
+      ctx.fillStyle = hwColor;
+      ctx.font = `12px ${FONT}`;
+      ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 80), padX + 56, y + 70);
+    }
+
     y += cardH + cardGap;
   }
 
@@ -172,8 +217,8 @@ function renderDayImage(group, data, dark) {
   return canvas.toBuffer('image/png');
 }
 
-function renderWeekImage(group, scheduleData, dark, weekOffset = 0) {
-  const W = 600, padX = 32, cardH = 56, cardGap = 8, dayHeaderH = 44, topH = 80, footerH = 50;
+function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap = {}) {
+  const W = 600, padX = 32, baseCardH = 56, hwExtraH = 16, cardGap = 8, dayHeaderH = 44, topH = 80, footerH = 50;
   const today = new Date();
   const todayIdx = weekOffset === 0 ? today.getDay() : -1;
 
@@ -191,7 +236,13 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0) {
 
   if (weekData.length === 0) return null;
 
-  const H = topH + daysWithData * dayHeaderH + totalCards * (cardH + cardGap) + footerH + 20;
+  let totalCardsH = 0;
+  for (const dd of weekData) {
+    for (const p of dd.pairs) {
+      totalCardsH += (homeworkMap[p.subject] ? baseCardH + hwExtraH : baseCardH) + cardGap;
+    }
+  }
+  const H = topH + daysWithData * dayHeaderH + totalCardsH + footerH + 20;
   const canvas = createCanvas(W * 2, H * 2);
   const ctx = canvas.getContext('2d');
   ctx.scale(2, 2);
@@ -245,7 +296,12 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0) {
 
     y += dayHeaderH;
 
+    const hwColor = dark ? '#66bb6a' : '#2e7d32';
+
     for (const pair of dayData.pairs) {
+      const hwText = homeworkMap[pair.subject] || '';
+      const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
+
       ctx.fillStyle = surface;
       roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
       ctx.fill();
@@ -280,6 +336,12 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0) {
       const meta = [time, teacher].filter(Boolean).join('  ·  ');
       ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
 
+      if (hwText) {
+        ctx.fillStyle = hwColor;
+        ctx.font = `10px ${FONT}`;
+        ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 70), padX + 46, y + 54);
+      }
+
       y += cardH + cardGap;
     }
   }
@@ -305,16 +367,32 @@ module.exports = async function handler(req, res) {
 
     const dark = theme === 'dark';
     const weekOffset = parseInt(wo) || 0;
+
+    // Collect all subjects for homework fetch
+    let allSubjects = [];
+    if (day === 'week') {
+      for (let idx = 1; idx <= 5; idx++) {
+        const dd = getPairsForDay(scheduleData, group, idx, weekOffset);
+        if (dd) allSubjects.push(...dd.pairs.map(p => p.subject));
+      }
+    } else {
+      const dayIdx = parseInt(day) || new Date().getDay();
+      const dd = getPairsForDay(scheduleData, group, dayIdx, weekOffset);
+      if (dd) allSubjects.push(...dd.pairs.map(p => p.subject));
+    }
+    allSubjects = [...new Set(allSubjects)];
+    const homeworkMap = await fetchHomeworkBulk(group, allSubjects);
+
     let buf;
 
     if (day === 'week') {
-      buf = renderWeekImage(group, scheduleData, dark, weekOffset);
+      buf = renderWeekImage(group, scheduleData, dark, weekOffset, homeworkMap);
       if (!buf) return res.status(404).json({ error: 'no schedule for this week' });
     } else {
       const dayIdx = parseInt(day) || new Date().getDay();
       const data = getPairsForDay(scheduleData, group, dayIdx, weekOffset);
       if (!data) return res.status(404).json({ error: 'no schedule for this day' });
-      buf = renderDayImage(group, data, dark);
+      buf = renderDayImage(group, data, dark, homeworkMap);
     }
 
     res.setHeader('Content-Type', 'image/png');
