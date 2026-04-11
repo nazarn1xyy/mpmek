@@ -39,7 +39,7 @@ async function fetchSchedule() {
   return data;
 }
 
-function getPairsForDay(scheduleData, group, dayIdx) {
+function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
   const groupData = scheduleData[group];
   if (!groupData) return null;
   const dayName = UK_DAYS[dayIdx];
@@ -54,7 +54,7 @@ function getPairsForDay(scheduleData, group, dayIdx) {
   const today = new Date();
   const currentDow = today.getDay() || 7;
   const targetDow = dayIdx || 7;
-  const offset = targetDow - currentDow;
+  const offset = targetDow - currentDow + (weekOffset * 7);
   const d = new Date(today);
   d.setDate(today.getDate() + offset);
   const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
@@ -171,16 +171,16 @@ function renderDayImage(group, data, dark) {
   return canvas.toBuffer('image/png');
 }
 
-function renderWeekImage(group, scheduleData, dark) {
+function renderWeekImage(group, scheduleData, dark, weekOffset = 0) {
   const W = 600, padX = 32, cardH = 56, cardGap = 8, dayHeaderH = 44, topH = 80, footerH = 50;
   const today = new Date();
-  const todayIdx = today.getDay();
+  const todayIdx = weekOffset === 0 ? today.getDay() : -1;
 
   const weekData = [];
   let totalCards = 0, daysWithData = 0;
 
   for (let idx = 1; idx <= 5; idx++) {
-    const data = getPairsForDay(scheduleData, group, idx);
+    const data = getPairsForDay(scheduleData, group, idx, weekOffset);
     if (data && data.pairs.length > 0) {
       weekData.push({ ...data, idx });
       totalCards += data.pairs.length;
@@ -209,7 +209,7 @@ function renderWeekImage(group, scheduleData, dark) {
   ctx.font = `26px ${FONT_BOLD}`;
   ctx.fillText(group, padX, 42);
 
-  const monOffset = 1 - (today.getDay() || 7);
+  const monOffset = 1 - (today.getDay() || 7) + (weekOffset * 7);
   const mon = new Date(today); mon.setDate(today.getDate() + monOffset);
   const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
   const rangeStr = `${String(mon.getDate()).padStart(2, '0')}.${String(mon.getMonth() + 1).padStart(2, '0')} — ${String(fri.getDate()).padStart(2, '0')}.${String(fri.getMonth() + 1).padStart(2, '0')}`;
@@ -296,21 +296,22 @@ module.exports = async function handler(req, res) {
   try {
     await ensureFont();
 
-    const { group, day, theme } = req.query;
+    const { group, day, theme, weekOffset: wo } = req.query;
     if (!group) return res.status(400).json({ error: 'group is required' });
 
     const scheduleData = await fetchSchedule();
     if (!scheduleData[group]) return res.status(404).json({ error: 'group not found' });
 
     const dark = theme === 'dark';
+    const weekOffset = parseInt(wo) || 0;
     let buf;
 
     if (day === 'week') {
-      buf = renderWeekImage(group, scheduleData, dark);
+      buf = renderWeekImage(group, scheduleData, dark, weekOffset);
       if (!buf) return res.status(404).json({ error: 'no schedule for this week' });
     } else {
       const dayIdx = parseInt(day) || new Date().getDay();
-      const data = getPairsForDay(scheduleData, group, dayIdx);
+      const data = getPairsForDay(scheduleData, group, dayIdx, weekOffset);
       if (!data) return res.status(404).json({ error: 'no schedule for this day' });
       buf = renderDayImage(group, data, dark);
     }
