@@ -392,7 +392,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         let subjectHtml = `<div class="diary-item-subject">${pair.subject}</div>`;
         if (pair.isSubstitution) {
-            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">ЗАМІНА</span> ${pair.subject}</div>`;
+            const badgeText = pair.substitutionType === 'підвіска' ? 'ПІДВІСКА' : 'ЗАМІНА';
+            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${pair.subject}</div>`;
         }
 
         div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
@@ -490,10 +491,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const subsForDate = substitutionsList.filter(s => s.date === dateStr);
             if (subsForDate.length > 0) {
                 subsForDate.forEach(sub => {
-                    // Remove original pair with the same number if it exists
+                    const replaces = pairs.some(p => parseInt(p.number) === parseInt(sub.number));
                     pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
-                    // Add the substitution pair
-                    pairs.push({ ...sub, isSubstitution: true });
+                    pairs.push({ ...sub, isSubstitution: true, substitutionType: replaces ? 'заміна' : 'підвіска' });
                 });
             }
 
@@ -668,7 +668,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const today = new Date();
         const currentDayOfWeek = today.getDay() || 7;
         const targetDayOfWeek = targetDayIdx || 7;
-        const offset = targetDayOfWeek - currentDayOfWeek;
+        const offset = targetDayOfWeek - currentDayOfWeek + (weekOffset * 7);
         const d = new Date(today);
         d.setDate(today.getDate() + offset);
         const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
@@ -676,8 +676,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         let pairs = weekData[dayName] ? [...weekData[dayName]] : [];
         const subs = groupData['ПІДВІСКА'] || [];
         subs.filter(s => s.date === dateStr).forEach(sub => {
+            const replaces = pairs.some(p => parseInt(p.number) === parseInt(sub.number));
             pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
-            pairs.push({ ...sub, isSubstitution: true });
+            pairs.push({ ...sub, isSubstitution: true, substitutionType: replaces ? 'заміна' : 'підвіска' });
         });
 
         if (pairs.length === 0) return null;
@@ -788,7 +789,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.fillStyle = muted;
         ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         const today = new Date();
-        const monOffset = 1 - (today.getDay() || 7);
+        const monOffset = 1 - (today.getDay() || 7) + (weekOffset * 7);
         const mon = new Date(today); mon.setDate(today.getDate() + monOffset);
         const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
         const rangeStr = `${String(mon.getDate()).padStart(2,'0')}.${String(mon.getMonth()+1).padStart(2,'0')} — ${String(fri.getDate()).padStart(2,'0')}.${String(fri.getMonth()+1).padStart(2,'0')}`;
@@ -798,7 +799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const todayIdx = today.getDay();
 
         for (const dayData of weekData) {
-            const isToday = dayData.idx === todayIdx;
+            const isToday = weekOffset === 0 && dayData.idx === todayIdx;
 
             ctx.fillStyle = isToday ? accent : fg;
             ctx.font = `bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;

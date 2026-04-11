@@ -62,8 +62,9 @@ function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
   let pairs = weekData[dayName] ? [...weekData[dayName]] : [];
   const subs = groupData['ПІДВІСКА'] || [];
   subs.filter(s => s.date === dateStr).forEach(sub => {
+    const replaces = pairs.some(p => parseInt(p.number) === parseInt(sub.number));
     pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
-    pairs.push({ ...sub, isSubstitution: true });
+    pairs.push({ ...sub, isSubstitution: true, substitutionType: replaces ? 'заміна' : 'підвіска' });
   });
 
   if (pairs.length === 0) return null;
