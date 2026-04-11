@@ -105,6 +105,47 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function drawBookIcon(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = size * 0.12;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const s = size;
+  // Left page
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.5, y + s * 0.15);
+  ctx.lineTo(x + s * 0.08, y + s * 0.22);
+  ctx.lineTo(x + s * 0.08, y + s * 0.88);
+  ctx.lineTo(x + s * 0.5, y + s * 0.8);
+  ctx.stroke();
+  // Right page
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.5, y + s * 0.15);
+  ctx.lineTo(x + s * 0.92, y + s * 0.22);
+  ctx.lineTo(x + s * 0.92, y + s * 0.88);
+  ctx.lineTo(x + s * 0.5, y + s * 0.8);
+  ctx.stroke();
+  // Spine
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.5, y + s * 0.15);
+  ctx.lineTo(x + s * 0.5, y + s * 0.8);
+  ctx.stroke();
+  // Lines on left page
+  ctx.lineWidth = size * 0.06;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.18, y + s * 0.4);
+  ctx.lineTo(x + s * 0.42, y + s * 0.35);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.18, y + s * 0.55);
+  ctx.lineTo(x + s * 0.42, y + s * 0.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function truncText(ctx, text, maxWidth) {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let t = text;
@@ -189,9 +230,10 @@ function renderDayImage(group, data, dark, homeworkMap = {}) {
     ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
 
     if (hwText) {
+      drawBookIcon(ctx, padX + 56, y + 59, 14, hwColor);
       ctx.fillStyle = hwColor;
       ctx.font = `12px ${FONT}`;
-      ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 80), padX + 56, y + 70);
+      ctx.fillText(truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 96), padX + 74, y + 70);
     }
 
     y += cardH + cardGap;
@@ -326,9 +368,10 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap 
       ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
 
       if (hwText) {
+        drawBookIcon(ctx, padX + 46, y + 44, 11, hwColor);
         ctx.fillStyle = hwColor;
         ctx.font = `10px ${FONT}`;
-        ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 70), padX + 46, y + 54);
+        ctx.fillText(truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 84), padX + 60, y + 54);
       }
 
       y += cardH + cardGap;
