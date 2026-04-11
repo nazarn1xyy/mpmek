@@ -113,7 +113,7 @@ self.addEventListener('push', event => {
 async function showCachedScheduleNotification() {
   try {
     const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
-    const TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '16:00', 6: '17:40' };
+    const TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
 
     // Read stored group
     const ncache = await caches.open(NOTIF_CACHE);

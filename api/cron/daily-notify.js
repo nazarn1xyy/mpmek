@@ -2,7 +2,7 @@ const webpush = require('web-push');
 const { redis } = require('../_lib/redis');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
-const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '16:00', 6: '17:40' };
+const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
 
 module.exports = async function handler(req, res) {
   try {

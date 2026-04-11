@@ -14,8 +14,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         2: "10:00 - 11:20",
         3: "11:50 - 13:10",
         4: "13:20 - 14:40",
-        5: "16:00 - 17:35",
-        6: "17:40 - 19:15"
+        5: "14:50 - 16:10",
+        6: "16:20 - 17:40"
     };
 
     const SVG_EMPTY_SCHEDULE = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>`;
@@ -692,44 +692,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         homeworkContainer.appendChild(frag);
     }
 
-    // ===== Share Schedule as Image =====
-    function getPairsForDay(targetDayIdx) {
-        if (!scheduleData || !selectedGroup) return null;
-        const groupData = scheduleData[selectedGroup];
-        if (!groupData) return null;
+    // ===== Share Schedule as Image (via server API) =====
+    function _shareImageParams(dayParam) {
+        const theme = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        return `/api/schedule-image?group=${encodeURIComponent(selectedGroup)}&day=${dayParam}&theme=${theme}&weekOffset=${weekOffset}`;
+    }
 
-        const dayName = ukDays[targetDayIdx];
-
-        let weekData = groupData[currentWeekType];
-        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
-            weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
-        }
-        if (!weekData) {
-            const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-            if (types.length === 0) return null;
-            weekData = groupData[types[0]];
-        }
-
-        const today = new Date();
-        const currentDayOfWeek = today.getDay() || 7;
-        const targetDayOfWeek = targetDayIdx || 7;
-        const offset = targetDayOfWeek - currentDayOfWeek + (weekOffset * 7);
-        const d = new Date(today);
-        d.setDate(today.getDate() + offset);
-        const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
-
-        let pairs = weekData[dayName] ? [...weekData[dayName]] : [];
-        const subs = groupData['ПІДВІСКА'] || [];
-        subs.filter(s => s.date === dateStr).forEach(sub => {
-            const replaces = pairs.some(p => parseInt(p.number) === parseInt(sub.number));
-            pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
-            pairs.push({ ...sub, isSubstitution: true, substitutionType: replaces ? 'заміна' : 'підвіска' });
-        });
-
-        if (pairs.length === 0) return null;
-        pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
-
-        return { pairs, dayName, dateStr };
+    async function _fetchAndShare(url, filename, title, text) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) { alert('Немає розкладу'); return; }
+            const blob = await resp.blob();
+            const file = new File([blob], filename, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try { await navigator.share({ files: [file], title, text }); } catch {}
+            } else {
+                const u = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = u; a.download = filename; a.click();
+                URL.revokeObjectURL(u);
+            }
+        } catch { alert('Помилка генерації зображення'); }
     }
 
     function showShareDayPicker() {
@@ -780,347 +763,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function shareWeek() {
-        const isDark = document.body.getAttribute('data-theme') === 'dark';
-        const hw = getHomework();
-        const W = 600;
-        const padX = 32;
-        const baseCardH = 56;
-        const hwExtraH = 16;
-        const cardGap = 8;
-        const dayHeaderH = 44;
-        const topH = 80;
-        const footerH = 50;
-
-        const allDays = [1, 2, 3, 4, 5];
-        const dayLabels = { 1: 'Понеділок', 2: 'Вівторок', 3: 'Середа', 4: 'Четвер', 5: "П'ятниця" };
-        const weekData = [];
-        let totalCards = 0;
-        let daysWithData = 0;
-
-        for (const idx of allDays) {
-            const data = getPairsForDay(idx);
-            if (data && data.pairs.length > 0) {
-                weekData.push({ ...data, idx });
-                totalCards += data.pairs.length;
-                daysWithData++;
-            }
-        }
-
-        if (weekData.length === 0) {
-            alert('Немає розкладу на цей тиждень');
-            return;
-        }
-
-        let totalCardsH = 0;
-        for (const dd of weekData) {
-            for (const p of dd.pairs) {
-                const k = hwKey(selectedGroup, dd.dayName, p.number);
-                totalCardsH += (hw[k] ? baseCardH + hwExtraH : baseCardH) + cardGap;
-            }
-        }
-        const H = topH + daysWithData * dayHeaderH + totalCardsH + footerH + 20;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = W * 2;
-        canvas.height = H * 2;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(2, 2);
-
-        const bg = isDark ? '#000' : '#fff';
-        const fg = isDark ? '#f5f5f5' : '#1a1a1a';
-        const surface = isDark ? '#111' : '#f5f5f5';
-        const muted = isDark ? '#888' : '#888';
-        const accent = isDark ? '#fff' : '#000';
-        const subColor = '#f59e0b';
-
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.fillStyle = fg;
-        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(selectedGroup, padX, 42);
-
-        ctx.fillStyle = muted;
-        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         const today = new Date();
         const monOffset = 1 - (today.getDay() || 7) + (weekOffset * 7);
         const mon = new Date(today); mon.setDate(today.getDate() + monOffset);
         const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
         const rangeStr = `${String(mon.getDate()).padStart(2,'0')}.${String(mon.getMonth()+1).padStart(2,'0')} — ${String(fri.getDate()).padStart(2,'0')}.${String(fri.getMonth()+1).padStart(2,'0')}`;
-        ctx.fillText(rangeStr, padX, 64);
-
-        let y = topH;
-        const todayIdx = today.getDay();
-
-        for (const dayData of weekData) {
-            const isToday = weekOffset === 0 && dayData.idx === todayIdx;
-
-            ctx.fillStyle = isToday ? accent : fg;
-            ctx.font = `bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-            ctx.fillText(dayData.dayName.toUpperCase(), padX, y + 20);
-
-            ctx.fillStyle = muted;
-            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(dayData.dateStr, padX + ctx.measureText(dayData.dayName.toUpperCase()).width + 10, y + 20);
-
-            if (isToday) {
-                const label = 'Сьогодні';
-                ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
-                const tw = ctx.measureText(label).width;
-                const bx = W - padX - tw - 16;
-                ctx.fillStyle = accent;
-                roundRect(ctx, bx, y + 6, tw + 16, 20, 6);
-                ctx.fill();
-                ctx.fillStyle = bg;
-                ctx.fillText(label, bx + 8, y + 20);
-            }
-
-            y += dayHeaderH;
-
-            const hwColor = isDark ? '#66bb6a' : '#2e7d32';
-            for (const pair of dayData.pairs) {
-                const hwTextKey = hwKey(selectedGroup, dayData.dayName, pair.number);
-                const hwText = hw[hwTextKey] || '';
-                const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
-
-                ctx.fillStyle = surface;
-                roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
-                ctx.fill();
-
-                if (pair.isSubstitution) {
-                    ctx.strokeStyle = subColor;
-                    ctx.lineWidth = 1.5;
-                    roundRect(ctx, padX, y, W - padX * 2, cardH, 12);
-                    ctx.stroke();
-                }
-
-                const circleX = padX + 22;
-                const circleY = y + cardH / 2;
-                ctx.fillStyle = pair.isSubstitution ? subColor : accent;
-                ctx.beginPath();
-                ctx.arc(circleX, circleY, 14, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
-                ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(pair.number, circleX, circleY + 4.5);
-                ctx.textAlign = 'left';
-
-                ctx.fillStyle = fg;
-                ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(truncText(ctx, pair.subject, W - padX * 2 - 70), padX + 46, y + 22);
-
-                ctx.fillStyle = muted;
-                ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                const time = LESSON_TIMES[pair.number] || '';
-                const teacher = pair.teacher || '';
-                const meta = [time, teacher].filter(Boolean).join('  ·  ');
-                ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
-
-                if (hwText) {
-                    ctx.fillStyle = hwColor;
-                    ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                    ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 70), padX + 46, y + 54);
-                }
-
-                y += cardH + cardGap;
-            }
-        }
-
-        ctx.fillStyle = muted;
-        ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Розклад Студента · mpmek.site', W / 2, H - 18);
-        ctx.textAlign = 'left';
-
-        canvas.toBlob(async (blob) => {
-            if (!blob) return;
-            const file = new File([blob], `rozklad-week-${rangeStr}.png`, { type: 'image/png' });
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({ files: [file], title: `Розклад на тиждень`, text: `${selectedGroup} — ${rangeStr}` });
-                } catch {}
-            } else {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `rozklad-week.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-            }
-        }, 'image/png');
+        await _fetchAndShare(
+            _shareImageParams('week'),
+            `rozklad-week-${rangeStr}.png`,
+            'Розклад на тиждень',
+            `${selectedGroup} — ${rangeStr}`
+        );
     }
 
     async function shareScheduleForDay(dayIdx) {
-        const data = getPairsForDay(dayIdx);
-        if (!data) {
-            alert('Немає розкладу для цього дня');
-            return;
-        }
-
-        const { pairs, dayName, dateStr } = data;
-        const isDark = document.body.getAttribute('data-theme') === 'dark';
-        const hw = getHomework();
-
-        // Canvas setup
-        const W = 600;
-        const padX = 32;
-        const baseCardH = 72;
-        const hwExtraH = 22;
-        const cardGap = 12;
-        const headerH = 120;
-        const footerH = 60;
-        let totalCardsH = 0;
-        for (const p of pairs) {
-            const k = hwKey(selectedGroup, dayName, p.number);
-            totalCardsH += (hw[k] ? baseCardH + hwExtraH : baseCardH) + cardGap;
-        }
-        const H = headerH + totalCardsH + footerH + 20;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = W * 2;
-        canvas.height = H * 2;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(2, 2);
-
-        // Colors
-        const bg = isDark ? '#000' : '#fff';
-        const fg = isDark ? '#f5f5f5' : '#1a1a1a';
-        const surface = isDark ? '#111' : '#f5f5f5';
-        const border = isDark ? '#222' : '#e0e0e0';
-        const muted = isDark ? '#888' : '#888';
-        const accent = isDark ? '#fff' : '#000';
-        const subColor = '#f59e0b';
-
-        // Background
-        ctx.fillStyle = bg;
-        roundRect(ctx, 0, 0, W, H, 0);
-        ctx.fill();
-
-        // Header
-        ctx.fillStyle = fg;
-        ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(selectedGroup, padX, 50);
-
-        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = accent;
-        ctx.fillText(dayName, padX, 82);
-
-        ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = muted;
-        ctx.fillText(dateStr, padX, 105);
-
-        // Cards
-        const hwColor = isDark ? '#66bb6a' : '#2e7d32';
-        let y = headerH;
-        for (const pair of pairs) {
-            const hwTextKey = hwKey(selectedGroup, dayName, pair.number);
-            const hwText = hw[hwTextKey] || '';
-            const cardH = hwText ? baseCardH + hwExtraH : baseCardH;
-
-            // Card background
-            ctx.fillStyle = surface;
-            roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
-            ctx.fill();
-
-            // Substitution border
-            if (pair.isSubstitution) {
-                ctx.strokeStyle = subColor;
-                ctx.lineWidth = 2;
-                roundRect(ctx, padX, y, W - padX * 2, cardH, 14);
-                ctx.stroke();
-            }
-
-            // Number circle
-            const circleX = padX + 28;
-            const circleY = y + cardH / 2;
-            ctx.fillStyle = pair.isSubstitution ? subColor : accent;
-            ctx.beginPath();
-            ctx.arc(circleX, circleY, 18, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = pair.isSubstitution ? '#fff' : bg;
-            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(pair.number, circleX, circleY + 5.5);
-            ctx.textAlign = 'left';
-
-            // Subject
-            ctx.fillStyle = fg;
-            ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            const subjectText = pair.subject;
-            ctx.fillText(truncText(ctx, subjectText, W - padX * 2 - 80), padX + 56, y + 30);
-
-            // Time + teacher
-            ctx.fillStyle = muted;
-            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            const time = LESSON_TIMES[pair.number] || '';
-            const teacher = pair.teacher || '';
-            const meta = [time, teacher].filter(Boolean).join('  ·  ');
-            ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
-
-            // Homework
-            if (hwText) {
-                ctx.fillStyle = hwColor;
-                ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                ctx.fillText('📝 ' + truncText(ctx, hwText.replace(/\n/g, ' '), W - padX * 2 - 80), padX + 56, y + 70);
-            }
-
-            y += cardH + cardGap;
-        }
-
-        // Footer
-        ctx.fillStyle = muted;
-        ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Розклад Студента · mpmek.site', W / 2, H - 24);
-        ctx.textAlign = 'left';
-
-        // Convert to blob and share
-        canvas.toBlob(async (blob) => {
-            if (!blob) return;
-            const file = new File([blob], `rozklad-${dateStr}.png`, { type: 'image/png' });
-
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: `Розклад на ${dayName}`,
-                        text: `${selectedGroup} — ${dayName} ${dateStr}`
-                    });
-                } catch {}
-            } else {
-                // Fallback: download
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `rozklad-${dateStr}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-            }
-        }, 'image/png');
-    }
-
-    function roundRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-    }
-
-    function truncText(ctx, text, maxWidth) {
-        if (ctx.measureText(text).width <= maxWidth) return text;
-        let t = text;
-        while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
-        return t + '…';
+        const today = new Date();
+        const currentDayOfWeek = today.getDay() || 7;
+        const targetDayOfWeek = dayIdx || 7;
+        const offset = targetDayOfWeek - currentDayOfWeek + (weekOffset * 7);
+        const d = new Date(today);
+        d.setDate(today.getDate() + offset);
+        const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+        const dayName = ukDays[dayIdx];
+        await _fetchAndShare(
+            _shareImageParams(dayIdx),
+            `rozklad-${dateStr}.png`,
+            `Розклад на ${dayName}`,
+            `${selectedGroup} — ${dayName} ${dateStr}`
+        );
     }
 
     shareScheduleBtn.addEventListener('click', showShareDayPicker);
@@ -1344,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v26';
+        const DEPLOY_VERSION = 'rozklad-v29';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

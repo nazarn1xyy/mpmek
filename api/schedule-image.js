@@ -22,7 +22,7 @@ async function fetchHomeworkFromRedis(group) {
     return {};
   }
 }
-const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '16:00 - 17:20', 6: '17:40 - 19:00' };
+const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '14:50 - 16:10', 6: '16:20 - 17:40' };
 const FONT = 'SF Pro Display';
 const FONT_BOLD = 'SF Pro Display Bold';
 
