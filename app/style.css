@@ -932,3 +932,54 @@ input:checked + .slider:before {
 .notif-prompt-dismiss:active {
     opacity: 0.8;
 }
+
+/* Week Navigator */
+.week-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 4px;
+    margin: 8px 0 calc(80px + env(safe-area-inset-bottom, 0));
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+}
+.week-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    color: var(--text-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.week-nav-btn:active {
+    background: var(--border-color);
+}
+.week-nav-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 10px;
+    transition: background 0.15s;
+}
+.week-nav-center:active {
+    background: var(--border-color);
+}
+.week-nav-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+.week-nav-dates {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+    opacity: 0.7;
+}

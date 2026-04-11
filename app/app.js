@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
+    let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
     const VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
 
     let LESSON_TIMES = {
@@ -280,6 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const item = e.target.closest('.group-item');
         if (!item) return;
         selectedGroup = item.dataset.group;
+        weekOffset = 0;
         localStorage.setItem('selectedGroup', selectedGroup);
         showScreen('schedule');
     });
@@ -446,11 +448,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentDayOfWeek = today.getDay() || 7; // 1-7 (Mon-Sun)
         const todayLabel = ukDays[today.getDay()];
 
-        // Compute DD.MM dates for Mon-Fri of the current week
+        // Compute DD.MM dates for Mon-Fri of the target week (with weekOffset)
         const weekDates = {};
         const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
         for (let i = 0; i < daysOrder.length; i++) {
-            const offset = (i + 1) - currentDayOfWeek;
+            const offset = (i + 1) - currentDayOfWeek + (weekOffset * 7);
             const d = new Date(today);
             d.setDate(today.getDate() + offset);
             const dayStr = String(d.getDate()).padStart(2, '0');
@@ -491,7 +493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const title = document.createElement('h2');
             title.innerHTML = `${day} <span class="date-badge">${dateStr}</span>`;
             
-            const isToday = currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
+            const isToday = weekOffset === 0 && currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
             if (isToday) {
                 dayEl.classList.add('is-today');
                 dayEl.id = 'today-marker';
@@ -509,14 +511,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             frag.appendChild(dayEl);
         }
 
+        // Week navigator
+        const weekNav = document.createElement('div');
+        weekNav.className = 'week-nav';
+
+        const mondayDate = weekDates['Понеділок'];
+        const fridayDate = weekDates["П'ятниця"];
+        const weekLabel = weekOffset === 0 ? 'Поточний тиждень' : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
+
+        weekNav.innerHTML = `
+            <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="week-nav-center">
+                <span class="week-nav-label">${weekLabel}</span>
+                <span class="week-nav-dates">${mondayDate} — ${fridayDate}</span>
+            </div>
+            <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        `;
+
+        weekNav.querySelectorAll('.week-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                weekOffset += parseInt(btn.dataset.dir);
+                renderSchedule();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
+        // Reset to current week on double-tap center
+        weekNav.querySelector('.week-nav-center').addEventListener('click', () => {
+            if (weekOffset !== 0) {
+                weekOffset = 0;
+                renderSchedule();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+
+        frag.appendChild(weekNav);
+
         diaryContainer.innerHTML = '';
         diaryContainer.appendChild(frag);
 
-        if (currentWeekType !== 'ПІДВІСКА') {
+        if (weekOffset === 0 && currentWeekType !== 'ПІДВІСКА') {
             requestAnimationFrame(() => {
                 const todayMarker = document.getElementById('today-marker');
                 if (todayMarker) {
-                    // Small delay to ensure render is complete
                     setTimeout(() => {
                         todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }, 50);
