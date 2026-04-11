@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         let subjectHtml = `<div class="diary-item-subject">${pair.subject}</div>`;
         if (pair.isSubstitution) {
-            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">ПІДВІСКА</span> ${pair.subject}</div>`;
+            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">ЗАМІНА</span> ${pair.subject}</div>`;
         }
 
         div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
