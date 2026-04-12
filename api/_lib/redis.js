@@ -15,4 +15,26 @@ async function redis(...args) {
   return data.result;
 }
 
-module.exports = { redis };
+function parseRedisHash(raw) {
+  if (!raw) return {};
+  if (Array.isArray(raw)) {
+    const result = {};
+    for (let i = 0; i < raw.length; i += 2) result[raw[i]] = raw[i + 1];
+    return result;
+  }
+  if (typeof raw === 'object') return raw;
+  return {};
+}
+
+function parseRedisEntries(raw) {
+  const hash = parseRedisHash(raw);
+  const entries = [];
+  for (const [id, json] of Object.entries(hash)) {
+    try {
+      entries.push({ id, ...JSON.parse(json) });
+    } catch { /* skip malformed */ }
+  }
+  return entries;
+}
+
+module.exports = { redis, parseRedisHash, parseRedisEntries };

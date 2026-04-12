@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis } = require('../_lib/redis');
+const { redis, parseRedisEntries } = require('../_lib/redis');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
@@ -47,17 +47,19 @@ module.exports = async function handler(req, res) {
 
     // Get all subscriptions from Redis
     const raw = await redis('HGETALL', 'push-subs');
-    if (!raw || raw.length === 0) {
+    const allEntries = parseRedisEntries(raw);
+    if (allEntries.length === 0) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    // Parse HGETALL alternating [key, value, key, value, ...]
-    const entries = [];
-    for (let i = 0; i < raw.length; i += 2) {
-      try {
-        entries.push({ id: raw[i], ...JSON.parse(raw[i + 1]) });
-      } catch { /* skip malformed */ }
-    }
+    // Filter by notifyTime matching current Kyiv time slot (HH:00 or HH:30)
+    const kyivParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(today);
+    const kyivH = kyivParts.find(p => p.type === 'hour').value;
+    const kyivM = parseInt(kyivParts.find(p => p.type === 'minute').value);
+    const currentSlot = `${kyivH}:${kyivM < 30 ? '00' : '30'}`;
+    const entries = allEntries.filter(e => (e.notifyTime || '08:00') === currentSlot);
 
     let sent = 0;
     let failed = 0;
@@ -118,7 +120,7 @@ module.exports = async function handler(req, res) {
       await redis('HDEL', 'push-subs', id);
     }
 
-    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length });
+    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, slot: currentSlot, totalSubs: allEntries.length });
   } catch (error) {
     console.error('Cron error:', error);
     return res.status(500).json({ error: 'Internal server error' });

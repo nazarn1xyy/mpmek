@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/cron/daily-notify",
-      "schedule": "0 5 * * 1-5"
+      "schedule": "0,30 3-8 * * 1-5"
     }
   ],
   "headers": [

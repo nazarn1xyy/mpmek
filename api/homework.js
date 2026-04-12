@@ -1,7 +1,7 @@
-const { redis } = require('./_lib/redis');
+const { redis, parseRedisHash } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -13,21 +13,11 @@ module.exports = async function handler(req, res) {
       if (!group) return res.status(400).json({ error: 'group is required' });
 
       const raw = await redis('HGETALL', `hw:${group}`);
-      if (!raw) return res.json({});
-
-      // Upstash returns object { field: value } or flat array [field, value, ...]
+      const hash = parseRedisHash(raw);
       const result = {};
-      if (Array.isArray(raw)) {
-        for (let i = 0; i < raw.length; i += 2) {
-          const field = raw[i]; // "Понеділок:1"
-          const [day, num] = field.split(':');
-          result[`${group}|${day}|${num}`] = raw[i + 1];
-        }
-      } else if (typeof raw === 'object') {
-        for (const [field, value] of Object.entries(raw)) {
-          const [day, num] = field.split(':');
-          result[`${group}|${day}|${num}`] = value;
-        }
+      for (const [field, value] of Object.entries(hash)) {
+        const [day, num] = field.split(':');
+        result[`${group}|${day}|${num}`] = value;
       }
       return res.json(result);
     }

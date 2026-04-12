@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis } = require('./_lib/redis');
+const { redis, parseRedisEntries } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,15 +33,9 @@ module.exports = async function handler(req, res) {
 
     // Get all subscriptions
     const raw = await redis('HGETALL', 'push-subs');
-    if (!raw || raw.length === 0) {
+    const entries = parseRedisEntries(raw);
+    if (entries.length === 0) {
       return res.status(200).json({ ok: true, sent: 0, message: 'No subscriptions found' });
-    }
-
-    const entries = [];
-    for (let i = 0; i < raw.length; i += 2) {
-      try {
-        entries.push({ id: raw[i], ...JSON.parse(raw[i + 1]) });
-      } catch {}
     }
 
     let sent = 0;
