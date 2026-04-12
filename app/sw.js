@@ -184,7 +184,8 @@ async function showCachedScheduleNotification() {
     // Check substitutions
     const currentDayOfWeek = today.getDay() || 7;
     const targetDayOfWeek = dayIdx || 7;
-    const offset = targetDayOfWeek - currentDayOfWeek;
+    let offset = targetDayOfWeek - currentDayOfWeek;
+    if (offset < 0) offset += 7;
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + offset);
     const dateStr = String(targetDate.getDate()).padStart(2, '0') + '.' + String(targetDate.getMonth() + 1).padStart(2, '0');

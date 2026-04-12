@@ -897,7 +897,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Merge substitutions for the target day
         const currentDayOfWeek = today.getDay() || 7;
         const targetDayOfWeek = dayIndex || 7;
-        const offset = targetDayOfWeek - currentDayOfWeek;
+        let offset = targetDayOfWeek - currentDayOfWeek;
+        if (offset < 0) offset += 7;
         const d = new Date(today);
         d.setDate(today.getDate() + offset);
         const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
@@ -922,7 +923,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return {
             title: `📚 ${prefix} — ${dayName}`,
             body: lines.join('\n'),
-            pairsCount: pairs.length
+            pairsCount: pairs.length,
+            dateStr
         };
     }
 
@@ -1010,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 icon: './icon.png',
                 badge: './icon.png',
                 tag: 'daily-schedule',
-                data: { url: `?view=day&date=${String(new Date().getDate()).padStart(2,'0')}.${String(new Date().getMonth()+1).padStart(2,'0')}` },
+                data: { url: `?view=day&date=${data.dateStr}` },
                 renotify: true
             });
             localStorage.setItem('lastNotifDate', today);
