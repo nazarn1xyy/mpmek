@@ -1,6 +1,6 @@
 const { redis } = require('./_lib/redis');
 
-const ADMIN_PIN = '0411';
+const ADMIN_PIN = process.env.ADMIN_PIN;
 const REDIS_KEY = 'admin-config';
 
 module.exports = async function handler(req, res) {

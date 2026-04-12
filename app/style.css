@@ -984,6 +984,53 @@ input:checked + .slider:before {
     opacity: 0.7;
 }
 
+/* ===== Lesson Status Indicators ===== */
+.diary-item.is-now {
+    border-color: #34c759;
+    background: linear-gradient(145deg, rgba(52, 199, 89, 0.08) 0%, transparent 100%);
+}
+
+[data-theme="dark"] .diary-item.is-now {
+    background: linear-gradient(145deg, rgba(52, 199, 89, 0.12) 0%, transparent 100%);
+}
+
+.badge-now {
+    display: inline-block;
+    background-color: #34c759;
+    color: #fff;
+    font-size: 0.65em;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    animation: pulse-now 2s ease-in-out infinite;
+}
+
+@keyframes pulse-now {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.diary-item.is-next {
+    border-color: #007aff;
+    background: linear-gradient(145deg, rgba(0, 122, 255, 0.05) 0%, transparent 100%);
+}
+
+[data-theme="dark"] .diary-item.is-next {
+    background: linear-gradient(145deg, rgba(0, 122, 255, 0.1) 0%, transparent 100%);
+}
+
+.badge-next {
+    display: inline-block;
+    background-color: #007aff;
+    color: #fff;
+    font-size: 0.65em;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
 /* ===== Desktop Layout (≥768px) ===== */
 @media (min-width: 768px) {
     /* Remove mobile bottom padding */

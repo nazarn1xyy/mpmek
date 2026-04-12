@@ -35,8 +35,8 @@
     };
 
     // ===== PIN Authentication =====
-    const ADMIN_PIN = '0411';
     let pinCode = '';
+    let verifiedPin = '';
 
     document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -61,11 +61,19 @@
         });
     }
 
-    function handlePinComplete() {
-        if (pinCode === ADMIN_PIN) {
-            unlockAdmin();
-        } else {
-            shakePin('Невірний PIN-код');
+    async function handlePinComplete() {
+        try {
+            const resp = await fetch('/api/admin-config', {
+                headers: { 'X-Admin-Pin': pinCode }
+            });
+            if (resp.ok) {
+                verifiedPin = pinCode;
+                unlockAdmin();
+            } else {
+                shakePin('Невірний PIN-код');
+            }
+        } catch {
+            shakePin('Помилка з\'єднання');
         }
     }
 

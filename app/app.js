@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const SVG_TRASH = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 
     // ===== Build lesson card (optimized: single innerHTML, cached hw) =====
-    function buildLessonCard(pair, dayLabel, hw) {
+    function buildLessonCard(pair, dayLabel, hw, lessonStatus) {
         const key = hwKey(selectedGroup, dayLabel, pair.number);
         const savedText = hw[key] || '';
 
@@ -445,8 +445,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         const teacherHtml = pair.teacher ? `<div class="diary-item-teacher">${pair.teacher}</div>` : '';
         const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
 
+        let statusBadge = '';
+        if (lessonStatus === 'now') {
+            const t = LESSON_TIMES[pair.number];
+            if (t) {
+                const endStr = t.split(' - ')[1];
+                const [eh, em] = endStr.split(':').map(Number);
+                const now = new Date();
+                const remaining = (eh * 60 + em) - (now.getHours() * 60 + now.getMinutes());
+                statusBadge = `<span class="badge-now">ЗАРАЗ • ще ${remaining} хв</span>`;
+            }
+        } else if (lessonStatus === 'next') {
+            const t = LESSON_TIMES[pair.number];
+            if (t) {
+                const startStr = t.split(' - ')[0];
+                const [sh, sm] = startStr.split(':').map(Number);
+                const now = new Date();
+                const until = (sh * 60 + sm) - (now.getHours() * 60 + now.getMinutes());
+                statusBadge = `<span class="badge-next">НАСТУПНА • через ${until} хв</span>`;
+            }
+        }
+
         const div = document.createElement('div');
         div.className = 'diary-item';
+        if (lessonStatus === 'now') div.classList.add('is-now');
+        else if (lessonStatus === 'next') div.classList.add('is-next');
         if (pair.isSubstitution) {
             div.classList.add('substitution');
         }
@@ -457,7 +480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${pair.subject}</div>`;
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
@@ -586,8 +609,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             dayEl.appendChild(title);
 
+            const lessonStatuses = {};
+            if (isToday) {
+                const now = new Date();
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                let foundNext = false;
+                for (const pr of pairs) {
+                    const t = LESSON_TIMES[pr.number];
+                    if (!t) continue;
+                    const [s, e] = t.split(' - ');
+                    const [sh, sm] = s.split(':').map(Number);
+                    const [eh, em] = e.split(':').map(Number);
+                    if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) {
+                        lessonStatuses[pr.number] = 'now';
+                    } else if (nowMin < sh * 60 + sm && !foundNext) {
+                        lessonStatuses[pr.number] = 'next';
+                        foundNext = true;
+                    }
+                }
+            }
+
             for (let p = 0; p < pairs.length; p++) {
-                dayEl.appendChild(buildLessonCard(pairs[p], day, hw));
+                dayEl.appendChild(buildLessonCard(pairs[p], day, hw, lessonStatuses[pairs[p].number] || null));
             }
             frag.appendChild(dayEl);
         }
@@ -1030,6 +1073,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (viewToday) {
             scrollToToday();
         }
+
+        // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
+        setInterval(() => {
+            if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                renderSchedule();
+            }
+        }, 60000);
 
         // Schedule test notification 5 min after new deployment
         const DEPLOY_VERSION = 'rozklad-v31';
