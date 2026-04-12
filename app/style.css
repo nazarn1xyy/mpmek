@@ -983,3 +983,224 @@ input:checked + .slider:before {
     color: var(--secondary-text);
     opacity: 0.7;
 }
+
+/* ===== Desktop Layout (≥768px) ===== */
+@media (min-width: 768px) {
+    /* Remove mobile bottom padding */
+    #app {
+        padding-bottom: 0 !important;
+    }
+
+    /* Offset content for sidebar (not onboarding) */
+    #schedule, #homework, #settings {
+        margin-left: 240px;
+    }
+
+    /* ── Sidebar Navigation ── */
+    .bottom-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: auto;
+        width: 240px;
+        height: 100%;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        padding: 0 0.75rem 1.5rem;
+        gap: 2px;
+        border-top: none;
+        border-right: 1px solid var(--nav-border);
+    }
+
+    .bottom-nav::before {
+        content: 'Розклад';
+        display: block;
+        font-size: 1.25rem;
+        font-weight: 700;
+        padding: 1.5rem 1rem 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .nav-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        width: 100%;
+        height: auto;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        gap: 12px;
+        transition: background-color 0.15s, color 0.15s;
+    }
+
+    .nav-item:hover {
+        background-color: var(--surface-color);
+    }
+
+    .nav-item.active {
+        background-color: var(--surface-color);
+    }
+
+    .nav-item span {
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .nav-item:active {
+        transform: none;
+    }
+
+    /* ── Content area wider ── */
+    .diary-container,
+    .settings-container,
+    .homework-container {
+        max-width: 800px;
+        padding: 1.5rem 2rem;
+    }
+
+    /* ── Top nav ── */
+    .top-nav {
+        padding: 1.25rem 2rem;
+    }
+
+    .top-nav h1 {
+        font-size: 1.5rem;
+    }
+
+    /* ── Onboarding ── */
+    .onboarding-content {
+        max-width: 500px;
+    }
+
+    .group-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* ── Modal centered on desktop ── */
+    .modal-overlay {
+        align-items: center;
+    }
+
+    .modal-sheet {
+        border-radius: 20px;
+        max-width: 500px;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .modal-handle {
+        display: none;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #888;
+    }
+
+    /* ── Hover effects ── */
+    .icon-btn:hover {
+        background-color: var(--surface-color);
+    }
+
+    .btn:hover {
+        opacity: 0.85;
+    }
+
+    .diary-item {
+        transition: border-color 0.2s;
+    }
+
+    .diary-item:hover {
+        border-color: var(--accent-color);
+    }
+
+    .group-item {
+        transition: border-color 0.15s;
+    }
+
+    .group-item:hover {
+        border-color: var(--accent-color);
+        transform: none;
+    }
+
+    .homework-btn:hover {
+        background-color: var(--surface-color);
+    }
+
+    .hw-card {
+        transition: border-color 0.2s;
+    }
+
+    .hw-card:hover {
+        border-color: var(--accent-color);
+    }
+
+    .week-nav-btn:hover {
+        background: var(--surface-color);
+    }
+
+    .week-nav-center:hover {
+        background: var(--surface-color);
+    }
+
+    .setting-item {
+        transition: background-color 0.15s;
+        padding: 1.5rem 0.5rem;
+        border-radius: 12px;
+    }
+
+    .setting-item:hover {
+        background-color: var(--surface-color);
+    }
+
+    /* ── Notification prompt ── */
+    .notif-prompt {
+        margin: 8px 2rem 0;
+    }
+
+    /* ── Week nav spacing ── */
+    .week-nav {
+        margin-bottom: 2rem;
+    }
+
+    /* ── Hide iOS install on desktop ── */
+    #installRow {
+        display: none;
+    }
+
+    /* ── Diary items grid-friendly ── */
+    .diary-day {
+        break-inside: avoid;
+    }
+}
+
+/* ===== Wide Desktop (≥1100px) ===== */
+@media (min-width: 1100px) {
+    .diary-container {
+        max-width: 1000px;
+        column-count: 2;
+        column-gap: 2rem;
+    }
+
+    .week-nav {
+        column-span: all;
+    }
+
+    .notif-prompt {
+        column-span: all;
+    }
+}
