@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,10 +18,7 @@ module.exports = async function handler(req, res) {
       .digest('hex')
       .slice(0, 16);
 
-    await supabase
-      .from('push_subscriptions')
-      .delete()
-      .eq('id', id);
+    await redis('HDEL', 'push-subs', id);
 
     return res.status(200).json({ ok: true });
   } catch (error) {

@@ -108,7 +108,7 @@
 
         let scheduleData;
         try {
-            const resp = await fetch('/api/schedule?format=all&t=' + Date.now());
+            const resp = await fetch('schedule.json?t=' + Date.now());
             scheduleData = await resp.json();
         } catch {
             root.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Помилка</div><div class="empty-desc">Не вдалось завантажити розклад</div></div>`;

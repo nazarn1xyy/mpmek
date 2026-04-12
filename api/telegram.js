@@ -1,5 +1,3 @@
-const { supabase } = require('./_lib/supabase');
-
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const UK_DAYS_SHORT = {
@@ -19,14 +17,11 @@ async function tgApi(method, body) {
 }
 
 async function fetchGroups() {
-  const { data, error } = await supabase
-    .from('groups')
-    .select('name')
-    .order('sort_order')
-    .order('name');
-
-  if (error) throw error;
-  return data.map(g => g.name);
+  const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
+  const resp = await fetch(`${baseUrl}/schedule.json`);
+  const data = await resp.json();
+  delete data._settings;
+  return Object.keys(data);
 }
 
 module.exports = async function handler(req, res) {

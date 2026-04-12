@@ -1,4 +1,4 @@
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,21 +25,12 @@ module.exports = async function handler(req, res) {
 
     // Remove from old group if provided
     if (old_group) {
-      await supabase
-        .from('tg_subscribers')
-        .delete()
-        .eq('chat_id', String(chat_id))
-        .eq('group_name', old_group);
+      await redis('SREM', `tg_subs:${old_group}`, String(chat_id));
     }
 
     // Add to new group
     if (group) {
-      await supabase
-        .from('tg_subscribers')
-        .upsert({
-          chat_id: String(chat_id),
-          group_name: group
-        }, { onConflict: 'chat_id,group_name' });
+      await redis('SADD', `tg_subs:${group}`, String(chat_id));
     }
 
     return res.json({ ok: true });

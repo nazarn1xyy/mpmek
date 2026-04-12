@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    // ===== Migration: clear stale push subscription key to force re-subscribe to new backend =====
+    localStorage.removeItem('lastPushSub');
+
     // ===== State =====
     let scheduleData = null;
     let selectedGroup = localStorage.getItem('selectedGroup');
@@ -277,7 +280,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Fetch schedule data =====
     async function refreshSchedule(silent) {
         try {
-            const resp = await fetch('/api/schedule?format=all&t=' + Date.now());
+            const resp = await fetch('schedule.json?t=' + Date.now());
             const data = await resp.json();
             if (data._settings) {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
@@ -1010,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v29';
+        const DEPLOY_VERSION = 'rozklad-v31';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

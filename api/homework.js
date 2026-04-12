@@ -1,4 +1,4 @@
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,26 +12,22 @@ module.exports = async function handler(req, res) {
       const { group } = req.query;
       if (!group) return res.status(400).json({ error: 'group is required' });
 
-      // Get group ID
-      const { data: groupRow } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('name', group)
-        .single();
+      const raw = await redis('HGETALL', `hw:${group}`);
+      if (!raw) return res.json({});
 
-      if (!groupRow) return res.json({});
-
-      const { data: rows, error } = await supabase
-        .from('homework')
-        .select('day, number, text')
-        .eq('group_id', groupRow.id);
-
-      if (error) throw error;
-
-      // Convert to the format app.js expects: { "group|day|number": "text" }
+      // Upstash returns object { field: value } or flat array [field, value, ...]
       const result = {};
-      for (const row of rows) {
-        result[`${group}|${row.day}|${row.number}`] = row.text;
+      if (Array.isArray(raw)) {
+        for (let i = 0; i < raw.length; i += 2) {
+          const field = raw[i]; // "Понеділок:1"
+          const [day, num] = field.split(':');
+          result[`${group}|${day}|${num}`] = raw[i + 1];
+        }
+      } else if (typeof raw === 'object') {
+        for (const [field, value] of Object.entries(raw)) {
+          const [day, num] = field.split(':');
+          result[`${group}|${day}|${num}`] = value;
+        }
       }
       return res.json(result);
     }
@@ -42,30 +38,11 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'group, day, number required' });
       }
 
-      // Get group ID
-      const { data: groupRow } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('name', group)
-        .single();
-
-      if (!groupRow) return res.status(404).json({ error: 'group not found' });
-
+      const field = `${day}:${number}`;
       if (text && text.trim()) {
-        await supabase
-          .from('homework')
-          .upsert({
-            group_id: groupRow.id,
-            day,
-            number: parseInt(number),
-            text: text.trim(),
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'group_id,day,number' });
+        await redis('HSET', `hw:${group}`, field, text.trim());
       } else {
-        await supabase
-          .from('homework')
-          .delete()
-          .match({ group_id: groupRow.id, day, number: parseInt(number) });
+        await redis('HDEL', `hw:${group}`, field);
       }
       return res.json({ ok: true });
     }
@@ -76,19 +53,8 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'group, day, number required' });
       }
 
-      const { data: groupRow } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('name', group)
-        .single();
-
-      if (!groupRow) return res.json({ ok: true });
-
-      await supabase
-        .from('homework')
-        .delete()
-        .match({ group_id: groupRow.id, day, number: parseInt(number) });
-
+      const field = `${day}:${number}`;
+      await redis('HDEL', `hw:${group}`, field);
       return res.json({ ok: true });
     }
 

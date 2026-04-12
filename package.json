@@ -2,7 +2,6 @@
   "private": true,
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
-    "@supabase/supabase-js": "^2.103.0",
     "web-push": "^3.6.7"
   }
 }

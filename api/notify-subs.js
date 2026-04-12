@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,6 +19,7 @@ module.exports = async function handler(req, res) {
     );
 
     const { substitutions } = req.body;
+    // substitutions = [{ group, date, number, subject, teacher }, ...]
     if (!substitutions || !Array.isArray(substitutions) || substitutions.length === 0) {
       return res.status(200).json({ ok: true, sent: 0, message: 'No substitutions to notify' });
     }
@@ -30,14 +31,17 @@ module.exports = async function handler(req, res) {
       byGroup[sub.group].push(sub);
     }
 
-    // Get all push subscriptions from Supabase
-    const { data: entries, error } = await supabase
-      .from('push_subscriptions')
-      .select('id, endpoint, keys, group_name');
-
-    if (error) throw error;
-    if (!entries || entries.length === 0) {
+    // Get all subscriptions
+    const raw = await redis('HGETALL', 'push-subs');
+    if (!raw || raw.length === 0) {
       return res.status(200).json({ ok: true, sent: 0, message: 'No subscriptions found' });
+    }
+
+    const entries = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      try {
+        entries.push({ id: raw[i], ...JSON.parse(raw[i + 1]) });
+      } catch {}
     }
 
     let sent = 0;
@@ -45,19 +49,16 @@ module.exports = async function handler(req, res) {
 
     for (const entry of entries) {
       try {
-        const groupSubs = byGroup[entry.group_name];
+        const { subscription, group } = entry;
+        const groupSubs = byGroup[group];
         if (!groupSubs || groupSubs.length === 0) continue;
 
-        const subscription = {
-          endpoint: entry.endpoint,
-          keys: entry.keys
-        };
-
+        // Build notification body
         const lines = groupSubs.map(s => `${s.date} — ${s.number} пара: ${s.subject}`);
         const body = lines.join('\n');
 
         const payload = JSON.stringify({
-          title: `⚡ Заміна пар — ${entry.group_name}`,
+          title: `⚡ Заміна пар — ${group}`,
           body,
           url: '/?view=today'
         });
@@ -67,7 +68,7 @@ module.exports = async function handler(req, res) {
       } catch (err) {
         errors.push({ id: entry.id, error: err.message, statusCode: err.statusCode });
         if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabase.from('push_subscriptions').delete().eq('id', entry.id);
+          await redis('HDEL', 'push-subs', entry.id);
         }
       }
     }

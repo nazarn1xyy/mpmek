@@ -2,28 +2,26 @@ const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 const fs = require('fs');
 
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 
-async function fetchHomework(groupId) {
+async function fetchHomeworkFromRedis(group) {
   try {
-    const { data, error } = await supabase
-      .from('homework')
-      .select('day, number, text')
-      .eq('group_id', groupId);
-    if (error || !data) return {};
-    const result = {};
-    for (const row of data) {
-      result[`${row.day}:${row.number}`] = row.text;
+    const raw = await redis('HGETALL', `hw:${group}`);
+    if (!raw) return {};
+    if (Array.isArray(raw)) {
+      const result = {};
+      for (let i = 0; i < raw.length; i += 2) result[raw[i]] = raw[i + 1];
+      return result;
     }
-    return result;
+    if (typeof raw === 'object') return raw;
+    return {};
   } catch (e) {
-    console.error('Homework fetch error:', e);
+    console.error('Redis HW error:', e);
     return {};
   }
 }
-
 const LESSON_TIMES = { 1: '08:30 - 09:50', 2: '10:00 - 11:20', 3: '11:50 - 13:10', 4: '13:20 - 14:40', 5: '14:50 - 16:10', 6: '16:20 - 17:40' };
 const FONT = 'SF Pro Display';
 const FONT_BOLD = 'SF Pro Display Bold';
@@ -40,6 +38,7 @@ async function ensureFont() {
   if (fs.existsSync(bold)) {
     GlobalFonts.registerFromPath(bold, 'SF Pro Display Bold');
   }
+  // Fallback to Inter if SF Pro not found
   if (!fs.existsSync(regular)) {
     try {
       const resp = await fetch('https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf');
@@ -51,51 +50,17 @@ async function ensureFont() {
   fontLoaded = true;
 }
 
-async function fetchScheduleFromDB(group) {
-  // Get group
-  const { data: groupRow, error: groupErr } = await supabase
-    .from('groups')
-    .select('id')
-    .eq('name', group)
-    .single();
-  if (groupErr || !groupRow) return null;
-
-  const groupId = groupRow.id;
-
-  // Get schedules
-  const { data: schedules } = await supabase
-    .from('schedules')
-    .select('week_type, day, number, subject, teacher')
-    .eq('group_id', groupId)
-    .order('number');
-
-  // Get substitutions
-  const { data: subs } = await supabase
-    .from('substitutions')
-    .select('date, number, subject, teacher')
-    .eq('group_id', groupId);
-
-  // Build structure like schedule.json format
-  const result = {};
-  for (const row of (schedules || [])) {
-    if (!result[row.week_type]) result[row.week_type] = {};
-    if (!result[row.week_type][row.day]) result[row.week_type][row.day] = [];
-    result[row.week_type][row.day].push({
-      number: row.number,
-      subject: row.subject,
-      teacher: row.teacher
-    });
-  }
-  if (subs && subs.length > 0) {
-    result['ПІДВІСКА'] = subs.map(s => ({
-      date: s.date, number: s.number, subject: s.subject, teacher: s.teacher
-    }));
-  }
-
-  return { groupId, groupData: result };
+async function fetchSchedule() {
+  const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
+  const resp = await fetch(`${baseUrl}/schedule.json`);
+  const data = await resp.json();
+  delete data._settings;
+  return data;
 }
 
-function getPairsForDay(groupData, dayIdx, weekOffset = 0) {
+function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
+  const groupData = scheduleData[group];
+  if (!groupData) return null;
   const dayName = UK_DAYS[dayIdx];
 
   let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
@@ -141,6 +106,7 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function drawBookIcon(ctx, x, y, size, color) {
+  // Lucide "notebook-pen" icon (24x24 viewBox) scaled to size
   const s = size / 24;
   ctx.save();
   ctx.translate(x, y);
@@ -151,6 +117,7 @@ function drawBookIcon(ctx, x, y, size, color) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
+  // Notebook body
   ctx.beginPath();
   ctx.moveTo(13.4, 2);
   ctx.lineTo(6, 2); ctx.quadraticCurveTo(4, 2, 4, 4);
@@ -159,11 +126,13 @@ function drawBookIcon(ctx, x, y, size, color) {
   ctx.lineTo(20, 12.6);
   ctx.stroke();
 
+  // Binding lines
   ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(6, 6); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(2, 10); ctx.lineTo(6, 10); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(2, 14); ctx.lineTo(6, 14); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(2, 18); ctx.lineTo(6, 18); ctx.stroke();
 
+  // Pen
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(21.378, 5.626);
@@ -285,7 +254,7 @@ function renderDayImage(group, data, dark, homeworkMap = {}) {
   return canvas.toBuffer('image/png');
 }
 
-function renderWeekImage(group, groupData, dark, weekOffset = 0, homeworkMap = {}) {
+function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap = {}) {
   const W = 600, padX = 32, baseCardH = 56, hwExtraH = 16, cardGap = 8, dayHeaderH = 44, topH = 80, footerH = 50;
   const today = new Date();
   const todayIdx = weekOffset === 0 ? today.getDay() : -1;
@@ -294,7 +263,7 @@ function renderWeekImage(group, groupData, dark, weekOffset = 0, homeworkMap = {
   let totalCards = 0, daysWithData = 0;
 
   for (let idx = 1; idx <= 5; idx++) {
-    const data = getPairsForDay(groupData, idx, weekOffset);
+    const data = getPairsForDay(scheduleData, group, idx, weekOffset);
     if (data && data.pairs.length > 0) {
       weekData.push({ ...data, idx });
       totalCards += data.pairs.length;
@@ -431,23 +400,22 @@ module.exports = async function handler(req, res) {
     const { group, day, theme, weekOffset: wo } = req.query;
     if (!group) return res.status(400).json({ error: 'group is required' });
 
-    const result = await fetchScheduleFromDB(group);
-    if (!result) return res.status(404).json({ error: 'group not found' });
+    const scheduleData = await fetchSchedule();
+    if (!scheduleData[group]) return res.status(404).json({ error: 'group not found' });
 
-    const { groupId, groupData } = result;
     const dark = theme === 'dark';
     const weekOffset = parseInt(wo) || 0;
 
-    const homeworkMap = await fetchHomework(groupId);
+    const homeworkMap = await fetchHomeworkFromRedis(group);
 
     let buf;
 
     if (day === 'week') {
-      buf = renderWeekImage(group, groupData, dark, weekOffset, homeworkMap);
+      buf = renderWeekImage(group, scheduleData, dark, weekOffset, homeworkMap);
       if (!buf) return res.status(404).json({ error: 'no schedule for this week' });
     } else {
       const dayIdx = parseInt(day) || new Date().getDay();
-      const data = getPairsForDay(groupData, dayIdx, weekOffset);
+      const data = getPairsForDay(scheduleData, group, dayIdx, weekOffset);
       if (!data) return res.status(404).json({ error: 'no schedule for this day' });
       buf = renderDayImage(group, data, dark, homeworkMap);
     }

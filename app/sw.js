@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v30';
+const CACHE_NAME = 'rozklad-v31';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -51,7 +51,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const url = new URL(event.request.url);
   const isJSON = url.pathname.endsWith('.json');
 
   if (isJSON) {
@@ -69,12 +68,14 @@ self.addEventListener('fetch', event => {
     );
   } else {
     // Stale-while-revalidate for static assets (CSS, JS, HTML, images)
+    // Strip query params so cache-busted requests (e.g. app.js?v=31) match pre-cached app.js
+    const cacheKey = new Request(url.origin + url.pathname);
     event.respondWith(
-      caches.match(event.request).then(cached => {
+      caches.match(cacheKey).then(cached => {
         const fetchPromise = fetch(event.request).then(networkResponse => {
           if (networkResponse && networkResponse.status === 200) {
             const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
           }
           return networkResponse;
         }).catch(() => cached);
@@ -141,15 +142,15 @@ async function showCachedScheduleNotification() {
 
     const times = lessonTimes || TIMES;
 
-    // Read schedule data from API cache
+    // Read schedule data from cache
     let scheduleData;
-    const apiUrl = new URL('/api/schedule', self.registration.scope).href;
-    const schedResp = await caches.match(new Request(apiUrl));
+    const schedUrl = new URL('/schedule.json', self.registration.scope).href;
+    const schedResp = await caches.match(new Request(schedUrl));
     if (schedResp) {
       scheduleData = await schedResp.clone().json();
     } else {
       try {
-        const r = await fetch(apiUrl + '?format=all');
+        const r = await fetch(schedUrl);
         scheduleData = await r.json();
       } catch { return; }
     }

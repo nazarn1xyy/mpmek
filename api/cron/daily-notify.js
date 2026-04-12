@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { supabase } = require('../_lib/supabase');
+const { redis } = require('../_lib/redis');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
@@ -25,71 +25,38 @@ module.exports = async function handler(req, res) {
     }
 
     const dayName = UK_DAYS[dayIdx];
+
+    // Fetch schedule data from the same deployment
+    const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
+    const schedResp = await fetch(`${baseUrl}/schedule.json`);
+    if (!schedResp.ok) {
+      return res.status(500).json({ error: 'Failed to fetch schedule' });
+    }
+
+    const scheduleData = await schedResp.json();
+    const lessonTimes = { ...DEFAULT_TIMES };
+    if (scheduleData._settings && scheduleData._settings.lessonTimes) {
+      Object.assign(lessonTimes, scheduleData._settings.lessonTimes);
+    }
+    delete scheduleData._settings;
+
+    // Compute today's date string DD.MM for substitution matching
     const dateStr =
       String(today.getDate()).padStart(2, '0') + '.' +
       String(today.getMonth() + 1).padStart(2, '0');
 
-    // Get lesson times from settings
-    const lessonTimes = { ...DEFAULT_TIMES };
-    const { data: timesRow } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'lessonTimes')
-      .single();
-    if (timesRow) Object.assign(lessonTimes, timesRow.value);
-
-    // Get all push subscriptions
-    const { data: entries, error } = await supabase
-      .from('push_subscriptions')
-      .select('id, endpoint, keys, group_name');
-
-    if (error) throw error;
-    if (!entries || entries.length === 0) {
+    // Get all subscriptions from Redis
+    const raw = await redis('HGETALL', 'push-subs');
+    if (!raw || raw.length === 0) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    // Get unique groups from subscriptions
-    const uniqueGroups = [...new Set(entries.map(e => e.group_name))];
-
-    // Fetch schedule data for all needed groups
-    const groupSchedules = {};
-    for (const groupName of uniqueGroups) {
-      const { data: groupRow } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('name', groupName)
-        .single();
-      if (!groupRow) continue;
-
-      const groupId = groupRow.id;
-
-      // Get today's schedule
-      const { data: schedRows } = await supabase
-        .from('schedules')
-        .select('number, subject, teacher')
-        .eq('group_id', groupId)
-        .eq('day', dayName)
-        .order('number');
-
-      // Get substitutions for today
-      const { data: subsRows } = await supabase
-        .from('substitutions')
-        .select('number, subject, teacher')
-        .eq('group_id', groupId)
-        .eq('date', dateStr);
-
-      if (!schedRows || schedRows.length === 0) continue;
-
-      let pairs = [...schedRows];
-      if (subsRows && subsRows.length > 0) {
-        subsRows.forEach(sub => {
-          pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
-          pairs.push({ ...sub, isSubstitution: true });
-        });
-      }
-      pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
-
-      groupSchedules[groupName] = pairs;
+    // Parse HGETALL alternating [key, value, key, value, ...]
+    const entries = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      try {
+        entries.push({ id: raw[i], ...JSON.parse(raw[i + 1]) });
+      } catch { /* skip malformed */ }
     }
 
     let sent = 0;
@@ -98,13 +65,31 @@ module.exports = async function handler(req, res) {
 
     for (const entry of entries) {
       try {
-        const pairs = groupSchedules[entry.group_name];
-        if (!pairs || pairs.length === 0) continue;
+        const { id, subscription, group } = entry;
+        const groupData = scheduleData[group];
+        if (!groupData) continue;
 
-        const subscription = {
-          endpoint: entry.endpoint,
-          keys: entry.keys
-        };
+        // Find week schedule data
+        let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
+        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+          const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+          if (types.length === 0) continue;
+          weekData = groupData[types[0]];
+        }
+
+        if (!weekData || !weekData[dayName] || weekData[dayName].length === 0) continue;
+
+        // Build pairs with substitutions
+        let pairs = [...weekData[dayName]];
+        const subs = groupData['ПІДВІСКА'] || [];
+        const subsForDate = subs.filter(s => s.date === dateStr);
+        subsForDate.forEach(sub => {
+          pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+          pairs.push({ ...sub, isSubstitution: true });
+        });
+
+        if (pairs.length === 0) continue;
+        pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
         const lines = pairs.map(p => {
           const t = lessonTimes[p.number] || '';
@@ -129,11 +114,8 @@ module.exports = async function handler(req, res) {
     }
 
     // Clean up expired subscriptions
-    if (toDelete.length > 0) {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .in('id', toDelete);
+    for (const id of toDelete) {
+      await redis('HDEL', 'push-subs', id);
     }
 
     return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length });

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { supabase } = require('./_lib/supabase');
+const { redis } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,17 +18,11 @@ module.exports = async function handler(req, res) {
       .digest('hex')
       .slice(0, 16);
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        id,
-        endpoint: subscription.endpoint,
-        keys: subscription.keys,
-        group_name: group,
-        notify_time: notifyTime || '08:00'
-      }, { onConflict: 'id' });
-
-    if (error) throw error;
+    await redis('HSET', 'push-subs', id, JSON.stringify({
+      subscription,
+      group,
+      notifyTime: notifyTime || '08:00'
+    }));
 
     return res.status(200).json({ ok: true, id });
   } catch (error) {
