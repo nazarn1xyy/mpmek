@@ -102,7 +102,7 @@ module.exports = async function handler(req, res) {
         const payload = JSON.stringify({
           title: `📚 Сьогодні — ${dayName}`,
           body: lines.join('\n'),
-          url: '/?view=today'
+          url: `/?view=day&date=${dateStr}`
         });
 
         await webpush.sendNotification(subscription, payload);

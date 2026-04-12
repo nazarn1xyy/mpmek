@@ -89,18 +89,19 @@ self.addEventListener('fetch', event => {
 // ===== Notification click — open/focus the app and show today =====
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const notifUrl = (event.notification.data && event.notification.data.url) || '?view=today';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
         if (client.url.includes(self.registration.scope) || client.url.includes('/index.html')) {
           return client.focus().then(c => {
-            c.postMessage({ type: 'SHOW_TODAY' });
+            c.postMessage({ type: 'SHOW_DAY', url: notifUrl });
             return c;
           });
         }
       }
-      return clients.openWindow(self.registration.scope + '?view=today');
+      return clients.openWindow(self.registration.scope + notifUrl);
     })
   );
 });
@@ -122,7 +123,7 @@ self.addEventListener('push', event => {
     icon: './icon.png',
     badge: './icon.png',
     tag: 'daily-schedule',
-    data: { url: '?view=today' }
+    data: { url: data.url || '?view=today' }
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -210,7 +211,7 @@ async function showCachedScheduleNotification() {
       icon: './icon.png',
       badge: './icon.png',
       tag: 'daily-schedule',
-      data: { url: '?view=today' },
+      data: { url: `?view=day&date=${dateStr}` },
       renotify: true
     });
   } catch (e) {

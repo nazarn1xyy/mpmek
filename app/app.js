@@ -1010,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 icon: './icon.png',
                 badge: './icon.png',
                 tag: 'daily-schedule',
-                data: { url: '?view=today' },
+                data: { url: `?view=day&date=${String(new Date().getDate()).padStart(2,'0')}.${String(new Date().getMonth()+1).padStart(2,'0')}` },
                 renotify: true
             });
             localStorage.setItem('lastNotifDate', today);
@@ -1026,11 +1026,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function scrollToToday() {
+    function scrollToDay(dateStr) {
         showScreen('schedule');
         navItems.forEach(n => n.classList.remove('active'));
         navItems[0].classList.add('active');
+
+        if (dateStr && /^\d{2}\.\d{2}$/.test(dateStr)) {
+            const [dd, mm] = dateStr.split('.').map(Number);
+            const today = new Date();
+            const targetDate = new Date(today.getFullYear(), mm - 1, dd);
+            // Handle year boundary (e.g., notification from Dec, opened in Jan)
+            const diff = targetDate - today;
+            if (diff < -180 * 24 * 3600 * 1000) targetDate.setFullYear(today.getFullYear() + 1);
+            if (diff > 180 * 24 * 3600 * 1000) targetDate.setFullYear(today.getFullYear() - 1);
+
+            // Compute weekOffset: difference in ISO weeks
+            const todayDow = today.getDay() || 7;
+            const todayMon = new Date(today); todayMon.setDate(today.getDate() - todayDow + 1); todayMon.setHours(0,0,0,0);
+            const targetDow = targetDate.getDay() || 7;
+            const targetMon = new Date(targetDate); targetMon.setDate(targetDate.getDate() - targetDow + 1); targetMon.setHours(0,0,0,0);
+            weekOffset = Math.round((targetMon - todayMon) / (7 * 24 * 3600 * 1000));
+            renderSchedule();
+        }
+
         requestAnimationFrame(() => {
+            // Try to scroll to the day matching dateStr
+            if (dateStr) {
+                const dayEls = document.querySelectorAll('.diary-day');
+                for (const el of dayEls) {
+                    const badge = el.querySelector('.date-badge');
+                    if (badge && badge.textContent === dateStr) {
+                        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+                        return;
+                    }
+                }
+            }
+            // Fallback: scroll to today marker
             const marker = document.getElementById('today-marker');
             if (marker) {
                 setTimeout(() => marker.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
@@ -1040,15 +1071,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Listen for SW postMessage (notification click while app is open)
     navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data && event.data.type === 'SHOW_TODAY') {
-            scrollToToday();
+        if (event.data && (event.data.type === 'SHOW_TODAY' || event.data.type === 'SHOW_DAY')) {
+            const params = new URLSearchParams((event.data.url || '').split('?')[1] || '');
+            scrollToDay(params.get('date'));
         }
     });
 
-    // Handle ?view=today from notification click (app was closed)
+    // Handle ?view=day&date=DD.MM or ?view=today from notification click (app was closed)
     const urlParams = new URLSearchParams(window.location.search);
-    const viewToday = urlParams.get('view') === 'today';
-    if (viewToday) {
+    const viewParam = urlParams.get('view');
+    const dateParam = urlParams.get('date');
+    if (viewParam) {
         window.history.replaceState({}, '', window.location.pathname);
     }
 
@@ -1069,9 +1102,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         showDailyNotification();
         // Show notification prompt banner if permission not yet granted
         showNotifPrompt();
-        // If opened from notification, scroll to today
-        if (viewToday) {
-            scrollToToday();
+        // If opened from notification, scroll to target day
+        if (viewParam) {
+            scrollToDay(dateParam);
         }
 
         // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
