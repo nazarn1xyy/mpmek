@@ -278,19 +278,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== Fetch schedule data =====
+    let _lastFetchTime = 0;
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
     async function refreshSchedule(silent) {
+        const now = Date.now();
+        // If data already loaded and less than 5 min old, just re-render
+        if (scheduleData && (now - _lastFetchTime < REFRESH_INTERVAL)) {
+            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                renderSchedule();
+            }
+            return;
+        }
         try {
-            const resp = await fetch('schedule.json?t=' + Date.now());
+            const resp = await fetch('schedule.json');
             const data = await resp.json();
             if (data._settings) {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
                 delete data._settings;
             }
             scheduleData = data;
+            _lastFetchTime = Date.now();
             if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
                 renderSchedule();
             }
         } catch (e) {
+            // If network failed but we have cached data, just re-render
+            if (scheduleData && silent) {
+                if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                    renderSchedule();
+                }
+                return;
+            }
             if (!silent) throw e;
         }
     }
@@ -597,7 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekNav.querySelectorAll('.week-nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 weekOffset += parseInt(btn.dataset.dir);
-                refreshSchedule(true);
+                renderSchedule();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
@@ -606,7 +625,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekNav.querySelector('.week-nav-center').addEventListener('click', () => {
             if (weekOffset !== 0) {
                 weekOffset = 0;
-                refreshSchedule(true);
+                renderSchedule();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
