@@ -232,7 +232,8 @@ function renderDayImage(group, data, dark, homeworkMap = {}) {
     ctx.font = `13px ${FONT}`;
     const time = LESSON_TIMES[pair.number] || '';
     const teacher = pair.teacher || '';
-    const meta = [time, teacher].filter(Boolean).join('  ·  ');
+    const room = pair.room ? `ауд. ${pair.room}` : '';
+    const meta = [time, teacher, room].filter(Boolean).join('  ·  ');
     ctx.fillText(truncText(ctx, meta, W - padX * 2 - 80), padX + 56, y + 52);
 
     if (hwText) {
@@ -370,7 +371,8 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap 
       ctx.font = `11px ${FONT}`;
       const time = LESSON_TIMES[pair.number] || '';
       const teacher = pair.teacher || '';
-      const meta = [time, teacher].filter(Boolean).join('  ·  ');
+      const room = pair.room ? `ауд. ${pair.room}` : '';
+      const meta = [time, teacher, room].filter(Boolean).join('  ·  ');
       ctx.fillText(truncText(ctx, meta, W - padX * 2 - 70), padX + 46, y + 40);
 
       if (hwText) {
