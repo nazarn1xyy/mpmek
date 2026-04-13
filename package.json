@@ -2,6 +2,7 @@
   "private": true,
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
+    "@vercel/analytics": "^2.0.1",
     "web-push": "^3.6.7"
   }
 }
