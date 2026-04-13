@@ -340,6 +340,15 @@ input[type="text"]:focus {
     font-size: 0.9rem;
     color: #666;
 }
+.diary-item-room {
+    display: inline-block;
+    background: #e8f0fe;
+    color: #1a73e8;
+    padding: 1px 7px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
 
 .homework-btn {
     align-self: flex-start;

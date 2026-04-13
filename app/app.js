@@ -442,7 +442,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const btnLabel = savedText ? 'Редагувати' : 'Додати завдання';
         const btnIcon = savedText ? SVG_EDIT : SVG_PLUS;
-        const teacherHtml = pair.teacher ? `<div class="diary-item-teacher">${pair.teacher}</div>` : '';
+        const roomHtml = pair.room ? `<span class="diary-item-room">ауд. ${pair.room}</span>` : '';
+        const teacherHtml = (pair.teacher || pair.room) ? `<div class="diary-item-teacher">${pair.teacher || ''}${pair.teacher && pair.room ? ' · ' : ''}${roomHtml}</div>` : '';
         const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
 
         let statusBadge = '';
