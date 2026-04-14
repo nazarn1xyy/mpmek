@@ -1257,14 +1257,12 @@ input:checked + .slider:before {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0 2rem;
+        align-items: start;
+        contain: none;
     }
 
     .week-nav,
     .notif-prompt {
         grid-column: 1 / -1;
-    }
-
-    .diary-day {
-        break-inside: auto;
     }
 }
