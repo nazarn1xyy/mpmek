@@ -1256,9 +1256,14 @@ input:checked + .slider:before {
         max-width: 1100px;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0 2rem;
+        column-gap: 2rem;
+        row-gap: 0;
         align-items: start;
         contain: none;
+    }
+
+    .diary-day {
+        align-self: start;
     }
 
     .week-nav,
