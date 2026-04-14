@@ -1253,16 +1253,18 @@ input:checked + .slider:before {
 /* ===== Wide Desktop (≥1100px) ===== */
 @media (min-width: 1100px) {
     .diary-container {
-        max-width: 1000px;
-        column-count: 2;
-        column-gap: 2rem;
+        max-width: 1100px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 2rem;
     }
 
-    .week-nav {
-        column-span: all;
-    }
-
+    .week-nav,
     .notif-prompt {
-        column-span: all;
+        grid-column: 1 / -1;
+    }
+
+    .diary-day {
+        break-inside: auto;
     }
 }
