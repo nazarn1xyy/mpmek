@@ -1238,6 +1238,12 @@ input:checked + .slider:before {
         display: none;
     }
 
+    /* ── Hide install overlay on desktop ── */
+    .install-overlay,
+    .install-overlay:target {
+        display: none !important;
+    }
+
     /* ── Diary items grid-friendly ── */
     .diary-day {
         break-inside: avoid;
