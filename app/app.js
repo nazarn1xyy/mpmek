@@ -74,7 +74,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     syncHomeworkToServer(parts[0], parts[1], parts[2], localHw[key]);
                 }
             }
-            if (changed) setHomework(merged);
+            if (changed) {
+                setHomework(merged);
+                renderSchedule();
+            }
         } catch (e) { console.warn('HW sync fetch failed:', e); }
     }
 
@@ -316,7 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Refresh data when user returns to the app / tab
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && selectedGroup) refreshSchedule(true);
+        if (!document.hidden && selectedGroup) {
+            refreshSchedule(true);
+            syncHomeworkFromServer().catch(() => {});
+        }
     });
 
     // ===== Load Data =====
