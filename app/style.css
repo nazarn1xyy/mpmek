@@ -1448,11 +1448,53 @@ input:checked + .slider:before {
 }
 
 /* ===== Grid Schedule View ===== */
+.grid-week-nav {
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+    background: var(--bg-color);
+    padding: .6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+}
+.grid-week-nav .week-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.grid-week-nav .week-nav-btn:active { background: var(--border-color); }
+.grid-week-nav .week-nav-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 10px;
+}
+.grid-week-nav .week-nav-label {
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--text-color);
+}
+.grid-week-nav .week-nav-dates {
+    font-size: .75rem;
+    color: var(--secondary-text);
+    opacity: .7;
+}
 .grid-schedule {
     display: grid;
-    grid-template-columns: 48px repeat(5, 1fr);
-    gap: 2px;
-    padding: 0 .5rem 1.5rem;
+    grid-template-columns: 44px repeat(5, 1fr);
+    gap: 3px;
+    padding: .5rem .4rem 2rem;
     font-size: .75rem;
 }
 .grid-header {
@@ -1461,17 +1503,16 @@ input:checked + .slider:before {
 .grid-header .grid-time-col,
 .grid-header .grid-day-col {
     position: sticky;
-    top: 0;
-    z-index: 2;
+    top: 110px;
+    z-index: 5;
     background: var(--bg-color);
-    padding: .5rem 0;
+    padding: .4rem 0 .5rem;
 }
 .grid-day-col {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    padding: .5rem .25rem;
 }
 .grid-day-name {
     font-weight: 700;
@@ -1481,16 +1522,20 @@ input:checked + .slider:before {
 .grid-day-date {
     font-size: .7rem;
     color: #888;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
 }
 .grid-today .grid-day-name {
     color: var(--accent-color);
 }
 .grid-today .grid-day-date {
     background: var(--accent-color);
-    color: var(--bg-color);
-    border-radius: 10px;
-    padding: 1px 6px;
-    font-weight: 600;
+    color: #fff;
+    font-weight: 700;
 }
 .grid-row {
     display: contents;
@@ -1509,19 +1554,18 @@ input:checked + .slider:before {
     color: var(--text-color);
 }
 .grid-pair-time {
-    font-size: .6rem;
+    font-size: .55rem;
     color: #999;
 }
 .grid-cell {
-    min-height: 60px;
-    border-radius: 8px;
+    min-height: 64px;
+    border-radius: 10px;
     background: var(--surface-color);
-    padding: 4px 5px;
+    padding: 5px 6px;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     overflow: hidden;
-    transition: background .2s;
 }
 .grid-filled {
     background: var(--surface-color);
@@ -1529,7 +1573,7 @@ input:checked + .slider:before {
 .grid-subject {
     font-weight: 600;
     font-size: .72rem;
-    line-height: 1.2;
+    line-height: 1.25;
     color: var(--text-color);
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1549,14 +1593,14 @@ input:checked + .slider:before {
     color: #aaa;
 }
 .grid-sub {
-    background: rgba(255, 149, 0, .12);
+    background: rgba(255, 149, 0, .1);
     border-left: 3px solid #ff9500;
 }
 .grid-today-cell {
-    background: rgba(0, 122, 255, .06);
+    background: rgba(0, 122, 255, .05);
 }
 .grid-now {
-    background: rgba(52, 199, 89, .12);
+    background: rgba(52, 199, 89, .1);
     border-left: 3px solid #34c759;
 }
 [data-theme="dark"] .grid-sub { background: rgba(255, 149, 0, .15); }

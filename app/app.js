@@ -1002,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mondayDate = weekDates['Понеділок'];
         const fridayDate = weekDates["П'ятниця"];
         const weekLabel = weekOffset === 0 ? 'Поточний тиждень' : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
-        html += `<div class="week-nav">
+        html += `<div class="grid-week-nav">
             <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg></button>
             <div class="week-nav-center"><span class="week-nav-label">${weekLabel}</span><span class="week-nav-dates">${mondayDate} — ${fridayDate}</span></div>
             <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg></button>
