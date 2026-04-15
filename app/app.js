@@ -1223,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
             }
-            await fetch('/api/subscribe', {
+            await fetch('/api/push?action=subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1243,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const reg = await navigator.serviceWorker.ready;
             const subscription = await reg.pushManager.getSubscription();
             if (subscription) {
-                await fetch('/api/unsubscribe', {
+                await fetch('/api/push?action=unsubscribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ endpoint: subscription.endpoint })
