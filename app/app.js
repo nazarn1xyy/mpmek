@@ -169,6 +169,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const logoutRow = document.getElementById('logoutRow');
     const logoutBtn = document.getElementById('logoutBtn');
 
+    const viewToggleBtn = document.getElementById('viewToggleBtn');
+    const viewToggleIcon = document.getElementById('viewToggleIcon');
+    let gridView = localStorage.getItem('gridView') === '1';
+
     let modalCurrentKey = null;
     let authToken = localStorage.getItem('authToken') || null;
     let currentUser = null; // { username, displayName, group }
@@ -531,11 +535,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function refreshSchedule(silent) {
         const now = Date.now();
+        function rerender() {
+            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                if (typeof renderCurrentView === 'function') renderCurrentView(); else renderSchedule();
+            }
+        }
         // If data already loaded and less than 5 min old, just re-render
         if (scheduleData && (now - _lastFetchTime < REFRESH_INTERVAL)) {
-            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                renderSchedule();
-            }
+            rerender();
             return;
         }
         try {
@@ -548,15 +555,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             scheduleData = data;
             _lastFetchTime = Date.now();
-            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                renderSchedule();
-            }
+            rerender();
         } catch (e) {
             // If network failed but we have cached data, just re-render
             if (scheduleData && silent) {
-                if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                    renderSchedule();
-                }
+                rerender();
                 return;
             }
             if (!silent) throw e;
@@ -961,6 +964,140 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     }
+
+    // ===== Grid View =====
+    function renderGridView() {
+        if (!scheduleData || !selectedGroup) return;
+        const groupData = scheduleData[selectedGroup];
+        if (!groupData) return;
+
+        const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+        const currentWeekType = weekTypes.length === 1 ? weekTypes[0] : (weekTypeToggle.textContent || weekTypes[0]);
+        const weekData = groupData[currentWeekType] || {};
+
+        const kyivNow = getKyivNow();
+        const currentDayOfWeek = kyivNow.dayOfWeek || 7;
+        const todayLabel = ukDays[kyivNow.dayOfWeek];
+        const today = new Date(kyivNow.year, kyivNow.month - 1, kyivNow.day);
+
+        const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
+        const dayShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
+
+        const weekDates = {};
+        for (let i = 0; i < daysOrder.length; i++) {
+            const offset = (i + 1) - currentDayOfWeek + (weekOffset * 7);
+            const d = new Date(today);
+            d.setDate(today.getDate() + offset);
+            weekDates[daysOrder[i]] = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+        }
+
+        const substitutionsList = groupData['ПІДВІСКА'] || [];
+        const maxPairs = 6;
+        const nowMin = kyivNow.totalMinutes;
+
+        // Build grid HTML
+        let html = '';
+
+        // Week navigator (same as list view)
+        const mondayDate = weekDates['Понеділок'];
+        const fridayDate = weekDates["П'ятниця"];
+        const weekLabel = weekOffset === 0 ? 'Поточний тиждень' : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
+        html += `<div class="week-nav">
+            <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <div class="week-nav-center"><span class="week-nav-label">${weekLabel}</span><span class="week-nav-dates">${mondayDate} — ${fridayDate}</span></div>
+            <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>`;
+
+        html += '<div class="grid-schedule">';
+        // Header row
+        html += '<div class="grid-header"><div class="grid-time-col"></div>';
+        for (let i = 0; i < daysOrder.length; i++) {
+            const isToday = weekOffset === 0 && daysOrder[i] === todayLabel;
+            html += `<div class="grid-day-col${isToday ? ' grid-today' : ''}"><span class="grid-day-name">${dayShort[i]}</span><span class="grid-day-date">${weekDates[daysOrder[i]].split('.')[0]}</span></div>`;
+        }
+        html += '</div>';
+
+        // Time rows
+        for (let p = 1; p <= maxPairs; p++) {
+            const timeStr = LESSON_TIMES[p] || '';
+            const startTime = timeStr ? timeStr.split(' - ')[0] : '';
+            html += '<div class="grid-row">';
+            html += `<div class="grid-time-col"><span class="grid-pair-num">${p}</span><span class="grid-pair-time">${startTime}</span></div>`;
+
+            for (let d = 0; d < daysOrder.length; d++) {
+                const day = daysOrder[d];
+                const dateStr = weekDates[day];
+                let pairs = weekData[day] ? [...weekData[day]] : [];
+
+                const subsForDate = substitutionsList.filter(s => s.date === dateStr);
+                subsForDate.forEach(sub => {
+                    pairs = pairs.filter(pr => parseInt(pr.number) !== parseInt(sub.number));
+                    pairs.push({ ...sub, isSubstitution: true });
+                });
+
+                const pair = pairs.find(pr => parseInt(pr.number) === p);
+                const isToday = weekOffset === 0 && day === todayLabel;
+
+                if (pair) {
+                    let cellClass = 'grid-cell grid-filled';
+                    if (pair.isSubstitution) cellClass += ' grid-sub';
+                    if (isToday) cellClass += ' grid-today-cell';
+
+                    if (isToday && timeStr) {
+                        const [s, e] = timeStr.split(' - ');
+                        const [sh, sm] = s.split(':').map(Number);
+                        const [eh, em] = e.split(':').map(Number);
+                        if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) cellClass += ' grid-now';
+                    }
+
+                    const subj = escHtml(pair.subject || '');
+                    const teacher = pair.teacher ? `<span class="grid-teacher">${escHtml(pair.teacher)}</span>` : '';
+                    const room = pair.room ? `<span class="grid-room">ауд. ${escHtml(pair.room)}</span>` : '';
+                    html += `<div class="${cellClass}"><span class="grid-subject">${subj}</span>${teacher}${room}</div>`;
+                } else {
+                    html += `<div class="grid-cell${isToday ? ' grid-today-cell' : ''}"></div>`;
+                }
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+
+        diaryContainer.innerHTML = html;
+
+        // Wire week nav buttons
+        diaryContainer.querySelectorAll('.week-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                weekOffset += parseInt(btn.dataset.dir);
+                renderGridView();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        const center = diaryContainer.querySelector('.week-nav-center');
+        if (center) center.addEventListener('click', () => {
+            if (weekOffset !== 0) { weekOffset = 0; renderGridView(); }
+        });
+    }
+
+    // Toggle grid/list view
+    function updateViewIcon() {
+        if (gridView) {
+            viewToggleIcon.innerHTML = '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
+        } else {
+            viewToggleIcon.innerHTML = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>';
+        }
+    }
+    updateViewIcon();
+
+    function renderCurrentView() {
+        if (gridView) renderGridView(); else renderSchedule();
+    }
+
+    viewToggleBtn.addEventListener('click', () => {
+        gridView = !gridView;
+        localStorage.setItem('gridView', gridView ? '1' : '0');
+        updateViewIcon();
+        renderCurrentView();
+    });
 
     // ===== Render Homework Tab =====
     function renderHomeworkTab() {
@@ -1422,7 +1559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
         setInterval(() => {
             if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                renderSchedule();
+                renderCurrentView();
             }
         }, 60000);
 
