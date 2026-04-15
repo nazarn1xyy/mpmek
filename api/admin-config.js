@@ -1,12 +1,13 @@
 const { redis } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const REDIS_KEY = 'admin-config';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Pin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Pin, X-Device-Id');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -14,6 +15,19 @@ module.exports = async function handler(req, res) {
   const pin = req.headers['x-admin-pin'];
   if (pin !== ADMIN_PIN) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Device check — admin panel only accessible from trusted devices
+  const deviceId = req.headers['x-device-id'];
+  if (deviceId) {
+    let trusted = false;
+    for (const uname of ADMIN_USERNAMES) {
+      const devices = await redis('SMEMBERS', `auth:admin-devices:${uname}`) || [];
+      if (devices.includes(deviceId)) { trusted = true; break; }
+    }
+    if (!trusted) return res.status(403).json({ error: 'Пристрій не авторизовано' });
+  } else {
+    return res.status(403).json({ error: 'Потрібен ID пристрою' });
   }
 
   try {

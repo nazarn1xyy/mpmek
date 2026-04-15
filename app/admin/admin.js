@@ -62,13 +62,20 @@
     }
 
     async function handlePinComplete() {
+        const deviceId = localStorage.getItem('adminDeviceId');
+        if (!deviceId) {
+            shakePin('Спершу увійдіть як адмін на сайті');
+            return;
+        }
         try {
             const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': pinCode }
+                headers: { 'X-Admin-Pin': pinCode, 'X-Device-Id': deviceId }
             });
             if (resp.ok) {
                 verifiedPin = pinCode;
                 unlockAdmin();
+            } else if (resp.status === 403) {
+                shakePin('Пристрій не авторизовано');
             } else {
                 shakePin('Невірний PIN-код');
             }

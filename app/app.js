@@ -258,7 +258,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             let data;
             if (isLoginMode) {
-                data = await authFetch('login', 'POST', { username, password });
+                const deviceId = localStorage.getItem('adminDeviceId') || undefined;
+                data = await authFetch('login', 'POST', { username, password, deviceId });
+                // Store admin device ID if returned
+                if (data.deviceId) localStorage.setItem('adminDeviceId', data.deviceId);
             } else {
                 const displayName = authDisplayName.value.trim();
                 if (!displayName) { showAuthError('Введіть ім\'я та прізвище'); authSubmit.disabled = false; return; }

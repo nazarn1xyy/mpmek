@@ -3,6 +3,18 @@ const { redis } = require('./_lib/redis');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
+// Admin usernames from env (comma-separated), e.g. "nazar,admin2"
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+
+const MAX_ADMIN_DEVICES = 2;
+
+function getUserRole(username) {
+  return ADMIN_USERNAMES.includes(username) ? 'admin' : 'user';
+}
+
 function pbkdf2(password, salt) {
   return new Promise((resolve, reject) => {
     crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, key) => {
@@ -61,6 +73,11 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Ім\'я: мінімум 2 символи' });
       }
 
+      // Block admin usernames from normal registration
+      if (ADMIN_USERNAMES.includes(username)) {
+        return res.status(403).json({ error: 'Цей логін зарезервовано' });
+      }
+
       // Check uniqueness
       const existing = await redis('GET', `auth:user:${username}`);
       if (existing) {
@@ -88,7 +105,7 @@ module.exports = async (req, res) => {
 
       return res.status(201).json({
         token,
-        user: { username, displayName, group: '' }
+        user: { username, displayName, group: '', role: getUserRole(username) }
       });
     }
 
@@ -101,14 +118,54 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Введіть логін і пароль' });
       }
 
-      const user = await getUser(username);
-      if (!user) {
-        return res.status(401).json({ error: 'Невірний логін або пароль' });
-      }
+      let user = await getUser(username);
 
-      const hash = await pbkdf2(password, user.salt);
-      if (hash !== user.passwordHash) {
-        return res.status(401).json({ error: 'Невірний логін або пароль' });
+      // Admin login: verify against env password, auto-create account if needed
+      if (ADMIN_USERNAMES.includes(username)) {
+        const envPwd = process.env.ADMIN_PASSWORD;
+        if (!envPwd || password !== envPwd) {
+          return res.status(401).json({ error: 'Невірний логін або пароль' });
+        }
+
+        // Device restriction: max N trusted devices
+        let deviceId = req.body.deviceId;
+        const devKey = `auth:admin-devices:${username}`;
+        const devices = await redis('SMEMBERS', devKey) || [];
+        if (deviceId && devices.includes(deviceId)) {
+          // Known device — OK
+        } else if (devices.length >= MAX_ADMIN_DEVICES) {
+          return res.status(403).json({ error: 'Ліміт пристроїв адміна вичерпано (' + MAX_ADMIN_DEVICES + ')' });
+        } else {
+          // New device — register it
+          deviceId = crypto.randomBytes(16).toString('hex');
+          await redis('SADD', devKey, deviceId);
+        }
+
+        // Auto-create admin account on first login
+        if (!user) {
+          const salt = crypto.randomBytes(32).toString('hex');
+          const pwHash = await pbkdf2(password, salt);
+          user = { displayName: 'Адміністратор', passwordHash: pwHash, salt, group: '', createdAt: new Date().toISOString() };
+          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+        }
+
+        // Return deviceId to client to store
+        const token = crypto.randomBytes(32).toString('hex');
+        await redis('SET', `auth:session:${token}`, username);
+        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+
+        return res.json({
+          token, deviceId,
+          user: { username, displayName: user.displayName, group: user.group || '', role: 'admin' }
+        });
+      } else {
+        if (!user) {
+          return res.status(401).json({ error: 'Невірний логін або пароль' });
+        }
+        const hash = await pbkdf2(password, user.salt);
+        if (hash !== user.passwordHash) {
+          return res.status(401).json({ error: 'Невірний логін або пароль' });
+        }
       }
 
       // Create session
@@ -118,7 +175,7 @@ module.exports = async (req, res) => {
 
       return res.json({
         token,
-        user: { username, displayName: user.displayName, group: user.group || '' }
+        user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username) }
       });
     }
 
@@ -134,7 +191,8 @@ module.exports = async (req, res) => {
         user: {
           username: session.username,
           displayName: user.displayName,
-          group: user.group || ''
+          group: user.group || '',
+          role: getUserRole(session.username)
         }
       });
     }
