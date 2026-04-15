@@ -177,10 +177,10 @@ body.ob-lock {
 }
 .ob-slider-wrap { flex: 1; overflow: hidden; }
 .ob-slider {
-    display: flex; height: 100%; width: 400%;
+    display: flex; height: 100%; width: 600%;
     transition: transform .45s cubic-bezier(.25, 1, .5, 1);
 }
-.ob-slide { width: 25%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; padding-top: 12vh; text-align: center; }
+.ob-slide { width: 16.6666%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; padding-top: 12vh; text-align: center; }
 .ob-slide-inner {
     display: flex; flex-direction: column; align-items: center;
     opacity: 0; transform: translateY(30px);

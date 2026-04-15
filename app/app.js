@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Onboarding Intro Slider =====
     function initOnboardingIntro() {
-        const SLIDES = 4;
+        const SLIDES = 6;
         let cur = 0;
         obIntro.classList.remove('hidden');
         obGroups.classList.add('hidden');
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         refreshSchedule(true).catch(() => {});
 
         function update() {
-            obSlider.style.transform = `translateX(-${cur * 25}%)`;
+            obSlider.style.transform = `translateX(-${cur * (100 / SLIDES)}%)`;
             obDots.forEach((d, i) => d.classList.toggle('active', i === cur));
             obNext.textContent = cur === SLIDES - 1 ? 'Почати' : 'Далі';
             obSkip.style.opacity = cur === SLIDES - 1 ? '0' : '1';
