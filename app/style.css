@@ -183,10 +183,7 @@ body.ob-lock {
 .ob-slide { width: 16.6666%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; padding-top: 12vh; text-align: center; }
 .ob-slide-inner {
     display: flex; flex-direction: column; align-items: center;
-    opacity: 0; transform: translateY(30px);
-    animation: obFadeUp .5s ease forwards;
 }
-@keyframes obFadeUp { to { opacity: 1; transform: translateY(0); } }
 .ob-icon-wrap {
     width: 120px; height: 120px;
     background: var(--surface-color); border-radius: 35px;
