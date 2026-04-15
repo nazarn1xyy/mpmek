@@ -150,13 +150,188 @@ body.theme-transitioning {
     transform: scale(0.95);
 }
 
-/* Onboarding */
-#onboarding {
-    min-height: 100vh;
-    min-height: 100dvh;
+/* Onboarding Intro Slider */
+body.ob-lock {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+.ob-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: var(--bg-color);
     display: flex;
     flex-direction: column;
-    padding: calc(2rem + env(safe-area-inset-top, 0px)) 1rem calc(2rem + env(safe-area-inset-bottom, 0px)) 1rem;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+    touch-action: none;
+}
+.ob-intro.ob-exiting {
+    animation: obSlideUp .5s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+@keyframes obSlideUp {
+    to { transform: translateY(-100%); opacity: 0; }
+}
+.ob-slider-wrap { flex: 1; overflow: hidden; }
+.ob-slider {
+    display: flex; height: 100%; width: 400%;
+    transition: transform .45s cubic-bezier(.25, 1, .5, 1);
+}
+.ob-slide { width: 25%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; padding-top: 12vh; text-align: center; }
+.ob-slide-inner {
+    display: flex; flex-direction: column; align-items: center;
+    opacity: 0; transform: translateY(30px);
+    animation: obFadeUp .5s ease forwards;
+}
+@keyframes obFadeUp { to { opacity: 1; transform: translateY(0); } }
+.ob-icon-wrap {
+    width: 120px; height: 120px;
+    background: var(--surface-color); border-radius: 35px;
+    display: flex; justify-content: center; align-items: center;
+    margin-bottom: 2rem;
+    color: var(--accent-color);
+}
+.ob-slide h2 { font-size: 2rem; font-weight: 800; letter-spacing: -.5px; margin-bottom: 1rem; }
+.ob-slide p { font-size: 1.05rem; line-height: 1.6; color: #888; max-width: 300px; font-weight: 500; }
+.ob-footer { padding: 0 1.5rem calc(3.5rem + env(safe-area-inset-bottom, 0px)); }
+.ob-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 2rem; }
+.ob-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--border-color); transition: all .3s cubic-bezier(.25, 1, .5, 1); }
+.ob-dot.active { width: 24px; background: var(--accent-color); }
+.ob-actions { display: flex; gap: 1rem; }
+.ob-btn-skip, .ob-btn-next {
+    font-family: inherit; font-size: 1.05rem; font-weight: 600;
+    padding: 1.1rem; border-radius: 18px; border: none; cursor: pointer; flex: 1;
+    transition: transform .2s cubic-bezier(.25, 1, .5, 1), opacity .3s;
+}
+.ob-btn-skip:active, .ob-btn-next:active { transform: scale(.95); }
+.ob-btn-skip { background: transparent; color: var(--text-color); }
+.ob-btn-next { background: var(--accent-color); color: var(--bg-color); }
+
+/* Onboarding groups appear animation */
+#onboardingGroups {
+    transition: opacity .4s ease, transform .4s ease;
+}
+#onboardingGroups.ob-groups-entering {
+    opacity: 0; transform: translateY(30px);
+}
+
+/* Auth screen */
+.ob-auth {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: var(--bg-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-x;
+}
+.ob-auth.ob-exiting {
+    animation: obSlideUp .5s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+.ob-auth-inner {
+    max-width: 380px;
+    width: 100%;
+    animation: obFadeUp .5s ease forwards;
+}
+.ob-auth-inner h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.5px; margin-bottom: .4rem; }
+.ob-auth-inner > p { color: #888; margin-bottom: 2rem; font-size: 1rem; }
+.auth-field { margin-bottom: 1rem; }
+.auth-field input {
+    width: 100%;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .2s;
+}
+.auth-field input:focus { border-color: var(--accent-color); }
+.auth-field input::placeholder { color: #999; }
+.auth-error {
+    background: rgba(255, 59, 48, .1);
+    color: #ff3b30;
+    padding: .75rem 1rem;
+    border-radius: 12px;
+    font-size: .9rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    animation: obFadeUp .3s ease;
+}
+.auth-btn-primary {
+    width: 100%;
+    padding: 1.1rem;
+    border: none;
+    border-radius: 18px;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .2s cubic-bezier(.25, 1, .5, 1), opacity .2s;
+}
+.auth-btn-primary:active { transform: scale(.95); }
+.auth-btn-primary:disabled { opacity: .5; pointer-events: none; }
+.auth-toggle {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: .95rem;
+    color: #888;
+}
+.auth-btn-link {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-left: .3rem;
+}
+
+/* Settings user info card */
+.setting-user-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--surface-color);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+.setting-user-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.setting-user-name { font-weight: 600; font-size: 1rem; }
+.setting-user-login { color: #888; font-size: .85rem; }
+
+/* Onboarding */
+#onboarding {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 1rem 0 1rem;
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 .onboarding-content {
@@ -166,6 +341,7 @@ body.theme-transitioning {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-height: 0;
 }
 
 .onboarding-content h1 {
@@ -199,9 +375,11 @@ input[type="text"]:focus {
     flex-direction: column;
     gap: 0.5rem;
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 3rem; /* Additional padding to scroll completely past the edge */
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
     -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
     mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
 }

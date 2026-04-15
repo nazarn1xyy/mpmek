@@ -19,9 +19,9 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=35" as="style">
+    <link rel="preload" href="style.css?v=37" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=36" as="script">
+    <link rel="preload" href="app.js?v=38" as="script">
     <style>
         /* Critical CSS — inlined for instant first paint */
         :root{--bg-color:#fff;--text-color:#1a1a1a;--surface-color:#f5f5f5;--border-color:#e0e0e0;--accent-color:#000;--nav-bg:rgba(255,255,255,.9);--nav-border:#eee;--font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -38,19 +38,96 @@
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
     <div id="app">
         <!-- Onboarding Screen -->
         <div id="onboarding" class="screen hidden">
-            <div class="onboarding-content">
-                <h1>Привіт!</h1>
-                <p>Обери свою групу, щоб побачити розклад.</p>
-                <input type="text" id="groupSearch" placeholder="Пошук групи..." autocomplete="off">
-                <div id="groupList" class="group-list">
-                    <!-- Groups will be injected here -->
+            <!-- Intro Slides (first-time only) -->
+            <div id="onboardingIntro" class="ob-intro hidden">
+                <div class="ob-slider-wrap">
+                    <div class="ob-slider" id="obSlider">
+                        <div class="ob-slide">
+                            <div class="ob-slide-inner">
+                                <div class="ob-icon-wrap">
+                                    <svg viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><style>.s1-star{animation:s1-spin 3s ease-in-out infinite alternate;transform-origin:center;fill:var(--blue,#0a84ff);stroke:none}.s1-cal{animation:s1-float 3s ease-in-out infinite;transform-origin:center}@keyframes s1-spin{0%{transform:scale(.8) rotate(-10deg)}100%{transform:scale(1.1) rotate(15deg)}}@keyframes s1-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}</style><rect class="s1-cal" x="20" y="30" width="60" height="50" rx="8"/><line class="s1-cal" x1="20" y1="45" x2="80" y2="45"/><line class="s1-cal" x1="35" y1="20" x2="35" y2="35"/><line class="s1-cal" x1="65" y1="20" x2="65" y2="35"/><path class="s1-star" d="M15 15 L20 5 L25 15 L35 20 L25 25 L20 35 L15 25 L5 20 Z"/></svg>
+                                </div>
+                                <h2>Привіт!</h2>
+                                <p>Оновлений Розклад Студента МПМЕК.<br>Швидкий, зручний та завжди під рукою.</p>
+                            </div>
+                        </div>
+                        <div class="ob-slide">
+                            <div class="ob-slide-inner">
+                                <div class="ob-icon-wrap">
+                                    <svg viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><style>.s2-arr{animation:s2-rot 4s linear infinite;transform-origin:50px 50px}.s2-bolt{animation:s2-pulse 1.5s ease-in-out infinite alternate;transform-origin:center;fill:currentColor;stroke:none}@keyframes s2-rot{100%{transform:rotate(360deg)}}@keyframes s2-pulse{0%{transform:scale(.9);opacity:.8}100%{transform:scale(1.1);opacity:1}}</style><path class="s2-arr" d="M25 50A25 25 0 0 1 75 50M75 50L65 40M75 50L85 40M75 50A25 25 0 0 1 25 50M25 50L15 60M25 50L35 60"/><polygon class="s2-bolt" points="55 25 35 60 50 60 45 80 65 45 50 45"/></svg>
+                                </div>
+                                <h2>Розклад та заміни</h2>
+                                <p>Всі зміни розкладу підсвічуються автоматично. Ти завжди знатимеш, що відбувається.</p>
+                            </div>
+                        </div>
+                        <div class="ob-slide">
+                            <div class="ob-slide-inner">
+                                <div class="ob-icon-wrap">
+                                    <svg viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><style>.s3-chk{stroke-dasharray:25;stroke-dashoffset:25;stroke:var(--green,#34c759)}.s3-c1{animation:s3-draw 3s ease infinite}.s3-c2{animation:s3-draw 3s ease infinite .7s}.s3-c3{animation:s3-draw 3s ease infinite 1.4s}@keyframes s3-draw{0%,20%{stroke-dashoffset:25;opacity:0}30%,100%{stroke-dashoffset:0;opacity:1}}</style><rect x="20" y="10" width="60" height="80" rx="8"/><line x1="45" y1="30" x2="70" y2="30"/><line x1="45" y1="50" x2="70" y2="50"/><line x1="45" y1="70" x2="60" y2="70"/><polyline class="s3-chk s3-c1" points="25 30 32 37 42 25"/><polyline class="s3-chk s3-c2" points="25 50 32 57 42 45"/><polyline class="s3-chk s3-c3" points="25 70 32 77 42 65"/></svg>
+                                </div>
+                                <h2>Домашні завдання</h2>
+                                <p>Записуй домашки прямо в розкладі. Вони синхронізуються між пристроями.</p>
+                            </div>
+                        </div>
+                        <div class="ob-slide">
+                            <div class="ob-slide-inner">
+                                <div class="ob-icon-wrap">
+                                    <svg viewBox="0 0 100 100" width="70" height="70" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><style>.s4-bell{animation:s4-ring 2.5s ease-in-out infinite;transform-origin:50px 25px}.s4-wave{animation:s4-rip 2.5s ease-out infinite;opacity:0;stroke:var(--blue,#0a84ff)}.s4-w2{animation-delay:.3s}@keyframes s4-ring{0%,100%{transform:rotate(0)}10%,30%,50%{transform:rotate(15deg)}20%,40%{transform:rotate(-15deg)}60%{transform:rotate(0)}}@keyframes s4-rip{0%{transform:scale(.8);opacity:.8}50%,100%{transform:scale(1.4);opacity:0}}</style><g class="s4-bell"><path d="M50 15A20 20 0 0 0 30 35L30 55 20 65 80 65 70 55 70 35A20 20 0 0 0 50 15Z"/><path d="M42 65A8 8 0 0 0 58 65Z" fill="currentColor" stroke="none"/><circle cx="50" cy="15" r="3" fill="currentColor"/></g><path class="s4-wave" d="M15 35A40 40 0 0 0 15 65"/><path class="s4-wave" d="M85 35A40 40 0 0 1 85 65"/><path class="s4-wave s4-w2" d="M5 30A50 50 0 0 0 5 70"/><path class="s4-wave s4-w2" d="M95 30A50 50 0 0 1 95 70"/></svg>
+                                </div>
+                                <h2>Будь в курсі</h2>
+                                <p>Ранкові сповіщення та пуші про заміни в реальному часі.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                <div class="ob-footer">
+                    <div class="ob-dots" id="obDots"><div class="ob-dot active"></div><div class="ob-dot"></div><div class="ob-dot"></div><div class="ob-dot"></div></div>
+                    <div class="ob-actions">
+                        <button class="ob-btn-skip" id="obSkip">Пропустити</button>
+                        <button class="ob-btn-next" id="obNext">Далі</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Auth screen -->
+            <div id="onboardingAuth" class="ob-auth hidden">
+                <div class="ob-auth-inner">
+                    <h1 id="authTitle">Створити акаунт</h1>
+                    <p id="authSubtitle">Щоб зберегти свій розклад</p>
+
+                    <div id="authRegisterFields">
+                        <div class="auth-field">
+                            <input type="text" id="authDisplayName" placeholder="Ім'я та прізвище" autocomplete="name" maxlength="60">
+                        </div>
+                    </div>
+                    <div class="auth-field">
+                        <input type="text" id="authUsername" placeholder="Логін (латиниця)" autocomplete="username" maxlength="30">
+                    </div>
+                    <div class="auth-field">
+                        <input type="password" id="authPassword" placeholder="Пароль" autocomplete="new-password" maxlength="128">
+                    </div>
+
+                    <div id="authError" class="auth-error hidden"></div>
+
+                    <button id="authSubmit" class="auth-btn-primary">Зареєструватися</button>
+
+                    <div class="auth-toggle">
+                        <span id="authToggleText">Вже є акаунт?</span>
+                        <button id="authToggleBtn" class="auth-btn-link">Увійти</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Group selection -->
+            <div id="onboardingGroups" class="onboarding-content hidden">
+                <h1>Обери групу</h1>
+                <p>Щоб побачити свій розклад</p>
+                <input type="text" id="groupSearch" placeholder="Пошук групи..." autocomplete="off">
+                <div id="groupList" class="group-list"></div>
             </div>
         </div>
 
@@ -96,6 +173,13 @@
                 <h1>Налаштування</h1>
             </header>
             <main class="settings-container">
+                <div id="userInfoCard" class="setting-user-card hidden">
+                    <div class="setting-user-avatar" id="userAvatar">U</div>
+                    <div class="setting-user-details">
+                        <div class="setting-user-name" id="userDisplayName"></div>
+                        <div class="setting-user-login" id="userUsername"></div>
+                    </div>
+                </div>
                 <div class="setting-item">
                     <span>Тема (Темна/Світла)</span>
                     <label class="switch">
@@ -131,6 +215,10 @@
                 <div class="setting-item">
                     <span>Змінити групу</span>
                     <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
+                </div>
+                <div class="setting-item" id="logoutRow" style="display:none">
+                    <span>Вийти з акаунту</span>
+                    <button id="logoutBtn" class="btn" style="background-color: #ff453a; color: #fff">Вийти</button>
                 </div>
             </main>
         </div>
@@ -227,7 +315,7 @@
         </a>
     </nav>
 
-    <script src="app.js?v=36" defer></script>
+    <script src="app.js?v=38" defer></script>
     <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

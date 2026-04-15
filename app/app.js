@@ -143,7 +143,219 @@ document.addEventListener('DOMContentLoaded', async () => {
     const hwModalCancel = document.getElementById('hwModalCancel');
     const hwModalSave = document.getElementById('hwModalSave');
 
+    const obIntro = document.getElementById('onboardingIntro');
+    const obAuth = document.getElementById('onboardingAuth');
+    const obGroups = document.getElementById('onboardingGroups');
+    const obSlider = document.getElementById('obSlider');
+    const obDots = document.querySelectorAll('.ob-dot');
+    const obNext = document.getElementById('obNext');
+    const obSkip = document.getElementById('obSkip');
+
+    // Auth DOM
+    const authTitle = document.getElementById('authTitle');
+    const authSubtitle = document.getElementById('authSubtitle');
+    const authRegisterFields = document.getElementById('authRegisterFields');
+    const authDisplayName = document.getElementById('authDisplayName');
+    const authUsername = document.getElementById('authUsername');
+    const authPassword = document.getElementById('authPassword');
+    const authError = document.getElementById('authError');
+    const authSubmit = document.getElementById('authSubmit');
+    const authToggleText = document.getElementById('authToggleText');
+    const authToggleBtn = document.getElementById('authToggleBtn');
+    const userInfoCard = document.getElementById('userInfoCard');
+    const userAvatar = document.getElementById('userAvatar');
+    const userDisplayNameEl = document.getElementById('userDisplayName');
+    const userUsernameEl = document.getElementById('userUsername');
+    const logoutRow = document.getElementById('logoutRow');
+    const logoutBtn = document.getElementById('logoutBtn');
+
     let modalCurrentKey = null;
+    let authToken = localStorage.getItem('authToken') || null;
+    let currentUser = null; // { username, displayName, group }
+    let isLoginMode = false;
+
+    // ===== Auth helpers =====
+    async function authFetch(action, method, body) {
+        const opts = { method, headers: {} };
+        if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+        if (body) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+        const resp = await fetch('/api/auth?action=' + action, opts);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Помилка сервера');
+        return data;
+    }
+
+    function showAuthError(msg) {
+        authError.textContent = msg;
+        authError.classList.remove('hidden');
+    }
+    function hideAuthError() {
+        authError.classList.add('hidden');
+    }
+
+    function setAuthMode(login) {
+        isLoginMode = login;
+        authTitle.textContent = login ? 'Увійти' : 'Створити акаунт';
+        authSubtitle.textContent = login ? 'Раді бачити знову' : 'Щоб зберегти свій розклад';
+        authRegisterFields.style.display = login ? 'none' : '';
+        authSubmit.textContent = login ? 'Увійти' : 'Зареєструватися';
+        authToggleText.textContent = login ? 'Немає акаунту?' : 'Вже є акаунт?';
+        authToggleBtn.textContent = login ? 'Зареєструватися' : 'Увійти';
+        authPassword.autocomplete = login ? 'current-password' : 'new-password';
+        hideAuthError();
+    }
+
+    function showAuthScreen() {
+        obAuth.classList.remove('hidden', 'ob-exiting');
+        obGroups.classList.add('hidden');
+        obIntro.classList.add('hidden');
+        document.body.classList.add('ob-lock');
+        setAuthMode(false);
+    }
+
+    function applyUserInfo(user) {
+        currentUser = user;
+        if (user) {
+            userInfoCard.classList.remove('hidden');
+            userDisplayNameEl.textContent = user.displayName;
+            userUsernameEl.textContent = '@' + user.username;
+            userAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
+            logoutRow.style.display = '';
+        } else {
+            userInfoCard.classList.add('hidden');
+            logoutRow.style.display = 'none';
+        }
+    }
+
+    function transitionAuthToGroups() {
+        document.body.classList.remove('ob-lock');
+        obGroups.classList.add('ob-groups-entering');
+        obGroups.classList.remove('hidden');
+        obAuth.classList.add('ob-exiting');
+        let done = false;
+        function cleanup() {
+            if (done) return; done = true;
+            obAuth.classList.add('hidden');
+            obAuth.classList.remove('ob-exiting');
+            requestAnimationFrame(() => obGroups.classList.remove('ob-groups-entering'));
+        }
+        obAuth.addEventListener('animationend', cleanup, { once: true });
+        setTimeout(cleanup, 600);
+        renderGroupList();
+    }
+
+    async function handleAuthSubmit() {
+        hideAuthError();
+        const username = authUsername.value.trim();
+        const password = authPassword.value;
+
+        if (!username || !password) { showAuthError('Заповніть всі поля'); return; }
+
+        authSubmit.disabled = true;
+        try {
+            let data;
+            if (isLoginMode) {
+                data = await authFetch('login', 'POST', { username, password });
+            } else {
+                const displayName = authDisplayName.value.trim();
+                if (!displayName) { showAuthError('Введіть ім\'я та прізвище'); authSubmit.disabled = false; return; }
+                data = await authFetch('register', 'POST', { username, password, displayName });
+            }
+            authToken = data.token;
+            localStorage.setItem('authToken', authToken);
+            applyUserInfo(data.user);
+
+            if (data.user.group) {
+                // User already has a group — go to schedule
+                selectedGroup = data.user.group;
+                localStorage.setItem('selectedGroup', selectedGroup);
+                obAuth.classList.add('hidden');
+                document.body.classList.remove('ob-lock');
+                navItems[0].classList.add('active');
+                showScreen('schedule');
+            } else {
+                transitionAuthToGroups();
+            }
+        } catch (e) {
+            showAuthError(e.message);
+        }
+        authSubmit.disabled = false;
+    }
+
+    authSubmit.addEventListener('click', handleAuthSubmit);
+    authToggleBtn.addEventListener('click', () => setAuthMode(!isLoginMode));
+
+    // Enter key submits
+    [authUsername, authPassword, authDisplayName].forEach(el => {
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') handleAuthSubmit(); });
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', async () => {
+        try { await authFetch('logout', 'POST'); } catch {}
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('selectedGroup');
+        selectedGroup = null;
+        applyUserInfo(null);
+        showScreen('onboarding');
+        showAuthScreen();
+    });
+
+    // ===== Onboarding Intro Slider =====
+    function initOnboardingIntro() {
+        const SLIDES = 4;
+        let cur = 0;
+        obIntro.classList.remove('hidden');
+        obGroups.classList.add('hidden');
+        document.body.classList.add('ob-lock');
+
+        // Start prefetching schedule while user reads slides
+        refreshSchedule(true).catch(() => {});
+
+        function update() {
+            obSlider.style.transform = `translateX(-${cur * 25}%)`;
+            obDots.forEach((d, i) => d.classList.toggle('active', i === cur));
+            obNext.textContent = cur === SLIDES - 1 ? 'Почати' : 'Далі';
+            obSkip.style.opacity = cur === SLIDES - 1 ? '0' : '1';
+            obSkip.style.pointerEvents = cur === SLIDES - 1 ? 'none' : 'auto';
+        }
+
+        function finishIntro() {
+            localStorage.setItem('onboardingIntroDone', '1');
+            // Transition to auth screen
+            obAuth.classList.remove('hidden', 'ob-exiting');
+            obIntro.classList.add('ob-exiting');
+            let cleaned = false;
+            function cleanupIntro() {
+                if (cleaned) return;
+                cleaned = true;
+                obIntro.classList.add('hidden');
+                obIntro.classList.remove('ob-exiting');
+            }
+            obIntro.addEventListener('animationend', cleanupIntro, { once: true });
+            setTimeout(cleanupIntro, 600);
+            setAuthMode(false);
+        }
+
+        obNext.addEventListener('click', () => {
+            if (cur < SLIDES - 1) { cur++; update(); } else { finishIntro(); }
+        });
+        obSkip.addEventListener('click', finishIntro);
+
+        // Touch swipe
+        let tx = 0;
+        obSlider.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+        obSlider.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - tx;
+            if (dx < -50 && cur < SLIDES - 1) { cur++; update(); }
+            if (dx > 50 && cur > 0) { cur--; update(); }
+        }, { passive: true });
+    }
 
     // ===== Theme (sync, no reflow) =====
     if (isDarkTheme) {
@@ -260,6 +472,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     changeGroupBtn.addEventListener('click', () => {
         localStorage.removeItem('selectedGroup');
         selectedGroup = null;
+        obIntro.classList.add('hidden');
+        obAuth.classList.add('hidden');
+        obGroups.classList.remove('hidden');
+        document.body.classList.remove('ob-lock');
         showScreen('onboarding');
         renderGroupList();
     });
@@ -391,6 +607,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedGroup = item.dataset.group;
         weekOffset = 0;
         localStorage.setItem('selectedGroup', selectedGroup);
+        // Save group to server if logged in
+        if (authToken) {
+            authFetch('setgroup', 'POST', { group: selectedGroup }).catch(() => {});
+        }
         showScreen('schedule');
     });
 
@@ -1140,9 +1360,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== Init =====
+    // Try to restore session
+    let sessionValid = false;
+    if (authToken) {
+        try {
+            const data = await authFetch('me', 'GET');
+            applyUserInfo(data.user);
+            sessionValid = true;
+            // Restore group from server if local is missing
+            if (data.user.group && !selectedGroup) {
+                selectedGroup = data.user.group;
+                localStorage.setItem('selectedGroup', selectedGroup);
+            }
+        } catch {
+            // Token expired or invalid
+            authToken = null;
+            localStorage.removeItem('authToken');
+        }
+    }
+
     if (!selectedGroup) {
         showScreen('onboarding');
-        renderGroupList();
+        if (!localStorage.getItem('onboardingIntroDone')) {
+            initOnboardingIntro();
+        } else if (!sessionValid) {
+            showAuthScreen();
+        } else {
+            // Logged in but no group yet
+            obIntro.classList.add('hidden');
+            obAuth.classList.add('hidden');
+            obGroups.classList.remove('hidden');
+            document.body.classList.remove('ob-lock');
+            renderGroupList();
+        }
     } else {
         navItems[0].classList.add('active');
         showScreen('schedule');

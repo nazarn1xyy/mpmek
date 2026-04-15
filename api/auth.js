@@ -1,0 +1,173 @@
+const crypto = require('crypto');
+const { redis } = require('./_lib/redis');
+
+const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
+
+function pbkdf2(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, key) => {
+      if (err) reject(err);
+      else resolve(key.toString('hex'));
+    });
+  });
+}
+
+function sanitize(str, maxLen) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, maxLen);
+}
+
+async function getSession(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  if (!token || token.length > 128) return null;
+  const uname = await redis('GET', `auth:session:${token}`);
+  if (!uname) return null;
+  return { token, username: uname };
+}
+
+async function getUser(username) {
+  const raw = await redis('GET', `auth:user:${username}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+module.exports = async (req, res) => {
+  // CORS for same-origin — allow only POST & GET
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const action = req.query.action;
+
+    // ── Register ──
+    if (req.method === 'POST' && action === 'register') {
+      const username = sanitize(req.body.username, 30).toLowerCase();
+      const password = req.body.password || '';
+      const displayName = sanitize(req.body.displayName, 60);
+
+      if (!username || !password || !displayName) {
+        return res.status(400).json({ error: 'Всі поля обов\'язкові' });
+      }
+      if (username.length < 3 || !/^[a-z0-9_]+$/.test(username)) {
+        return res.status(400).json({ error: 'Логін: від 3 символів, латиниця, цифри, _' });
+      }
+      if (password.length < 6 || password.length > 128) {
+        return res.status(400).json({ error: 'Пароль: від 6 до 128 символів' });
+      }
+      if (displayName.length < 2) {
+        return res.status(400).json({ error: 'Ім\'я: мінімум 2 символи' });
+      }
+
+      // Check uniqueness
+      const existing = await redis('GET', `auth:user:${username}`);
+      if (existing) {
+        return res.status(409).json({ error: 'Цей логін вже зайнятий' });
+      }
+
+      // Hash password
+      const salt = crypto.randomBytes(32).toString('hex');
+      const hash = await pbkdf2(password, salt);
+
+      // Store user
+      const userData = {
+        displayName,
+        passwordHash: hash,
+        salt,
+        group: '',
+        createdAt: new Date().toISOString()
+      };
+      await redis('SET', `auth:user:${username}`, JSON.stringify(userData));
+
+      // Create session
+      const token = crypto.randomBytes(32).toString('hex');
+      await redis('SET', `auth:session:${token}`, username);
+      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+
+      return res.status(201).json({
+        token,
+        user: { username, displayName, group: '' }
+      });
+    }
+
+    // ── Login ──
+    if (req.method === 'POST' && action === 'login') {
+      const username = sanitize(req.body.username, 30).toLowerCase();
+      const password = req.body.password || '';
+
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Введіть логін і пароль' });
+      }
+
+      const user = await getUser(username);
+      if (!user) {
+        return res.status(401).json({ error: 'Невірний логін або пароль' });
+      }
+
+      const hash = await pbkdf2(password, user.salt);
+      if (hash !== user.passwordHash) {
+        return res.status(401).json({ error: 'Невірний логін або пароль' });
+      }
+
+      // Create session
+      const token = crypto.randomBytes(32).toString('hex');
+      await redis('SET', `auth:session:${token}`, username);
+      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+
+      return res.json({
+        token,
+        user: { username, displayName: user.displayName, group: user.group || '' }
+      });
+    }
+
+    // ── Me (validate session) ──
+    if (req.method === 'GET' && action === 'me') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+
+      const user = await getUser(session.username);
+      if (!user) return res.status(401).json({ error: 'Не авторизовано' });
+
+      return res.json({
+        user: {
+          username: session.username,
+          displayName: user.displayName,
+          group: user.group || ''
+        }
+      });
+    }
+
+    // ── Set group ──
+    if (req.method === 'POST' && action === 'setgroup') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+
+      const group = sanitize(req.body.group, 50);
+      if (!group) return res.status(400).json({ error: 'Невірна група' });
+
+      const user = await getUser(session.username);
+      if (!user) return res.status(401).json({ error: 'Не авторизовано' });
+
+      user.group = group;
+      await redis('SET', `auth:user:${session.username}`, JSON.stringify(user));
+
+      return res.json({ ok: true });
+    }
+
+    // ── Logout ──
+    if (req.method === 'POST' && action === 'logout') {
+      const session = await getSession(req);
+      if (session) {
+        await redis('DEL', `auth:session:${session.token}`);
+      }
+      return res.json({ ok: true });
+    }
+
+    return res.status(400).json({ error: 'Unknown action' });
+  } catch (err) {
+    console.error('auth error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
