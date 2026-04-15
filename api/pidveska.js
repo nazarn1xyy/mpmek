@@ -66,6 +66,9 @@ async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner
   if (!group || !entries || !Array.isArray(entries) || entries.length === 0) {
     return res.status(400).json({ error: 'group and entries[] required' });
   }
+  if (entries.length > 50) {
+    return res.status(400).json({ error: 'Max 50 entries per request' });
+  }
 
   if (!scheduleData[group]) {
     return res.status(404).json({ error: `Group "${group}" not found in schedule.json` });

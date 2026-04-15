@@ -2,7 +2,7 @@ const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 const fs = require('fs');
 
-const { redis } = require('./_lib/redis');
+const { redis, rateLimit } = require('./_lib/redis');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 
@@ -397,6 +397,11 @@ function renderWeekImage(group, scheduleData, dark, weekOffset = 0, homeworkMap 
 
 module.exports = async function handler(req, res) {
   try {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    if (await rateLimit(`img:${ip}`, 30, 60)) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+
     await ensureFont();
 
     const { group, day, theme, weekOffset: wo } = req.query;

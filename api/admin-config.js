@@ -1,4 +1,4 @@
-const { redis } = require('./_lib/redis');
+const { redis, rateLimit } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -10,6 +10,12 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Pin, X-Device-Id');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Rate limit PIN attempts (anti brute-force)
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+  if (await rateLimit(`admin:${ip}`, 5, 300)) {
+    return res.status(429).json({ error: 'Too many attempts. Wait 5 minutes' });
+  }
 
   // Simple auth check
   const pin = req.headers['x-admin-pin'];
