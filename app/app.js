@@ -956,7 +956,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const todayMarker = document.getElementById('today-marker');
                 if (todayMarker) {
                     setTimeout(() => {
-                        todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        const headerH = document.querySelector('.top-nav')?.offsetHeight || 0;
+                        const y = todayMarker.getBoundingClientRect().top + window.scrollY - headerH - 8;
+                        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
                     }, 50);
                 }
             });
@@ -1328,13 +1330,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         requestAnimationFrame(() => {
+            const headerH = document.querySelector('.top-nav')?.offsetHeight || 0;
+            function smoothScrollTo(el) {
+                const y = el.getBoundingClientRect().top + window.scrollY - headerH - 8;
+                window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+            }
             // Try to scroll to the day matching dateStr
             if (dateStr) {
                 const dayEls = document.querySelectorAll('.diary-day');
                 for (const el of dayEls) {
                     const badge = el.querySelector('.date-badge');
                     if (badge && badge.textContent === dateStr) {
-                        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+                        setTimeout(() => smoothScrollTo(el), 80);
                         return;
                     }
                 }
@@ -1342,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Fallback: scroll to today marker
             const marker = document.getElementById('today-marker');
             if (marker) {
-                setTimeout(() => marker.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+                setTimeout(() => smoothScrollTo(marker), 80);
             }
         });
     }
