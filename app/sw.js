@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v39';
+const CACHE_NAME = 'rozklad-v40';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -36,7 +36,12 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
 
-  // Network-first for API calls (schedule data)
+  // Skip caching for auth/push/admin APIs — sensitive data
+  if (url.pathname.startsWith('/api/auth') || url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/admin')) {
+    return;
+  }
+
+  // Network-first for API calls (schedule data, homework)
   if (url.pathname.startsWith('/api/')) {
     const cacheKey = new Request(url.origin + url.pathname);
     event.respondWith(
