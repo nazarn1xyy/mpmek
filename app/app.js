@@ -228,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target.checked) {
             if (!('Notification' in window)) {
                 e.target.checked = false;
+                alert('Сповіщення недоступні в цьому браузері. Встановіть додаток (PWA) для підтримки сповіщень.');
                 return;
             }
             if (Notification.permission === 'denied') {
