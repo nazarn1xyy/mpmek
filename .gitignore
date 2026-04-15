@@ -4,4 +4,5 @@ __pycache__/
 .agent/
 node_modules/
 .env
+onboarding-test/
 parse_schedule.py
