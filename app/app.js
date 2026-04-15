@@ -967,13 +967,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Grid View =====
     function renderGridView() {
-        if (!scheduleData || !selectedGroup) return;
+        if (!scheduleData || !selectedGroup || !scheduleData[selectedGroup]) return;
         const groupData = scheduleData[selectedGroup];
-        if (!groupData) return;
 
-        const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-        const currentWeekType = weekTypes.length === 1 ? weekTypes[0] : (weekTypeToggle.textContent || weekTypes[0]);
-        const weekData = groupData[currentWeekType] || {};
+        // Same week type logic as renderSchedule
+        const groupTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+        const hasChis = groupTypes.includes('ЧИСЕЛЬНИК');
+        const hasZnam = groupTypes.includes('ЗНАМЕННИК');
+        if (hasChis && hasZnam && (currentWeekType === 'ОСНОВНИЙ РОЗКЛАД' || currentWeekType === 'ЧИСЕЛЬНИК' || currentWeekType === 'ЗНАМЕННИК')) {
+            const isoWeek = getISOWeek(weekOffset);
+            currentWeekType = isoWeek % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+        }
+        let weekData = groupData[currentWeekType];
+        const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);
+        if (isDataEmpty) {
+            currentWeekType = groupTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : groupTypes[0];
+            weekData = groupData[currentWeekType];
+        }
+        if (!weekData) { weekData = {}; }
+        weekTypeToggle.textContent = (currentWeekType || 'РОЗКЛАД').split(' ')[0];
+        currentGroupTitle.textContent = selectedGroup;
 
         const kyivNow = getKyivNow();
         const currentDayOfWeek = kyivNow.dayOfWeek || 7;
