@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis, parseRedisEntries } = require('./_lib/redis');
+const { redis, parseRedisEntries, safeCompare } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
   const cronSecret = req.headers['x-cron-secret'];
   const ADMIN_PIN = process.env.ADMIN_PIN;
   const CRON_SECRET = process.env.CRON_SECRET;
-  if ((!ADMIN_PIN || pin !== ADMIN_PIN) && (!CRON_SECRET || cronSecret !== CRON_SECRET)) {
+  if (!safeCompare(pin, ADMIN_PIN) && !safeCompare(cronSecret, CRON_SECRET)) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 

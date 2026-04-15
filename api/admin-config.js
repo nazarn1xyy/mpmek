@@ -1,4 +1,4 @@
-const { redis, rateLimit } = require('./_lib/redis');
+const { redis, rateLimit, safeCompare } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
   // Simple auth check
   const pin = req.headers['x-admin-pin'];
-  if (pin !== ADMIN_PIN) {
+  if (!safeCompare(pin, ADMIN_PIN)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

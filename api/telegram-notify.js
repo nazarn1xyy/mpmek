@@ -1,4 +1,4 @@
-const { redis } = require('./_lib/redis');
+const { redis, safeCompare } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   // Auth: require admin pin
   const pin = req.headers['x-admin-pin'];
   const ADMIN_PIN = process.env.ADMIN_PIN;
-  if (!ADMIN_PIN || pin !== ADMIN_PIN) {
+  if (!safeCompare(pin, ADMIN_PIN)) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 

@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const REDIS_URL = process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN;
 
@@ -51,4 +53,12 @@ function safeKey(str, maxLen = 50) {
   return str.replace(/[\x00-\x1f\x7f\s]/g, '').slice(0, maxLen);
 }
 
-module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey };
+// Timing-safe string comparison (prevents timing attacks on secrets)
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ha = crypto.createHash('sha256').update(a).digest();
+  const hb = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare };

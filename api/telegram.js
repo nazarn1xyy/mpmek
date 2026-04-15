@@ -1,3 +1,5 @@
+const { safeCompare } = require('./_lib/redis');
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const UK_DAYS_SHORT = {
@@ -32,7 +34,7 @@ module.exports = async function handler(req, res) {
   const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (WEBHOOK_SECRET) {
     const headerSecret = req.headers['x-telegram-bot-api-secret-token'];
-    if (headerSecret !== WEBHOOK_SECRET) {
+    if (!safeCompare(headerSecret, WEBHOOK_SECRET)) {
       return res.status(403).send('forbidden');
     }
   }

@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 60000);
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v40';
+        const DEPLOY_VERSION = 'rozklad-v41';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

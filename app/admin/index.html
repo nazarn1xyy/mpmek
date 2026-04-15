@@ -425,8 +425,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     let newSubsAdded = [];
 
     // ===== PIN Authentication =====
-    const ADMIN_PIN = '0411';
     let pinCode = '';
+    let verifiedPin = '';
 
     document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -451,11 +451,28 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         });
     }
 
-    function handlePinComplete() {
-        if (pinCode === ADMIN_PIN) {
-            unlockAdmin();
-        } else {
-            shakePin('Невірний PIN-код');
+    async function handlePinComplete() {
+        const deviceId = localStorage.getItem('adminDeviceId');
+        if (!deviceId) {
+            shakePin('Спершу увійдіть як адмін на сайті');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/admin-config', {
+                headers: { 'X-Admin-Pin': pinCode, 'X-Device-Id': deviceId }
+            });
+            if (resp.ok) {
+                verifiedPin = pinCode;
+                unlockAdmin();
+            } else if (resp.status === 403) {
+                shakePin('Пристрій не авторизовано');
+            } else if (resp.status === 429) {
+                shakePin('Забагато спроб. Зачекайте');
+            } else {
+                shakePin('Невірний PIN-код');
+            }
+        } catch {
+            shakePin('Помилка з\'єднання');
         }
     }
 
@@ -902,7 +919,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     async function loadAdminConfig() {
         try {
             const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': ADMIN_PIN }
+                headers: { 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' }
             });
             if (resp.ok) {
                 const data = await resp.json();
@@ -935,7 +952,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         try {
             const resp = await fetch('/api/admin-config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': ADMIN_PIN },
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' },
                 body: JSON.stringify(adminConfig)
             });
             if (resp.ok) {
@@ -1003,7 +1020,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             if (newSubsAdded.length > 0) {
                 statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
                 const notifyBody = JSON.stringify({ substitutions: newSubsAdded });
-                const notifyHeaders = { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin };
+                const notifyHeaders = { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' };
                 try {
                     await Promise.all([
                         fetch('/api/notify-subs', { method: 'POST', headers: notifyHeaders, body: notifyBody }),

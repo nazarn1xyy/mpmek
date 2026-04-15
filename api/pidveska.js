@@ -4,6 +4,7 @@
  * DELETE: remove a підвіска entry
  * Auth: bot_token must match TELEGRAM_BOT_TOKEN env var
  */
+const { safeCompare } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
@@ -22,7 +23,7 @@ module.exports = async function handler(req, res) {
 
   // Auth check
   const { bot_token } = req.body || {};
-  if (bot_token !== BOT_TOKEN) {
+  if (!safeCompare(bot_token, BOT_TOKEN)) {
     return res.status(403).json({ error: 'unauthorized' });
   }
 

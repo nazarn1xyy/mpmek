@@ -1,4 +1,4 @@
-const { redis } = require('./_lib/redis');
+const { redis, safeCompare } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
 
     // Simple auth: require bot token
     const expectedToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!expectedToken || bot_token !== expectedToken) {
+    if (!safeCompare(bot_token, expectedToken)) {
       return res.status(403).json({ error: 'unauthorized' });
     }
 

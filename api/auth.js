@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { redis, rateLimit, safeKey } = require('./_lib/redis');
+const { redis, rateLimit, safeKey, safeCompare } = require('./_lib/redis');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
@@ -9,7 +9,7 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
-const MAX_ADMIN_DEVICES = 2;
+const MAX_ADMIN_DEVICES = 5;
 
 function getUserRole(username) {
   return ADMIN_USERNAMES.includes(username) ? 'admin' : 'user';
@@ -138,7 +138,7 @@ module.exports = async (req, res) => {
       // Admin login: verify against env password, auto-create account if needed
       if (ADMIN_USERNAMES.includes(username)) {
         const envPwd = process.env.ADMIN_PASSWORD;
-        if (!envPwd || password !== envPwd) {
+        if (!envPwd || !safeCompare(password, envPwd)) {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 

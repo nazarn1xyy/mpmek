@@ -2,11 +2,13 @@
 // Call: GET /api/telegram-setup?token=YOUR_BOT_TOKEN
 // This will register the webhook and enable inline mode
 
+const { safeCompare } = require('./_lib/redis');
+
 module.exports = async function handler(req, res) {
   // Auth: require admin pin
   const pin = req.headers['x-admin-pin'] || req.query.pin;
   const ADMIN_PIN = process.env.ADMIN_PIN;
-  if (!ADMIN_PIN || pin !== ADMIN_PIN) {
+  if (!safeCompare(pin, ADMIN_PIN)) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
