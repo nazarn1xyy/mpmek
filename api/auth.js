@@ -9,8 +9,6 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
-const MAX_ADMIN_DEVICES = 5;
-
 function getUserRole(username) {
   return ADMIN_USERNAMES.includes(username) ? 'admin' : 'user';
 }
@@ -142,20 +140,6 @@ module.exports = async (req, res) => {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
-        // Device restriction: max N trusted devices
-        let deviceId = req.body.deviceId;
-        const devKey = `auth:admin-devices:${username}`;
-        const devices = await redis('SMEMBERS', devKey) || [];
-        if (deviceId && devices.includes(deviceId)) {
-          // Known device — OK
-        } else if (devices.length >= MAX_ADMIN_DEVICES) {
-          return res.status(403).json({ error: 'Ліміт пристроїв адміна вичерпано (' + MAX_ADMIN_DEVICES + ')' });
-        } else {
-          // New device — register it
-          deviceId = crypto.randomBytes(16).toString('hex');
-          await redis('SADD', devKey, deviceId);
-        }
-
         // Auto-create admin account on first login
         if (!user) {
           const salt = crypto.randomBytes(32).toString('hex');
@@ -170,7 +154,7 @@ module.exports = async (req, res) => {
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
         return res.json({
-          token, deviceId,
+          token,
           user: { username, displayName: user.displayName, group: user.group || '', role: 'admin' }
         });
       } else {
