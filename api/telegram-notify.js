@@ -10,6 +10,13 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method not allowed' });
   }
 
+  // Auth: require admin pin
+  const pin = req.headers['x-admin-pin'];
+  const ADMIN_PIN = process.env.ADMIN_PIN;
+  if (!ADMIN_PIN || pin !== ADMIN_PIN) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
   try {
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     if (!BOT_TOKEN) {

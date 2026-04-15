@@ -1003,7 +1003,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             if (newSubsAdded.length > 0) {
                 statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
                 const notifyBody = JSON.stringify({ substitutions: newSubsAdded });
-                const notifyHeaders = { 'Content-Type': 'application/json' };
+                const notifyHeaders = { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin };
                 try {
                     await Promise.all([
                         fetch('/api/notify-subs', { method: 'POST', headers: notifyHeaders, body: notifyBody }),

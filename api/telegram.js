@@ -28,6 +28,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).send('ok');
   if (!BOT_TOKEN) return res.status(500).json({ error: 'no bot token' });
 
+  // Verify request is from Telegram via webhook secret
+  const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (WEBHOOK_SECRET) {
+    const headerSecret = req.headers['x-telegram-bot-api-secret-token'];
+    if (headerSecret !== WEBHOOK_SECRET) {
+      return res.status(403).send('forbidden');
+    }
+  }
+
   const update = req.body;
   const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
 

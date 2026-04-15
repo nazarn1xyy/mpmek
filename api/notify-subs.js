@@ -6,6 +6,15 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Auth: require admin pin or cron secret
+  const pin = req.headers['x-admin-pin'];
+  const cronSecret = req.headers['x-cron-secret'];
+  const ADMIN_PIN = process.env.ADMIN_PIN;
+  const CRON_SECRET = process.env.CRON_SECRET;
+  if ((!ADMIN_PIN || pin !== ADMIN_PIN) && (!CRON_SECRET || cronSecret !== CRON_SECRET)) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
   try {
     const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
