@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { redis } = require('./_lib/redis');
+const { redis, rateLimit, safeKey } = require('./_lib/redis');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
@@ -56,6 +56,11 @@ module.exports = async (req, res) => {
 
     // ── Register ──
     if (req.method === 'POST' && action === 'register') {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`reg:${ip}`, 5, 60)) {
+        return res.status(429).json({ error: 'Забагато спроб. Зачекайте хвилину' });
+      }
+
       const username = sanitize(req.body.username, 30).toLowerCase();
       const password = req.body.password || '';
       const displayName = sanitize(req.body.displayName, 60);
@@ -111,11 +116,21 @@ module.exports = async (req, res) => {
 
     // ── Login ──
     if (req.method === 'POST' && action === 'login') {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`login:${ip}`, 10, 60)) {
+        return res.status(429).json({ error: 'Забагато спроб. Зачекайте хвилину' });
+      }
+
       const username = sanitize(req.body.username, 30).toLowerCase();
       const password = req.body.password || '';
 
       if (!username || !password) {
         return res.status(400).json({ error: 'Введіть логін і пароль' });
+      }
+
+      // Per-username rate limit (anti brute-force)
+      if (await rateLimit(`login:u:${safeKey(username)}`, 5, 60)) {
+        return res.status(429).json({ error: 'Забагато спроб для цього логіну' });
       }
 
       let user = await getUser(username);

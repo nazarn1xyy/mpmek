@@ -37,4 +37,18 @@ function parseRedisEntries(raw) {
   return entries;
 }
 
-module.exports = { redis, parseRedisHash, parseRedisEntries };
+// Rate limiter: returns true if request should be blocked
+async function rateLimit(key, maxAttempts, windowSec) {
+  const rk = `rl:${key}`;
+  const count = await redis('INCR', rk);
+  if (count === 1) await redis('EXPIRE', rk, windowSec);
+  return count > maxAttempts;
+}
+
+// Sanitize string for safe Redis key usage — strip control chars and limit length
+function safeKey(str, maxLen = 50) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[\x00-\x1f\x7f\s]/g, '').slice(0, maxLen);
+}
+
+module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey };

@@ -184,6 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const resp = await fetch('/api/auth?action=' + action, opts);
         const data = await resp.json();
+        if (resp.status === 429) throw new Error(data.error || 'Забагато спроб. Зачекайте');
         if (!resp.ok) throw new Error(data.error || 'Помилка сервера');
         return data;
     }
