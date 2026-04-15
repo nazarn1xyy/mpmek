@@ -318,9 +318,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         obGroups.classList.add('hidden');
         document.body.classList.add('ob-lock');
 
-        // Start prefetching schedule while user reads slides
-        refreshSchedule(true).catch(() => {});
-
         function update() {
             obSlider.style.transform = `translateX(-${cur * (100 / SLIDES)}%)`;
             obDots.forEach((d, i) => d.classList.toggle('active', i === cur));
