@@ -36,6 +36,6 @@ module.exports = async function handler(req, res) {
     return res.json({ ok: true });
   } catch (err) {
     console.error('tg-subscribe error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

@@ -1,7 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    // ===== Migration: clear stale push subscription key to force re-subscribe to new backend =====
-    localStorage.removeItem('lastPushSub');
-
     // ===== State =====
     let scheduleData = null;
     let selectedGroup = localStorage.getItem('selectedGroup');
@@ -25,6 +22,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     const SVG_EMPTY_HOMEWORK = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="9" y1="14" x2="15" y2="14"></line></svg>`;
 
     const ukDays = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
+
+    // Escape HTML to prevent XSS
+    function escHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    // Get current time in Kyiv timezone
+    function getKyivNow() {
+        const str = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Kiev', hour12: false });
+        // str = "DD/MM/YYYY, HH:MM:SS"
+        const [datePart, timePart] = str.split(', ');
+        const [dd, mm, yyyy] = datePart.split('/').map(Number);
+        const [hh, mi, ss] = timePart.split(':').map(Number);
+        return { year: yyyy, month: mm, day: dd, hours: hh, minutes: mi, seconds: ss,
+            dayOfWeek: new Date(yyyy, mm - 1, dd).getDay(),
+            totalMinutes: hh * 60 + mi };
+    }
+
+    // Get ISO week number for auto week type detection
+    function getISOWeek(offset) {
+        const now = new Date();
+        const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        d.setUTCDate(d.getUTCDate() + (offset || 0) * 7);
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    }
 
     // Homework storage with in-memory cache
     function getHomework() {
@@ -62,8 +88,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const localHw = getHomework();
             let merged = { ...localHw };
             let changed = false;
-            // Server wins for existing server keys
+            // Server wins for existing server keys (skip empty values)
             for (const [key, value] of Object.entries(serverHw)) {
+                if (!value) { if (merged[key]) { delete merged[key]; changed = true; } continue; }
                 if (merged[key] !== value) { merged[key] = value; changed = true; }
             }
             // Push local-only keys to server
@@ -270,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (currentIndex === -1) currentIndex = 0;
         currentWeekType = availableTypes[(currentIndex + 1) % availableTypes.length];
 
-        weekTypeToggle.textContent = currentWeekType.split(' ')[0];
+        weekTypeToggle.textContent = currentWeekType;
         renderSchedule();
     });
 
@@ -295,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         try {
             const resp = await fetch('schedule.json');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
             if (data._settings) {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
@@ -443,13 +471,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const savedText = hw[key] || '';
 
         const savedHtml = savedText
-            ? `<div class="hw-saved"><span>${savedText}</span><button class="hw-delete-btn" data-key="${key}" aria-label="Видалити завдання">${SVG_X}</button></div>`
+            ? `<div class="hw-saved"><span>${escHtml(savedText)}</span><button class="hw-delete-btn" data-key="${key}" aria-label="Видалити завдання">${SVG_X}</button></div>`
             : '';
 
         const btnLabel = savedText ? 'Редагувати' : 'Додати завдання';
         const btnIcon = savedText ? SVG_EDIT : SVG_PLUS;
-        const roomHtml = pair.room ? `<span class="diary-item-room">ауд. ${pair.room}</span>` : '';
-        const teacherHtml = (pair.teacher || pair.room) ? `<div class="diary-item-teacher">${pair.teacher || ''}${pair.teacher && pair.room ? ' · ' : ''}${roomHtml}</div>` : '';
+        const roomHtml = pair.room ? `<span class="diary-item-room">ауд. ${escHtml(pair.room)}</span>` : '';
+        const teacherHtml = (pair.teacher || pair.room) ? `<div class="diary-item-teacher">${escHtml(pair.teacher || '')}${pair.teacher && pair.room ? ' · ' : ''}${roomHtml}</div>` : '';
         const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
 
         let statusBadge = '';
@@ -458,8 +486,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (t) {
                 const endStr = t.split(' - ')[1];
                 const [eh, em] = endStr.split(':').map(Number);
-                const now = new Date();
-                const remaining = (eh * 60 + em) - (now.getHours() * 60 + now.getMinutes());
+                const kyiv = getKyivNow();
+                const remaining = Math.max(0, (eh * 60 + em) - kyiv.totalMinutes);
                 statusBadge = `<span class="badge-now">ЗАРАЗ • ще ${remaining} хв</span>`;
             }
         } else if (lessonStatus === 'next') {
@@ -467,8 +495,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (t) {
                 const startStr = t.split(' - ')[0];
                 const [sh, sm] = startStr.split(':').map(Number);
-                const now = new Date();
-                const until = (sh * 60 + sm) - (now.getHours() * 60 + now.getMinutes());
+                const kyiv = getKyivNow();
+                const until = Math.max(0, (sh * 60 + sm) - kyiv.totalMinutes);
                 statusBadge = `<span class="badge-next">НАСТУПНА • через ${until} хв</span>`;
             }
         }
@@ -481,13 +509,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             div.classList.add('substitution');
         }
         
-        let subjectHtml = `<div class="diary-item-subject">${pair.subject}</div>`;
+        const escapedSubject = escHtml(pair.subject);
+        let subjectHtml = `<div class="diary-item-subject">${escapedSubject}</div>`;
         if (pair.isSubstitution) {
             const badgeText = pair.substitutionType === 'підвіска' ? 'ПІДВІСКА' : 'ЗАМІНА';
-            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${pair.subject}</div>`;
+            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${escapedSubject}</div>`;
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
@@ -534,14 +563,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Render Schedule (DocumentFragment for batch DOM insert) =====
     function renderSchedule() {
-        if (!scheduleData[selectedGroup]) return;
+        if (!scheduleData[selectedGroup]) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Групу не знайдено</p><p class="empty-state-desc">Група «${escHtml(selectedGroup)}» більше не існує. Оберіть іншу.</p></div>`;
+            return;
+        }
         currentGroupTitle.textContent = selectedGroup;
+
+        // Auto-detect week type based on ISO week (odd = ЧИСЕЛЬНИК, even = ЗНАМЕННИК)
+        const groupTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
+        const hasChis = groupTypes.includes('ЧИСЕЛЬНИК');
+        const hasZnam = groupTypes.includes('ЗНАМЕННИК');
+        if (hasChis && hasZnam && (currentWeekType === 'ОСНОВНИЙ РОЗКЛАД' || currentWeekType === 'ЧИСЕЛЬНИК' || currentWeekType === 'ЗНАМЕННИК')) {
+            const isoWeek = getISOWeek(weekOffset);
+            currentWeekType = isoWeek % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+        }
 
         let weekData = scheduleData[selectedGroup][currentWeekType];
 
         const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);
         if (isDataEmpty) {
-            const availableTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
+            const availableTypes = groupTypes;
             currentWeekType = availableTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : availableTypes[0];
             weekData = scheduleData[selectedGroup][currentWeekType];
             if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
@@ -556,9 +597,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hw = getHomework(); // read once per render
         const frag = document.createDocumentFragment();
         
-        const today = new Date();
-        const currentDayOfWeek = today.getDay() || 7; // 1-7 (Mon-Sun)
-        const todayLabel = ukDays[today.getDay()];
+        const kyivNow = getKyivNow();
+        const currentDayOfWeek = kyivNow.dayOfWeek || 7; // 1-7 (Mon-Sun)
+        const todayLabel = ukDays[kyivNow.dayOfWeek];
+        const today = new Date(kyivNow.year, kyivNow.month - 1, kyivNow.day);
 
         // Compute DD.MM dates for Mon-Fri of the target week (with weekOffset)
         const weekDates = {};
@@ -618,8 +660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const lessonStatuses = {};
             if (isToday) {
-                const now = new Date();
-                const nowMin = now.getHours() * 60 + now.getMinutes();
+                const nowMin = kyivNow.totalMinutes;
                 let foundNext = false;
                 for (const pr of pairs) {
                     const t = LESSON_TIMES[pr.number];
@@ -744,18 +785,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     for (let w = 0; w < weekTypes.length; w++) {
                         const wd = scheduleData[selectedGroup][weekTypes[w]];
                         if (Array.isArray(wd)) {
-                            const found = wd.find(p => p.number === parseInt(entry.number) && p.date === day);
+                            // ПІДВІСКА array: match by number (day in hw key is day name, not date)
+                            const found = wd.find(p => parseInt(p.number) === parseInt(entry.number));
                             if (found) { subjectName = found.subject; break; }
                         } else if (wd[day]) {
-                            const found = wd[day].find(p => p.number === parseInt(entry.number));
+                            const found = wd[day].find(p => parseInt(p.number) === parseInt(entry.number));
                             if (found) { subjectName = found.subject; break; }
                         }
                     }
                 }
 
+                const escapedSub = escHtml(subjectName);
                 const card = document.createElement('div');
                 card.className = 'hw-card';
-                card.innerHTML = `<div class="hw-card-subject">${subjectName}</div><div class="hw-card-meta">${entry.number} пара · ${day}</div><div class="hw-card-text">${entry.text}</div><div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${subjectName}" data-day="${day}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
+                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div><div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
                 frag.appendChild(card);
             }
         }
@@ -871,8 +914,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     function getTodayScheduleText() {
         if (!scheduleData || !selectedGroup) return null;
 
-        const today = new Date();
-        let dayIndex = today.getDay();
+        const kyiv = getKyivNow();
+        const today = new Date(kyiv.year, kyiv.month - 1, kyiv.day);
+        let dayIndex = kyiv.dayOfWeek;
         let prefix = 'Сьогодні';
 
         // Weekend — show Monday's schedule
@@ -1124,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 60000);
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v31';
+        const DEPLOY_VERSION = 'rozklad-v39';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

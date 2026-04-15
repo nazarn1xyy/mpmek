@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
     return res.json({ ok: true, sent, errors });
   } catch (err) {
     console.error('telegram-notify error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

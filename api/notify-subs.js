@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
         await webpush.sendNotification(subscription, payload);
         sent++;
       } catch (err) {
-        errors.push({ id: entry.id, error: err.message, statusCode: err.statusCode });
+        errors.push({ statusCode: err.statusCode });
         if (err.statusCode === 410 || err.statusCode === 404) {
           await redis('HDEL', 'push-subs', entry.id);
         }
@@ -70,6 +70,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, sent, total: entries.length, errors });
   } catch (error) {
     console.error('Notify subs error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

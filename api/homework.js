@@ -11,6 +11,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const { group } = req.query;
       if (!group) return res.status(400).json({ error: 'group is required' });
+      if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
 
       const raw = await redis('HGETALL', `hw:${group}`);
       const hash = parseRedisHash(raw);
@@ -51,6 +52,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method not allowed' });
   } catch (err) {
     console.error('homework API error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

@@ -407,6 +407,29 @@
 
 
     // ===== Publish (GitHub API) =====
+    async function pushFileToGitHub(token, owner, repo, filePath, content, message, retries) {
+        for (let attempt = 0; attempt <= (retries || 1); attempt++) {
+            const getResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+            if (!getResp.ok) throw new Error('Не вдалось отримати файл з GitHub: ' + getResp.status);
+            const fileInfo = await getResp.json();
+            const encoded = btoa(unescape(encodeURIComponent(content)));
+            const putResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, content: encoded, sha: fileInfo.sha })
+            });
+            if (putResp.ok) return await putResp.json();
+            if (putResp.status === 409 && attempt < (retries || 1)) {
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+            const err = await putResp.json();
+            throw new Error(err.message || 'GitHub API error ' + putResp.status);
+        }
+    }
+
     publishBtn.addEventListener('click', async () => {
         const token = localStorage.getItem('ghToken');
         const owner = localStorage.getItem('ghOwner') || 'nazarn1xyy';
@@ -421,39 +444,10 @@
         statusText.textContent = '⏳ Публікація...';
 
         try {
-            // 1. Get current file SHA
-            const filePath = 'app/schedule.json';
-            const getResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                headers: { 'Authorization': `token ${token}` }
-            });
-
-            if (!getResp.ok) throw new Error('Не вдалось отримати файл з GitHub: ' + getResp.status);
-            const fileInfo = await getResp.json();
-
-            // 2. Prepare new content
             const newContent = JSON.stringify(scheduleData, null, 2);
-            const encoded = btoa(unescape(encodeURIComponent(newContent)));
+            await pushFileToGitHub(token, owner, repo, 'app/schedule.json', newContent, '📅 Оновлено розклад через адмін-панель', 2);
 
-            // 3. Update file
-            const putResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: '📅 Оновлено розклад через адмін-панель',
-                    content: encoded,
-                    sha: fileInfo.sha
-                })
-            });
-
-            if (!putResp.ok) {
-                const err = await putResp.json();
-                throw new Error(err.message || 'GitHub API error');
-            }
-
-            // 4. Also bump sw.js cache version
+            // Also bump sw.js cache version
             await bumpServiceWorkerCache(token, owner, repo);
 
             originalJson = JSON.stringify(scheduleData);
@@ -520,7 +514,7 @@
     }
 
     function escAttr(s) {
-        return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return String(s).replace(/&/g, '&amp;').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     // ===== Public API (for inline onclick handlers) =====

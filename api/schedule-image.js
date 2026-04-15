@@ -427,6 +427,6 @@ module.exports = async function handler(req, res) {
     return res.send(buf);
   } catch (err) {
     console.error('schedule-image error:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
