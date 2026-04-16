@@ -133,22 +133,19 @@ module.exports = async (req, res) => {
 
       let user = await getUser(username);
 
-      // Admin login: verify against env password, auto-create account if needed
+      // Admin login: verify against env password (no password hash stored)
       if (ADMIN_USERNAMES.includes(username)) {
         const envPwd = process.env.ADMIN_PASSWORD;
         if (!envPwd || !safeCompare(password, envPwd)) {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
-        // Auto-create admin account on first login
+        // Auto-create admin profile record on first login (for displayName/group)
         if (!user) {
-          const salt = crypto.randomBytes(32).toString('hex');
-          const pwHash = await pbkdf2(password, salt);
-          user = { displayName: 'Адміністратор', passwordHash: pwHash, salt, group: '', createdAt: new Date().toISOString() };
+          user = { displayName: 'Адміністратор', group: '', createdAt: new Date().toISOString() };
           await redis('SET', `auth:user:${username}`, JSON.stringify(user));
         }
 
-        // Return deviceId to client to store
         const token = crypto.randomBytes(32).toString('hex');
         await redis('SET', `auth:session:${token}`, username);
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
@@ -203,6 +200,20 @@ module.exports = async (req, res) => {
 
       const group = sanitize(req.body.group, 50);
       if (!group) return res.status(400).json({ error: 'Невірна група' });
+
+      // Validate group exists in published schedule
+      try {
+        const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
+        const schedResp = await fetch(`${baseUrl}/schedule.json`);
+        if (schedResp.ok) {
+          const schedData = await schedResp.json();
+          if (!schedData[group]) {
+            return res.status(400).json({ error: 'Такої групи не існує' });
+          }
+        }
+      } catch {
+        // If schedule fetch fails, allow group (better than blocking)
+      }
 
       const user = await getUser(session.username);
       if (!user) return res.status(401).json({ error: 'Не авторизовано' });

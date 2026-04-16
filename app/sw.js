@@ -3,9 +3,9 @@ const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
   './index.html',
+  './widget.html',
   './style.css',
   './app.js',
-
   './manifest.json',
   './icon.png'
 ];

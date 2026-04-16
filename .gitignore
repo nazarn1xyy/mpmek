@@ -6,3 +6,12 @@ node_modules/
 .env
 onboarding-test/
 parse_schedule.py
+
+# Obsidian notes (local only)
+.obsidian/
+*.base
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db

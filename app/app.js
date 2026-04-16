@@ -30,16 +30,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         return d.innerHTML;
     }
 
-    // Get current time in Kyiv timezone
+    // Non-blocking toast (replaces alert) — announces to screen readers
+    let _toastTimer = null;
+    function showToast(msg, type) {
+        let t = document.getElementById('_appToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_appToast';
+            t.setAttribute('role', 'status');
+            t.setAttribute('aria-live', 'polite');
+            t.style.cssText = 'position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 18px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.3);z-index:99998;font-size:14px;font-weight:500;max-width:92vw;text-align:center;opacity:0;transition:opacity .2s';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.background = type === 'error' ? '#c0392b' : '#111';
+        t.style.opacity = '1';
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+    }
+
+    // Get current time in Kyiv timezone (cached 1s to avoid repeated toLocaleString calls)
+    let _kyivCache = null;
+    let _kyivCacheTs = 0;
     function getKyivNow() {
+        const now = Date.now();
+        if (_kyivCache && now - _kyivCacheTs < 1000) return _kyivCache;
         const str = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Kiev', hour12: false });
         // str = "DD/MM/YYYY, HH:MM:SS"
         const [datePart, timePart] = str.split(', ');
         const [dd, mm, yyyy] = datePart.split('/').map(Number);
         const [hh, mi, ss] = timePart.split(':').map(Number);
-        return { year: yyyy, month: mm, day: dd, hours: hh, minutes: mi, seconds: ss,
+        _kyivCache = {
+            year: yyyy, month: mm, day: dd, hours: hh, minutes: mi, seconds: ss,
             dayOfWeek: new Date(yyyy, mm - 1, dd).getDay(),
-            totalMinutes: hh * 60 + mi };
+            totalMinutes: hh * 60 + mi
+        };
+        _kyivCacheTs = now;
+        return _kyivCache;
     }
 
     // Get ISO week number for auto week type detection
@@ -447,11 +474,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target.checked) {
             if (!('Notification' in window)) {
                 e.target.checked = false;
-                alert('Сповіщення недоступні в цьому браузері. Встановіть додаток (PWA) для підтримки сповіщень.');
+                showToast('Сповіщення недоступні в цьому браузері', 'error');
                 return;
             }
             if (Notification.permission === 'denied') {
-                alert('Сповіщення заблоковані в налаштуваннях браузера. Розблокуйте їх вручну.');
+                showToast('Сповіщення заблоковані. Розблокуйте їх в налаштуваннях браузера', 'error');
                 e.target.checked = false;
                 return;
             }
@@ -548,7 +575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         try {
-            const resp = await fetch('schedule.json');
+            // Match preload: same URL + same credentials mode so browser reuses preloaded response
+            const resp = await fetch('schedule.json', { credentials: 'same-origin' });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
             if (data._settings) {
@@ -1193,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function _fetchAndShare(url, filename, title, text) {
         try {
             const resp = await fetch(url);
-            if (!resp.ok) { alert('Немає розкладу'); return; }
+            if (!resp.ok) { showToast('Немає розкладу', 'error'); return; }
             const blob = await resp.blob();
             const file = new File([blob], filename, { type: 'image/png' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1204,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 a.href = u; a.download = filename; a.click();
                 URL.revokeObjectURL(u);
             }
-        } catch { alert('Помилка генерації зображення'); }
+        } catch { showToast('Помилка генерації зображення', 'error'); }
     }
 
     function showShareDayPicker() {

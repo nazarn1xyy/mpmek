@@ -57,9 +57,32 @@ async function ghPut(filePath, content, sha, message) {
   );
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(`GitHub put ${filePath}: ${err.message || resp.status}`);
+    const e = new Error(`GitHub put ${filePath}: ${err.message || resp.status}`);
+    e.status = resp.status;
+    throw e;
   }
   return resp.json();
+}
+
+// Push with retry on 409 (concurrent admin conflict).
+// Uses a "transform" callback so retry merges against the latest SHA.
+async function ghPutWithRetry(filePath, transform, message, maxRetries = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const info = await ghFetch(filePath);
+      const currentContent = Buffer.from(info.content, 'base64').toString('utf-8');
+      const newContent = await transform(currentContent);
+      if (newContent === null) return null; // transform requested abort
+      return await ghPut(filePath, newContent, info.sha, message);
+    } catch (e) {
+      lastErr = e;
+      if (e.status !== 409 && e.status !== 422) throw e;
+      // Exponential backoff: 250ms, 500ms, 1000ms
+      await new Promise(r => setTimeout(r, 250 * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr;
 }
 
 // Validate incoming schedule structure (hardening against malicious payloads)
@@ -117,23 +140,27 @@ async function handlePublish(req, res) {
     return res.status(400).json({ error: validationError });
   }
 
-  // 1. Push schedule.json
-  const scheduleInfo = await ghFetch('app/schedule.json');
   const newContent = JSON.stringify(schedule, null, 2);
-  await ghPut('app/schedule.json', newContent, scheduleInfo.sha,
-    '📅 Оновлено розклад через адмін-панель');
+
+  // 1. Push schedule.json with retry on 409 (concurrent admin conflict)
+  await ghPutWithRetry(
+    'app/schedule.json',
+    () => newContent,
+    '📅 Оновлено розклад через адмін-панель'
+  );
 
   // 2. Bump SW cache version so clients fetch fresh assets
   try {
-    const swInfo = await ghFetch('app/sw.js');
-    let swContent = Buffer.from(swInfo.content, 'base64').toString('utf-8');
-    const match = swContent.match(/rozklad-v(\d+)/);
-    if (match) {
-      const newVer = parseInt(match[1]) + 1;
-      swContent = swContent.replace(/rozklad-v\d+/, `rozklad-v${newVer}`);
-      await ghPut('app/sw.js', swContent, swInfo.sha,
-        `🔄 Бамп версії кешу SW (v${newVer})`);
-    }
+    await ghPutWithRetry(
+      'app/sw.js',
+      (currentSw) => {
+        const match = currentSw.match(/rozklad-v(\d+)/);
+        if (!match) return null;
+        const newVer = parseInt(match[1], 10) + 1;
+        return currentSw.replace(/rozklad-v\d+/, `rozklad-v${newVer}`);
+      },
+      '🔄 Бамп версії кешу SW'
+    );
   } catch (e) {
     console.warn('SW bump skipped:', e.message);
   }
@@ -148,13 +175,17 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Rate limit PIN attempts (anti brute-force) — per IP and globally
+  // Rate limit PIN attempts (anti brute-force) — per IP + global (botnet protection)
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
   if (await rateLimit(`admin:${ip}`, 10, 300)) {
     return res.status(429).json({ error: 'Too many attempts. Wait 5 minutes' });
   }
-  if (await rateLimit('admin:global', 100, 300)) {
+  if (await rateLimit('admin:global:5m', 100, 300)) {
     return res.status(429).json({ error: 'Забагато спроб. Зачекайте' });
+  }
+  // 1-hour global cap (stops slow distributed brute-force)
+  if (await rateLimit('admin:global:1h', 500, 3600)) {
+    return res.status(429).json({ error: 'Адмін-панель тимчасово заблокована. Спробуйте пізніше' });
   }
 
   // Require PIN + admin session for EVERY route

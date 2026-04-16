@@ -1,53 +1,76 @@
-# 📅 Розклад Студента — PWA
+# 📅 Розклад Студента МПМЕК — PWA
 
-Мінімалістичний PWA-додаток для перегляду розкладу пар. Чорно-біла тема, формат щоденника, офлайн-підтримка.
+Мінімалістичний PWA-додаток для перегляду розкладу пар. Чорно-біла тема, формат щоденника, офлайн-підтримка. Живий сайт: **[mpmek.site](https://mpmek.site)**.
 
 ## ✨ Можливості
 
 - 📱 Встановлюється на телефон як нативний додаток
 - 🌙 Темна та світла тема
-- 📝 Додавання домашніх завдань до кожної пари
-- 🔄 Перемикання між типами тижня (основний / чисельник / знаменник / підвіска)
+- 📝 Домашні завдання синхронізуються між пристроями (через акаунт)
+- 🔄 Автоматичне визначення чисельника/знаменника за ISO-тижнем
+- ⚡ Заміни/підвіски підсвічуються окремо
+- 🔔 Web Push + Telegram нотифікації про заміни
+- 🗓 Два режими: список та тижнева сітка (Google Calendar)
 - 📴 Працює офлайн завдяки Service Worker
-- ⚡ Оптимізовано для мобільних пристроїв
+- 🖼 Поділитися розкладом як зображенням (`@napi-rs/canvas`)
+- 🤖 Telegram-бот `@mpmek_bot` з inline-пошуком груп
 
-## 🛠 Технології
+## 🛠 Стек
 
-- Vanilla HTML / CSS / JavaScript (без фреймворків)
-- PWA (Service Worker + Web App Manifest)
-- Safe Area Insets для iPhone з Dynamic Island/Notch
-- Stale-while-revalidate кешування
+- **Frontend:** Vanilla HTML / CSS / JS (без фреймворків)
+- **Backend:** Vercel Serverless Functions (Node.js)
+- **Сховище:** Upstash Redis (сесії, ДЗ, підписки)
+- **PWA:** Service Worker + Web App Manifest
+- **Деплой:** Vercel з автоматичним білдом на push до `main`
 
-## 🚀 Розгортання на GitHub Pages
-
-1. Створіть репозиторій на GitHub
-2. Завантажте файли (інструкція нижче)
-3. Перейдіть у **Settings → Pages**
-4. У **Source** оберіть `Deploy from a branch`
-5. Оберіть гілку `main` та папку `/app`
-6. Збережіть — сайт буде доступний за адресою `https://ваш-юзернейм.github.io/назва-репо/`
-
-## 📂 Структура проекту
+## 📂 Структура
 
 ```
-├── app/                  # PWA додаток
-│   ├── index.html        # Головна сторінка
-│   ├── style.css         # Стилі (мінімалізм, ч/б)
-│   ├── app.js            # Логіка додатку
-│   ├── schedule.json     # Дані розкладу
-│   ├── sw.js             # Service Worker
-│   ├── manifest.json     # Маніфест PWA
-│   └── icon.svg          # Іконка
-├── parse_schedule.py     # Парсер розкладу з .txt → .json
-└── всі_розклади.txt      # Вихідні дані розкладу
+├── api/                      # Serverless functions (12 штук — ліміт Hobby)
+│   ├── _lib/redis.js         # Redis wrapper + rate limiter
+│   ├── auth.js               # Реєстрація/логін/сесія
+│   ├── admin-config.js       # Адмін-публікація (PIN + сесія)
+│   ├── homework.js           # Синхронізація домашки
+│   ├── pidveska.js           # Підвіски/заміни (для бота)
+│   ├── push.js               # Web Push subscribe/unsubscribe
+│   ├── notify-subs.js        # Надсилання push про заміни
+│   ├── telegram.js           # Telegram webhook (inline queries)
+│   ├── telegram-notify.js    # Надсилання TG про заміни
+│   ├── telegram-setup.js     # One-time webhook setup
+│   ├── tg-subscribe.js       # Підписка TG чату на групу
+│   ├── schedule-image.js     # Генерація PNG розкладу
+│   └── cron/daily-notify.js  # Щоденний cron push
+├── app/                      # PWA (output для Vercel)
+│   ├── index.html            # SPA shell
+│   ├── app.js                # Весь клієнтський JS
+│   ├── style.css             # Стилі
+│   ├── sw.js                 # Service Worker
+│   ├── manifest.json         # PWA manifest
+│   ├── widget.html           # Компактний віджет
+│   ├── admin/index.html      # Адмін-панель (PIN + адмін-сесія)
+│   └── schedule.json         # Дані розкладу (оновлюється через адмінку)
+└── vercel.json               # Headers, CSP, crons, routing
+```
+
+## 🔐 Env vars (Vercel)
+
+```
+ADMIN_PIN=XXXX             # 4-значний PIN для адмінки
+ADMIN_PASSWORD=...         # Пароль адмін-логіну
+ADMIN_USERNAMES=nazar      # Comma-separated логіни з адмін-роллю
+GITHUB_TOKEN=ghp_...       # PAT з scope=repo для публікації
+KV_REST_API_URL=...        # Upstash Redis
+KV_REST_API_TOKEN=...      # Upstash Redis
+VAPID_PUBLIC_KEY=...       # Web Push
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:...
+CRON_SECRET=...            # Для захисту notify-subs від cron
+TELEGRAM_BOT_TOKEN=...     # Для @mpmek_bot
+TELEGRAM_WEBHOOK_SECRET=...# Перевірка Telegram webhook
 ```
 
 ## 🔄 Оновлення розкладу
 
-Якщо потрібно оновити дані розкладу:
+**Через адмін-панель** (`/admin/`): ввести PIN + авторизуватись адмін-акаунтом → редагувати → "Опублікувати". Сервер сам пушить у GitHub через env-токен, Vercel автоматично деплоїть (~30с).
 
-```bash
-python3 parse_schedule.py
-```
-
-Це перезапише `app/schedule.json` з нових даних у `всі_розклади.txt`.
+**Через бота:** бот шле `POST /api/pidveska` з `bot_token` — додає/видаляє підвіски.

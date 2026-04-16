@@ -21,7 +21,7 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
     <link rel="preload" href="style.css?v=37" as="style">
-    <link rel="preload" href="schedule.json" as="fetch">
+    <link rel="preload" href="schedule.json" as="fetch" crossorigin="anonymous">
     <link rel="preload" href="app.js?v=38" as="script">
     <style>
         /* Critical CSS — inlined for instant first paint */
@@ -247,7 +247,7 @@
     </div>
 
     <!-- Homework Modal (Bottom Sheet) -->
-    <div id="hwModal" class="modal-overlay hidden">
+    <div id="hwModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="hwModalTitle">
         <div class="modal-sheet">
             <div class="modal-handle"></div>
             <h2 id="hwModalTitle">Додати завдання</h2>
@@ -261,7 +261,7 @@
     </div>
 
     <!-- iOS Install Overlay -->
-    <div id="installOverlay" class="install-overlay">
+    <div id="installOverlay" class="install-overlay" role="dialog" aria-modal="true" aria-labelledby="installTitle">
         <div class="install-content">
             <a href="#_" class="install-close" aria-label="Закрити">&times;</a>
             <div class="phone-mockup">
@@ -273,7 +273,7 @@
                 </div>
                 <img src="icon.png" class="phone-app-icon" alt="App Icon">
             </div>
-            <h2 class="install-title">Додати Розклад на екран</h2>
+            <h2 id="installTitle" class="install-title">Додати Розклад на екран</h2>
             <div class="install-steps">
                 <p>1. Натисніть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> на нижній панелі</p>
                 <p>2. Оберіть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" ry="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> <strong>На екран «Домой»</strong></p>
@@ -284,11 +284,31 @@
         </div>
     </div>
     <script>
-        // Force reload when a new Service Worker takes control
+        // When a new Service Worker takes control, show non-blocking toast
+        // instead of auto-reloading (which would lose unsaved work).
         if ('serviceWorker' in navigator) {
-            var _refreshing = false;
+            var _swUpdateShown = false;
             navigator.serviceWorker.addEventListener('controllerchange', function() {
-                if (!_refreshing) { _refreshing = true; location.reload(); }
+                if (_swUpdateShown) return;
+                _swUpdateShown = true;
+                var toast = document.createElement('div');
+                toast.setAttribute('role', 'alert');
+                toast.style.cssText = 'position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 16px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.3);z-index:99999;display:flex;align-items:center;gap:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;max-width:92vw';
+                var msg = document.createElement('span');
+                msg.textContent = 'Доступна нова версія';
+                var btn = document.createElement('button');
+                btn.textContent = 'Оновити';
+                btn.style.cssText = 'background:#fff;color:#000;border:none;padding:6px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px';
+                btn.onclick = function() { location.reload(); };
+                var close = document.createElement('button');
+                close.textContent = '✕';
+                close.setAttribute('aria-label', 'Закрити');
+                close.style.cssText = 'background:transparent;color:#888;border:none;padding:4px 8px;cursor:pointer;font-size:16px';
+                close.onclick = function() { toast.remove(); };
+                toast.appendChild(msg);
+                toast.appendChild(btn);
+                toast.appendChild(close);
+                document.body.appendChild(toast);
             });
         }
         window.addEventListener('hashchange',function(){

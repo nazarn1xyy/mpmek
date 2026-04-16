@@ -39,11 +39,20 @@ function parseRedisEntries(raw) {
   return entries;
 }
 
-// Rate limiter: returns true if request should be blocked
+// Rate limiter: returns true if request should be blocked.
+// Atomic: uses SET NX EX to initialize the counter with TTL in one op,
+// then INCR. Even if the process crashes between ops, the key already has TTL,
+// so there's no permanent-lockout risk.
 async function rateLimit(key, maxAttempts, windowSec) {
   const rk = `rl:${key}`;
+  // SET only if not exists, with TTL. Returns 'OK' on first request in window.
+  const setOk = await redis('SET', rk, '0', 'EX', windowSec, 'NX');
+  // Then atomically increment. If key just created, count becomes 1.
   const count = await redis('INCR', rk);
-  if (count === 1) await redis('EXPIRE', rk, windowSec);
+  // Defensive re-set of TTL if somehow missing (eviction policy, key gone)
+  if (!setOk && count === 1) {
+    await redis('EXPIRE', rk, windowSec);
+  }
   return count > maxAttempts;
 }
 
