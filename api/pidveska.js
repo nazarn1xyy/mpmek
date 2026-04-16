@@ -61,11 +61,27 @@ module.exports = async function handler(req, res) {
   }
 };
 
+const DATE_RE = /^\d{2}\.\d{2}$/;
+
+function sanitizeEntry(e) {
+  if (!e || typeof e !== 'object') return null;
+  const date = typeof e.date === 'string' ? e.date.trim() : '';
+  if (!DATE_RE.test(date)) return null;
+  const number = Number(e.number);
+  if (!Number.isFinite(number) || number < 1 || number > 8) return null;
+  const subject = typeof e.subject === 'string' ? e.subject.trim().slice(0, 200) : '';
+  const teacher = typeof e.teacher === 'string' ? e.teacher.trim().slice(0, 100) : '';
+  return { date, number, subject, teacher };
+}
+
 async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner, repo) {
-  const { group, entries } = req.body;
+  const { group, entries } = req.body || {};
   // entries = [{ date: "DD.MM", number: 1, subject: "...", teacher: "..." }, ...]
-  if (!group || !entries || !Array.isArray(entries) || entries.length === 0) {
-    return res.status(400).json({ error: 'group and entries[] required' });
+  if (!group || typeof group !== 'string' || group.length > 80) {
+    return res.status(400).json({ error: 'group required (max 80 chars)' });
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return res.status(400).json({ error: 'entries[] required' });
   }
   if (entries.length > 50) {
     return res.status(400).json({ error: 'Max 50 entries per request' });
@@ -84,18 +100,20 @@ async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner
   );
 
   let added = 0;
-  for (const e of entries) {
+  let rejected = 0;
+  for (const raw of entries) {
+    const e = sanitizeEntry(raw);
+    if (!e) { rejected++; continue; }
     const key = `${e.date}|${e.number}`;
     if (!existing.has(key)) {
-      scheduleData[group]['ПІДВІСКА'].push({
-        date: e.date,
-        number: e.number,
-        subject: e.subject || '',
-        teacher: e.teacher || '',
-      });
+      scheduleData[group]['ПІДВІСКА'].push(e);
       existing.add(key);
       added++;
     }
+  }
+
+  if (rejected > 0 && added === 0) {
+    return res.status(400).json({ error: `All ${rejected} entries had invalid format` });
   }
 
   if (added === 0) {
@@ -110,9 +128,16 @@ async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner
 }
 
 async function handleDelete(req, res, scheduleData, sha, filePath, ghHeaders, owner, repo) {
-  const { group, date, number } = req.body;
-  if (!group || !date || number == null) {
-    return res.status(400).json({ error: 'group, date, and number required' });
+  const { group, date, number } = req.body || {};
+  if (!group || typeof group !== 'string' || group.length > 80) {
+    return res.status(400).json({ error: 'group required' });
+  }
+  if (typeof date !== 'string' || !DATE_RE.test(date)) {
+    return res.status(400).json({ error: 'date must be DD.MM' });
+  }
+  const para = Number(number);
+  if (!Number.isFinite(para) || para < 1 || para > 8) {
+    return res.status(400).json({ error: 'invalid number' });
   }
 
   if (!scheduleData[group] || !scheduleData[group]['ПІДВІСКА']) {
@@ -120,7 +145,6 @@ async function handleDelete(req, res, scheduleData, sha, filePath, ghHeaders, ow
   }
 
   const before = scheduleData[group]['ПІДВІСКА'].length;
-  const para = typeof number === 'string' ? parseInt(number) : number;
   scheduleData[group]['ПІДВІСКА'] = scheduleData[group]['ПІДВІСКА'].filter(
     e => !(e.date === date && e.number === para)
   );

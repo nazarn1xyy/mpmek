@@ -71,9 +71,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Homework server sync
     async function syncHomeworkToServer(group, day, number, text) {
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
             await fetch('/api/homework', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ group, day, number, text: text || '' })
             });
         } catch (e) { console.warn('HW sync push failed:', e); }
@@ -735,13 +737,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         const escapedSubject = escHtml(pair.subject);
+        const safeNum = Number(pair.number) || 0;
         let subjectHtml = `<div class="diary-item-subject">${escapedSubject}</div>`;
         if (pair.isSubstitution) {
             const badgeText = pair.substitutionType === 'підвіска' ? 'ПІДВІСКА' : 'ЗАМІНА';
             subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${escapedSubject}</div>`;
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
@@ -1571,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
         setInterval(() => {
+            if (document.hidden) return;
             if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
                 renderCurrentView();
             }

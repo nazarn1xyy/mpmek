@@ -1,18 +1,42 @@
 const webpush = require('web-push');
 const { redis, parseRedisEntries, safeCompare } = require('./_lib/redis');
 
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+async function hasAdminSession(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  if (!token || token.length > 128) return false;
+  const uname = await redis('GET', `auth:session:${token}`);
+  if (!uname) return false;
+  return ADMIN_USERNAMES.includes(uname);
+}
+
 module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Pin, X-Cron-Secret, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth: require admin pin or cron secret
+  // Auth: accept EITHER (admin PIN + admin session) OR cron secret
   const pin = req.headers['x-admin-pin'];
   const cronSecret = req.headers['x-cron-secret'];
   const ADMIN_PIN = process.env.ADMIN_PIN;
   const CRON_SECRET = process.env.CRON_SECRET;
-  if (!safeCompare(pin, ADMIN_PIN) && !safeCompare(cronSecret, CRON_SECRET)) {
-    return res.status(403).json({ error: 'Unauthorized' });
+
+  const isCron = CRON_SECRET && safeCompare(cronSecret, CRON_SECRET);
+  if (!isCron) {
+    if (!ADMIN_PIN || !safeCompare(pin, ADMIN_PIN)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (!(await hasAdminSession(req))) {
+      return res.status(403).json({ error: 'Admin session required' });
+    }
   }
 
   try {
@@ -27,17 +51,27 @@ module.exports = async function handler(req, res) {
       VAPID_PRIVATE_KEY
     );
 
-    const { substitutions } = req.body;
+    const { substitutions } = req.body || {};
     // substitutions = [{ group, date, number, subject, teacher }, ...]
-    if (!substitutions || !Array.isArray(substitutions) || substitutions.length === 0) {
+    if (!Array.isArray(substitutions) || substitutions.length === 0) {
       return res.status(200).json({ ok: true, sent: 0, message: 'No substitutions to notify' });
     }
+    if (substitutions.length > 200) {
+      return res.status(400).json({ error: 'Too many substitutions (max 200)' });
+    }
 
-    // Group subs by group name
+    // Sanitize and group subs by group name
     const byGroup = {};
     for (const sub of substitutions) {
-      if (!byGroup[sub.group]) byGroup[sub.group] = [];
-      byGroup[sub.group].push(sub);
+      if (!sub || typeof sub !== 'object') continue;
+      const group = typeof sub.group === 'string' ? sub.group.slice(0, 80) : '';
+      const date = typeof sub.date === 'string' ? sub.date.slice(0, 10) : '';
+      const number = Number(sub.number);
+      const subject = typeof sub.subject === 'string' ? sub.subject.slice(0, 200) : '';
+      const teacher = typeof sub.teacher === 'string' ? sub.teacher.slice(0, 100) : '';
+      if (!group || !date || !Number.isFinite(number)) continue;
+      if (!byGroup[group]) byGroup[group] = [];
+      byGroup[group].push({ group, date, number, subject, teacher });
     }
 
     // Get all subscriptions

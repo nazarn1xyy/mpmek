@@ -452,20 +452,23 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     }
 
     async function handlePinComplete() {
-        const deviceId = localStorage.getItem('adminDeviceId');
-        if (!deviceId) {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
             shakePin('Спершу увійдіть як адмін на сайті');
             return;
         }
         try {
             const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': pinCode, 'X-Device-Id': deviceId }
+                headers: {
+                    'X-Admin-Pin': pinCode,
+                    'Authorization': 'Bearer ' + authToken
+                }
             });
             if (resp.ok) {
                 verifiedPin = pinCode;
                 unlockAdmin();
             } else if (resp.status === 403) {
-                shakePin('Пристрій не авторизовано');
+                shakePin('Потрібен акаунт адміна');
             } else if (resp.status === 429) {
                 shakePin('Забагато спроб. Зачекайте');
             } else {
@@ -913,67 +916,43 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         return v;
     }
 
-    // ===== Config Section (stored in Redis via /api/admin-config) =====
-    let adminConfig = { ghToken: '', ghOwner: 'nazarn1xyy', ghRepo: 'mpmek' };
-
+    // ===== Config Section =====
+    // GitHub token is now stored server-side in GITHUB_TOKEN env var.
+    // No need to load/save from client.
     async function loadAdminConfig() {
-        try {
-            const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' }
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data.ghToken) adminConfig.ghToken = data.ghToken;
-                if (data.ghOwner) adminConfig.ghOwner = data.ghOwner;
-                if (data.ghRepo) adminConfig.ghRepo = data.ghRepo;
-            }
-        } catch (e) {
-            console.warn('Failed to load admin config:', e);
-        }
+        // Clean up legacy localStorage values for security
+        localStorage.removeItem('ghToken');
+        localStorage.removeItem('ghOwner');
+        localStorage.removeItem('ghRepo');
+        localStorage.removeItem('adminDeviceId');
     }
 
     function renderConfig() {
-        document.getElementById('ghTokenInput').value = adminConfig.ghToken ? '••••••••' : '';
-        document.getElementById('ghOwnerInput').value = adminConfig.ghOwner || 'nazarn1xyy';
-        document.getElementById('ghRepoInput').value = adminConfig.ghRepo || 'mpmek';
+        const tokenInput = document.getElementById('ghTokenInput');
+        const ownerInput = document.getElementById('ghOwnerInput');
+        const repoInput = document.getElementById('ghRepoInput');
+        if (tokenInput) {
+            tokenInput.value = '';
+            tokenInput.placeholder = 'Зберігається на сервері (env GITHUB_TOKEN)';
+            tokenInput.disabled = true;
+        }
+        if (ownerInput) { ownerInput.value = 'nazarn1xyy'; ownerInput.disabled = true; }
+        if (repoInput) { repoInput.value = 'mpmek'; repoInput.disabled = true; }
+        const saveBtn = document.getElementById('saveTokenBtn');
+        if (saveBtn) saveBtn.style.display = 'none';
     }
 
-    document.getElementById('saveTokenBtn').addEventListener('click', async () => {
-        const tokenVal = document.getElementById('ghTokenInput').value.trim();
-        const owner = document.getElementById('ghOwnerInput').value.trim();
-        const repo = document.getElementById('ghRepoInput').value.trim();
-
-        if (tokenVal && tokenVal !== '••••••••') {
-            adminConfig.ghToken = tokenVal;
-        }
-        adminConfig.ghOwner = owner || 'nazarn1xyy';
-        adminConfig.ghRepo = repo || 'mpmek';
-
-        try {
-            const resp = await fetch('/api/admin-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' },
-                body: JSON.stringify(adminConfig)
-            });
-            if (resp.ok) {
-                showToast('Налаштування збережено', 'success');
-            } else {
-                showToast('Помилка збереження', 'error');
-            }
-        } catch (e) {
-            showToast('Помилка з\'єднання', 'error');
-        }
+    // No-op for legacy HTML button (config is server-side now)
+    document.getElementById('saveTokenBtn')?.addEventListener('click', () => {
+        showToast('Налаштування зберігаються на сервері', 'success');
     });
 
 
-    // ===== Publish (GitHub API) =====
+    // ===== Publish (via server endpoint /api/admin-publish) =====
     publishBtn.addEventListener('click', async () => {
-        const token = adminConfig.ghToken;
-        const owner = adminConfig.ghOwner || 'nazarn1xyy';
-        const repo = adminConfig.ghRepo || 'mpmek';
-
-        if (!token) {
-            showToast('Спочатку додайте GitHub Token у Налаштуваннях', 'error');
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken || !verifiedPin) {
+            showToast('Сесія втрачена. Увійдіть знову', 'error');
             return;
         }
 
@@ -981,52 +960,33 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         statusText.textContent = '⏳ Публікація...';
 
         try {
-            // 1. Get current file SHA
-            const filePath = 'app/schedule.json';
-            const getResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                headers: { 'Authorization': `token ${token}` }
-            });
-
-            if (!getResp.ok) throw new Error('Не вдалось отримати файл з GitHub: ' + getResp.status);
-            const fileInfo = await getResp.json();
-
-            // 2. Prepare new content
-            const newContent = JSON.stringify(scheduleData, null, 2);
-            const encoded = btoa(unescape(encodeURIComponent(newContent)));
-
-            // 3. Update file
-            const putResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
-                method: 'PUT',
+            const resp = await fetch('/api/admin-publish', {
+                method: 'POST',
                 headers: {
-                    'Authorization': `token ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Admin-Pin': verifiedPin,
+                    'Authorization': 'Bearer ' + authToken
                 },
-                body: JSON.stringify({
-                    message: '📅 Оновлено розклад через адмін-панель',
-                    content: encoded,
-                    sha: fileInfo.sha
-                })
+                body: JSON.stringify({ schedule: scheduleData })
             });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
 
-            if (!putResp.ok) {
-                const err = await putResp.json();
-                throw new Error(err.message || 'GitHub API error');
-            }
-
-            // 4. Also bump sw.js cache version
-            await bumpServiceWorkerCache(token, owner, repo);
-
-            // 5. Send push + Telegram notifications about new substitutions
+            // Send push + Telegram notifications about new substitutions
             if (newSubsAdded.length > 0) {
                 statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
                 const notifyBody = JSON.stringify({ substitutions: newSubsAdded });
-                const notifyHeaders = { 'Content-Type': 'application/json', 'X-Admin-Pin': verifiedPin, 'X-Device-Id': localStorage.getItem('adminDeviceId') || '' };
+                const notifyHeaders = {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Pin': verifiedPin,
+                    'Authorization': 'Bearer ' + authToken
+                };
                 try {
                     await Promise.all([
                         fetch('/api/notify-subs', { method: 'POST', headers: notifyHeaders, body: notifyBody }),
                         fetch('/api/telegram-notify', { method: 'POST', headers: notifyHeaders, body: notifyBody }),
                     ]);
-                    showToast(`Опубліковано + сповіщення (web + Telegram)`, 'success');
+                    showToast('Опубліковано + сповіщення (web + Telegram)', 'success');
                 } catch (e) {
                     console.warn('Notify failed:', e);
                     showToast('Опубліковано (сповіщення не вдалось)', 'success');
@@ -1046,40 +1006,6 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             publishBtn.disabled = false;
         }
     });
-
-    async function bumpServiceWorkerCache(token, owner, repo) {
-        try {
-            const swPath = 'app/sw.js';
-            const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${swPath}`, {
-                headers: { 'Authorization': `token ${token}` }
-            });
-            if (!resp.ok) return;
-            const swInfo = await resp.json();
-            let swContent = decodeURIComponent(escape(atob(swInfo.content.replace(/\n/g, ''))));
-
-            // Bump version number
-            const match = swContent.match(/rozklad-v(\d+)/);
-            if (match) {
-                const newVer = parseInt(match[1]) + 1;
-                swContent = swContent.replace(/rozklad-v\d+/, `rozklad-v${newVer}`);
-
-                await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${swPath}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: '🔄 Бамп версії кешу SW (v' + newVer + ')',
-                        content: btoa(unescape(encodeURIComponent(swContent))),
-                        sha: swInfo.sha
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('SW bump failed:', e);
-        }
-    }
 
     // ===== Toast =====
     let toastTimer = null;

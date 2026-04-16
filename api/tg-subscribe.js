@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { chat_id, group, old_group, bot_token } = req.body;
+    const { chat_id, group, old_group, bot_token } = req.body || {};
 
     // Simple auth: require bot token
     const expectedToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -19,18 +19,25 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: 'unauthorized' });
     }
 
-    if (!chat_id) {
-      return res.status(400).json({ error: 'chat_id required' });
+    // Validate chat_id (must be numeric, Telegram IDs are int64)
+    const chatIdStr = String(chat_id || '').slice(0, 32);
+    if (!chatIdStr || !/^-?\d+$/.test(chatIdStr)) {
+      return res.status(400).json({ error: 'invalid chat_id' });
+    }
+
+    // Validate group names
+    function validGroup(g) {
+      return typeof g === 'string' && g.length > 0 && g.length <= 80 && !/[\x00-\x1f]/.test(g);
     }
 
     // Remove from old group if provided
-    if (old_group) {
-      await redis('SREM', `tg_subs:${old_group}`, String(chat_id));
+    if (old_group && validGroup(old_group)) {
+      await redis('SREM', `tg_subs:${old_group}`, chatIdStr);
     }
 
     // Add to new group
-    if (group) {
-      await redis('SADD', `tg_subs:${group}`, String(chat_id));
+    if (group && validGroup(group)) {
+      await redis('SADD', `tg_subs:${group}`, chatIdStr);
     }
 
     return res.json({ ok: true });

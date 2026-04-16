@@ -1,15 +1,31 @@
 // One-time endpoint to set up the Telegram webhook
-// Call: GET /api/telegram-setup?token=YOUR_BOT_TOKEN
+// Call: POST /api/telegram-setup with X-Admin-Pin + Authorization: Bearer <admin session>
 // This will register the webhook and enable inline mode
 
-const { safeCompare } = require('./_lib/redis');
+const { redis, safeCompare } = require('./_lib/redis');
+
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+async function hasAdminSession(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  if (!token || token.length > 128) return false;
+  const uname = await redis('GET', `auth:session:${token}`);
+  if (!uname) return false;
+  return ADMIN_USERNAMES.includes(uname);
+}
 
 module.exports = async function handler(req, res) {
-  // Auth: require admin pin
-  const pin = req.headers['x-admin-pin'] || req.query.pin;
+  // Auth: require admin PIN AND admin session
+  const pin = req.headers['x-admin-pin'];
   const ADMIN_PIN = process.env.ADMIN_PIN;
-  if (!safeCompare(pin, ADMIN_PIN)) {
+  if (!ADMIN_PIN || !safeCompare(pin, ADMIN_PIN)) {
     return res.status(403).json({ error: 'Unauthorized' });
+  }
+  if (!(await hasAdminSession(req))) {
+    return res.status(403).json({ error: 'Admin session required' });
   }
 
   const token = req.query.token || process.env.TELEGRAM_BOT_TOKEN;

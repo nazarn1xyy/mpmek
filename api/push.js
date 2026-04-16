@@ -15,10 +15,17 @@ module.exports = async function handler(req, res) {
       if (await rateLimit(`push:${ip}`, 10, 60)) {
         return res.status(429).json({ error: 'Too many requests' });
       }
-      const { subscription, group, notifyTime } = req.body;
-      if (!subscription || !subscription.endpoint || !group) {
-        return res.status(400).json({ error: 'Missing subscription or group' });
+      const { subscription, group, notifyTime } = req.body || {};
+      if (!subscription || typeof subscription !== 'object' || typeof subscription.endpoint !== 'string') {
+        return res.status(400).json({ error: 'Invalid subscription' });
       }
+      if (subscription.endpoint.length > 500) {
+        return res.status(400).json({ error: 'Endpoint too long' });
+      }
+      if (typeof group !== 'string' || group.length === 0 || group.length > 80) {
+        return res.status(400).json({ error: 'Invalid group' });
+      }
+      const nt = typeof notifyTime === 'string' && /^\d{2}:\d{2}$/.test(notifyTime) ? notifyTime : '08:00';
 
       const id = crypto
         .createHash('sha256')
@@ -28,8 +35,8 @@ module.exports = async function handler(req, res) {
 
       await redis('HSET', 'push-subs', id, JSON.stringify({
         subscription,
-        group,
-        notifyTime: notifyTime || '08:00'
+        group: group.slice(0, 80),
+        notifyTime: nt
       }));
 
       return res.status(200).json({ ok: true, id });
