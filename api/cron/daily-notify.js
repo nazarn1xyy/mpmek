@@ -18,13 +18,20 @@ module.exports = async function handler(req, res) {
       VAPID_PRIVATE_KEY
     );
 
-    // Skip weekends
+    // Skip weekends (check in Kyiv time, not UTC — a Saturday 02:00 Kyiv is still UTC Friday)
     const today = new Date();
-    const dayIdx = today.getDay();
-    if (dayIdx === 0 || dayIdx === 6) {
+    const kyivDateParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Kiev',
+      year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'
+    }).formatToParts(today);
+    const kyivWeekday = kyivDateParts.find(p => p.type === 'weekday').value; // Mon, Tue, ...
+    if (kyivWeekday === 'Sat' || kyivWeekday === 'Sun') {
       return res.status(200).json({ ok: true, skipped: 'weekend' });
     }
 
+    // Map Kyiv weekday abbreviation to dayIdx 1..5
+    const WEEKDAY_MAP = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5 };
+    const dayIdx = WEEKDAY_MAP[kyivWeekday];
     const dayName = UK_DAYS[dayIdx];
 
     // Fetch schedule data from the same deployment
@@ -41,26 +48,19 @@ module.exports = async function handler(req, res) {
     }
     delete scheduleData._settings;
 
-    // Compute today's date string DD.MM for substitution matching
-    const dateStr =
-      String(today.getDate()).padStart(2, '0') + '.' +
-      String(today.getMonth() + 1).padStart(2, '0');
+    // Compute today's date string DD.MM in KYIV timezone (not UTC)
+    const kyivDay = kyivDateParts.find(p => p.type === 'day').value;
+    const kyivMonth = kyivDateParts.find(p => p.type === 'month').value;
+    const dateStr = `${kyivDay}.${kyivMonth}`;
 
-    // Get all subscriptions from Redis
+    // Get all subscriptions from Redis.
+    // Note: Hobby plan limits us to 1 cron/day, so we can't honor per-user notifyTime.
+    // Send daily schedule to everyone at fixed time (05:00 UTC = 07:00–08:00 Kyiv).
     const raw = await redis('HGETALL', 'push-subs');
-    const allEntries = parseRedisEntries(raw);
-    if (allEntries.length === 0) {
+    const entries = parseRedisEntries(raw);
+    if (entries.length === 0) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
-
-    // Filter by notifyTime matching current Kyiv time slot (HH:00 or HH:30)
-    const kyivParts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false
-    }).formatToParts(today);
-    const kyivH = kyivParts.find(p => p.type === 'hour').value;
-    const kyivM = parseInt(kyivParts.find(p => p.type === 'minute').value);
-    const currentSlot = `${kyivH}:${kyivM < 30 ? '00' : '30'}`;
-    const entries = allEntries.filter(e => (e.notifyTime || '08:00') === currentSlot);
 
     let sent = 0;
     let failed = 0;
@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
       await redis('HDEL', 'push-subs', id);
     }
 
-    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, slot: currentSlot, totalSubs: allEntries.length });
+    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, totalSubs: entries.length });
   } catch (error) {
     console.error('Cron error:', error);
     return res.status(500).json({ error: 'Internal server error' });
