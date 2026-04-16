@@ -960,7 +960,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         statusText.textContent = '⏳ Публікація...';
 
         try {
-            const resp = await fetch('/api/admin-publish', {
+            const resp = await fetch('/api/admin-config?action=publish', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
