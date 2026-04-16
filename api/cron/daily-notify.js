@@ -1,5 +1,6 @@
 const webpush = require('web-push');
 const { redis, parseRedisEntries } = require('../_lib/redis');
+const { decryptSubscription } = require('../_lib/push-crypto');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
 const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
@@ -67,7 +68,9 @@ module.exports = async function handler(req, res) {
 
     for (const entry of entries) {
       try {
-        const { id, subscription, group } = entry;
+        const subscription = decryptSubscription(entry);
+        if (!subscription) continue;
+        const { id, group } = entry;
         const groupData = scheduleData[group];
         if (!groupData) continue;
 

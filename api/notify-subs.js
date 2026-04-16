@@ -1,5 +1,6 @@
 const webpush = require('web-push');
 const { redis, parseRedisEntries, safeCompare } = require('./_lib/redis');
+const { decryptSubscription } = require('./_lib/push-crypto');
 
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -86,7 +87,9 @@ module.exports = async function handler(req, res) {
 
     for (const entry of entries) {
       try {
-        const { subscription, group } = entry;
+        const subscription = decryptSubscription(entry);
+        if (!subscription) continue; // legacy/corrupt entry
+        const { group } = entry;
         const groupSubs = byGroup[group];
         if (!groupSubs || groupSubs.length === 0) continue;
 

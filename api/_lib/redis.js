@@ -40,19 +40,26 @@ function parseRedisEntries(raw) {
 }
 
 // Rate limiter: returns true if request should be blocked.
-// Atomic: uses SET NX EX to initialize the counter with TTL in one op,
-// then INCR. Even if the process crashes between ops, the key already has TTL,
-// so there's no permanent-lockout risk.
+// Atomic pattern: SET NX EX + INCR. Even if crash between ops, the key has TTL.
+// Defensive: if for any reason count reaches 1 without TTL set, set it explicitly.
 async function rateLimit(key, maxAttempts, windowSec) {
   const rk = `rl:${key}`;
-  // SET only if not exists, with TTL. Returns 'OK' on first request in window.
-  const setOk = await redis('SET', rk, '0', 'EX', windowSec, 'NX');
-  // Then atomically increment. If key just created, count becomes 1.
+  // Upstash REST may return 'OK', true, or null depending on client version.
+  // "Key was created" = any truthy result. "Key existed" = null/undefined/false.
+  let created = false;
+  try {
+    const setResult = await redis('SET', rk, '0', 'EX', windowSec, 'NX');
+    created = setResult === 'OK' || setResult === true;
+  } catch { /* ignore, fall through */ }
+
   const count = await redis('INCR', rk);
-  // Defensive re-set of TTL if somehow missing (eviction policy, key gone)
-  if (!setOk && count === 1) {
-    await redis('EXPIRE', rk, windowSec);
+
+  // Guarantee TTL: if not the one that created the key, or INCR pushed count to 1
+  // without our creator flag (race), set TTL defensively. TTL re-setting is idempotent.
+  if (!created || count === 1) {
+    try { await redis('EXPIRE', rk, windowSec); } catch { /* ignore */ }
   }
+
   return count > maxAttempts;
 }
 

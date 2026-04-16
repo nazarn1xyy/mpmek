@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { redis, rateLimit } = require('./_lib/redis');
+const { encryptSubscription } = require('./_lib/push-crypto');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,8 +34,10 @@ module.exports = async function handler(req, res) {
         .digest('hex')
         .slice(0, 16);
 
+      // Encrypt subscription at rest (falls back to plaintext if key not configured)
+      const encPayload = encryptSubscription(subscription);
       await redis('HSET', 'push-subs', id, JSON.stringify({
-        subscription,
+        ...encPayload,
         group: group.slice(0, 80),
         notifyTime: nt
       }));

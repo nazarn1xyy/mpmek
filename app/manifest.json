@@ -1,7 +1,7 @@
 {
   "name": "Розклад Студента",
   "short_name": "Розклад",
-  "start_url": "./",
+  "start_url": "./?source=pwa",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",

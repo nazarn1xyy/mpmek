@@ -198,22 +198,37 @@ module.exports = async (req, res) => {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
 
-      const group = sanitize(req.body.group, 50);
-      if (!group) return res.status(400).json({ error: 'Невірна група' });
+      // Allow empty string to clear the user's group (e.g. "Change group" button)
+      const rawGroup = typeof req.body.group === 'string' ? req.body.group : '';
+      const group = sanitize(rawGroup, 50);
 
-      // Validate group exists in published schedule
+      if (group) {
+      // Validate group exists — check Redis cache first, fallback to CDN fetch
       try {
-        const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
-        const schedResp = await fetch(`${baseUrl}/schedule.json`);
-        if (schedResp.ok) {
-          const schedData = await schedResp.json();
-          if (!schedData[group]) {
+        let cachedGroups = await redis('GET', 'cache:schedule-groups');
+        if (cachedGroups) {
+          const groups = JSON.parse(cachedGroups);
+          if (!groups.includes(group)) {
             return res.status(400).json({ error: 'Такої групи не існує' });
+          }
+        } else {
+          // Cold miss — fetch and cache for 5 minutes
+          const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
+          const schedResp = await fetch(`${baseUrl}/schedule.json`);
+          if (schedResp.ok) {
+            const schedData = await schedResp.json();
+            const groups = Object.keys(schedData).filter(k => k !== '_settings');
+            // Fire and forget cache write
+            redis('SET', 'cache:schedule-groups', JSON.stringify(groups), 'EX', 300).catch(() => {});
+            if (!groups.includes(group)) {
+              return res.status(400).json({ error: 'Такої групи не існує' });
+            }
           }
         }
       } catch {
-        // If schedule fetch fails, allow group (better than blocking)
+        // If anything fails, allow (better than blocking a valid user)
       }
+      } // end if (group)
 
       const user = await getUser(session.username);
       if (!user) return res.status(401).json({ error: 'Не авторизовано' });

@@ -6,6 +6,8 @@
  */
 const { safeCompare } = require('./_lib/redis');
 
+const DATE_RE = /^\d{2}\.\d{2}$/;
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
   res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
@@ -21,47 +23,106 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Missing env vars (TELEGRAM_BOT_TOKEN or GITHUB_TOKEN)' });
   }
 
-  // Auth check
   const { bot_token } = req.body || {};
   if (!safeCompare(bot_token, BOT_TOKEN)) {
     return res.status(403).json({ error: 'unauthorized' });
   }
 
+  const ghHeaders = {
+    'Authorization': `token ${GH_TOKEN}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'mpmek-bot',
+  };
+
   try {
-    // 1. Fetch current schedule.json from GitHub
-    const filePath = 'app/schedule.json';
-    const ghHeaders = {
-      'Authorization': `token ${GH_TOKEN}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'mpmek-bot',
-    };
-
-    const getResp = await fetch(
-      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${filePath}`,
-      { headers: ghHeaders }
-    );
-    if (!getResp.ok) {
-      const err = await getResp.text();
-      return res.status(502).json({ error: 'GitHub fetch failed', details: err });
-    }
-    const fileInfo = await getResp.json();
-    const content = Buffer.from(fileInfo.content, 'base64').toString('utf-8');
-    const scheduleData = JSON.parse(content);
-
     if (req.method === 'POST') {
-      return await handleAdd(req, res, scheduleData, fileInfo.sha, filePath, ghHeaders, GH_OWNER, GH_REPO);
+      return await handleAdd(req, res, ghHeaders, GH_OWNER, GH_REPO);
     } else if (req.method === 'DELETE') {
-      return await handleDelete(req, res, scheduleData, fileInfo.sha, filePath, ghHeaders, GH_OWNER, GH_REPO);
+      return await handleDelete(req, res, ghHeaders, GH_OWNER, GH_REPO);
     } else {
       return res.status(405).json({ error: 'method not allowed' });
     }
   } catch (err) {
     console.error('pidveska API error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 };
 
-const DATE_RE = /^\d{2}\.\d{2}$/;
+// ===== GitHub helpers with retry on 409/422 (concurrent write conflict) =====
+async function ghGet(owner, repo, filePath, headers) {
+  const resp = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+    { headers }
+  );
+  if (!resp.ok) {
+    const e = new Error(`GitHub fetch ${filePath}: ${resp.status}`);
+    e.status = resp.status;
+    throw e;
+  }
+  return resp.json();
+}
+
+async function ghPut(owner, repo, filePath, content, sha, message, headers) {
+  const encoded = Buffer.from(content, 'utf-8').toString('base64');
+  const resp = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+    {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, content: encoded, sha }),
+    }
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    const e = new Error(`GitHub put ${filePath}: ${err.message || resp.status}`);
+    e.status = resp.status;
+    throw e;
+  }
+  return resp.json();
+}
+
+// Retry loop — re-fetches latest SHA on 409/422 so we merge against the newest version.
+async function ghModifyWithRetry(owner, repo, filePath, transform, message, headers, maxRetries = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const info = await ghGet(owner, repo, filePath, headers);
+      const currentContent = Buffer.from(info.content, 'base64').toString('utf-8');
+      const result = await transform(currentContent);
+      if (result === null || result === undefined) return null; // abort (no changes)
+      const { newContent, meta } = typeof result === 'string'
+        ? { newContent: result, meta: null }
+        : result;
+      await ghPut(owner, repo, filePath, newContent, info.sha, message, headers);
+      return meta;
+    } catch (e) {
+      lastErr = e;
+      if (e.status !== 409 && e.status !== 422) throw e;
+      // Exponential backoff: 250ms, 500ms, 1000ms, 2000ms
+      await new Promise(r => setTimeout(r, 250 * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr;
+}
+
+// Bump SW cache version (best-effort, not fatal if fails)
+async function bumpSwVersion(owner, repo, headers) {
+  try {
+    await ghModifyWithRetry(
+      owner, repo, 'app/sw.js',
+      (currentSw) => {
+        const match = currentSw.match(/rozklad-v(\d+)/);
+        if (!match) return null;
+        const newVer = parseInt(match[1], 10) + 1;
+        return currentSw.replace(/rozklad-v\d+/, `rozklad-v${newVer}`);
+      },
+      '🔄 Бамп версії кешу SW (pidveska)',
+      headers
+    );
+  } catch (e) {
+    console.warn('SW bump skipped:', e.message);
+  }
+}
 
 function sanitizeEntry(e) {
   if (!e || typeof e !== 'object') return null;
@@ -74,9 +135,8 @@ function sanitizeEntry(e) {
   return { date, number, subject, teacher };
 }
 
-async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner, repo) {
+async function handleAdd(req, res, ghHeaders, owner, repo) {
   const { group, entries } = req.body || {};
-  // entries = [{ date: "DD.MM", number: 1, subject: "...", teacher: "..." }, ...]
   if (!group || typeof group !== 'string' || group.length > 80) {
     return res.status(400).json({ error: 'group required (max 80 chars)' });
   }
@@ -87,47 +147,58 @@ async function handleAdd(req, res, scheduleData, sha, filePath, ghHeaders, owner
     return res.status(400).json({ error: 'Max 50 entries per request' });
   }
 
-  if (!scheduleData[group]) {
-    return res.status(404).json({ error: `Group "${group}" not found in schedule.json` });
-  }
-
-  if (!scheduleData[group]['ПІДВІСКА']) {
-    scheduleData[group]['ПІДВІСКА'] = [];
-  }
-
-  const existing = new Set(
-    scheduleData[group]['ПІДВІСКА'].map(e => `${e.date}|${e.number}`)
-  );
-
-  let added = 0;
-  let rejected = 0;
-  for (const raw of entries) {
-    const e = sanitizeEntry(raw);
-    if (!e) { rejected++; continue; }
-    const key = `${e.date}|${e.number}`;
-    if (!existing.has(key)) {
-      scheduleData[group]['ПІДВІСКА'].push(e);
-      existing.add(key);
-      added++;
-    }
-  }
-
-  if (rejected > 0 && added === 0) {
+  // Validate early so we fail before any GitHub calls
+  const sanitized = entries.map(sanitizeEntry);
+  const validEntries = sanitized.filter(Boolean);
+  const rejected = sanitized.length - validEntries.length;
+  if (validEntries.length === 0) {
     return res.status(400).json({ error: `All ${rejected} entries had invalid format` });
   }
 
-  if (added === 0) {
+  let lastAdded = 0;
+  const meta = await ghModifyWithRetry(
+    owner, repo, 'app/schedule.json',
+    (content) => {
+      const scheduleData = JSON.parse(content);
+      if (!scheduleData[group]) {
+        throw Object.assign(new Error(`Group "${group}" not found`), { status: 404 });
+      }
+      if (!scheduleData[group]['ПІДВІСКА']) {
+        scheduleData[group]['ПІДВІСКА'] = [];
+      }
+      const existing = new Set(
+        scheduleData[group]['ПІДВІСКА'].map(e => `${e.date}|${e.number}`)
+      );
+      let added = 0;
+      for (const e of validEntries) {
+        const key = `${e.date}|${e.number}`;
+        if (!existing.has(key)) {
+          scheduleData[group]['ПІДВІСКА'].push(e);
+          existing.add(key);
+          added++;
+        }
+      }
+      if (added === 0) return null;
+      lastAdded = added;
+      return { newContent: JSON.stringify(scheduleData, null, 2), meta: { added } };
+    },
+    `📌 Підвіска (${group}): +${validEntries.length} через бот`,
+    ghHeaders
+  );
+  // Note: commit message uses validEntries.length; actual added count returned separately.
+  void lastAdded;
+
+  if (!meta) {
     return res.json({ ok: true, added: 0, message: 'All entries already exist' });
   }
 
-  // Push updated schedule.json to GitHub
-  await pushToGitHub(scheduleData, sha, filePath, ghHeaders, owner, repo,
-    `📌 Підвіска (${group}): +${added} через бот`);
+  // Bump SW cache so clients see new підвіска immediately
+  await bumpSwVersion(owner, repo, ghHeaders);
 
-  return res.json({ ok: true, added });
+  return res.json({ ok: true, added: meta.added });
 }
 
-async function handleDelete(req, res, scheduleData, sha, filePath, ghHeaders, owner, repo) {
+async function handleDelete(req, res, ghHeaders, owner, repo) {
   const { group, date, number } = req.body || {};
   if (!group || typeof group !== 'string' || group.length > 80) {
     return res.status(400).json({ error: 'group required' });
@@ -140,41 +211,26 @@ async function handleDelete(req, res, scheduleData, sha, filePath, ghHeaders, ow
     return res.status(400).json({ error: 'invalid number' });
   }
 
-  if (!scheduleData[group] || !scheduleData[group]['ПІДВІСКА']) {
-    return res.json({ ok: true, removed: 0 });
-  }
-
-  const before = scheduleData[group]['ПІДВІСКА'].length;
-  scheduleData[group]['ПІДВІСКА'] = scheduleData[group]['ПІДВІСКА'].filter(
-    e => !(e.date === date && e.number === para)
-  );
-  const removed = before - scheduleData[group]['ПІДВІСКА'].length;
-
-  if (removed === 0) {
-    return res.json({ ok: true, removed: 0 });
-  }
-
-  await pushToGitHub(scheduleData, sha, filePath, ghHeaders, owner, repo,
-    `🗑 Підвіска видалена (${group}): ${date} пара ${para}`);
-
-  return res.json({ ok: true, removed });
-}
-
-async function pushToGitHub(data, sha, filePath, headers, owner, repo, message) {
-  const newContent = JSON.stringify(data, null, 2);
-  const encoded = Buffer.from(newContent, 'utf-8').toString('base64');
-
-  const putResp = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-    {
-      method: 'PUT',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, content: encoded, sha }),
-    }
+  const meta = await ghModifyWithRetry(
+    owner, repo, 'app/schedule.json',
+    (content) => {
+      const scheduleData = JSON.parse(content);
+      if (!scheduleData[group] || !scheduleData[group]['ПІДВІСКА']) return null;
+      const before = scheduleData[group]['ПІДВІСКА'].length;
+      scheduleData[group]['ПІДВІСКА'] = scheduleData[group]['ПІДВІСКА'].filter(
+        e => !(e.date === date && e.number === para)
+      );
+      const removed = before - scheduleData[group]['ПІДВІСКА'].length;
+      if (removed === 0) return null;
+      return { newContent: JSON.stringify(scheduleData, null, 2), meta: { removed } };
+    },
+    `🗑 Підвіска видалена (${group}): ${date} пара ${para}`,
+    ghHeaders
   );
 
-  if (!putResp.ok) {
-    const err = await putResp.json();
-    throw new Error(`GitHub push failed: ${err.message || putResp.status}`);
-  }
+  if (!meta) return res.json({ ok: true, removed: 0 });
+
+  await bumpSwVersion(owner, repo, ghHeaders);
+
+  return res.json({ ok: true, removed: meta.removed });
 }

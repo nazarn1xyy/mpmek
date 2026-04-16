@@ -149,6 +149,9 @@ async function handlePublish(req, res) {
     '📅 Оновлено розклад через адмін-панель'
   );
 
+  // Invalidate groups cache so new groups/renames take effect immediately
+  redis('DEL', 'cache:schedule-groups').catch(() => {});
+
   // 2. Bump SW cache version so clients fetch fresh assets
   try {
     await ghPutWithRetry(
@@ -192,12 +195,38 @@ module.exports = async function handler(req, res) {
   if (!ADMIN_PIN) {
     return res.status(500).json({ error: 'ADMIN_PIN not configured' });
   }
+
+  // Per-account (session-tied) lockout: resist botnet brute-force even if
+  // the attacker rotates through many IPs while holding a valid admin session.
+  const bearerToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 128);
+  if (bearerToken) {
+    const lockKey = `admin:pin-fail:${bearerToken.slice(0, 16)}`;
+    const fails = parseInt(await redis('GET', lockKey), 10) || 0;
+    if (fails >= 20) {
+      return res.status(429).json({ error: 'Акаунт заблоковано на 15 хв через забагато невдалих спроб' });
+    }
+  }
+
   const pin = req.headers['x-admin-pin'];
   if (!safeCompare(pin, ADMIN_PIN)) {
+    // Record failure per-session to trigger lockout
+    if (bearerToken) {
+      const lockKey = `admin:pin-fail:${bearerToken.slice(0, 16)}`;
+      try {
+        const fails = await redis('INCR', lockKey);
+        if (fails === 1) await redis('EXPIRE', lockKey, 900); // 15 min
+      } catch { /* ignore */ }
+    }
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
   if (!(await hasAdminSession(req))) {
     return res.status(403).json({ error: 'Admin session required' });
+  }
+
+  // Success → clear failure counter
+  if (bearerToken) {
+    redis('DEL', `admin:pin-fail:${bearerToken.slice(0, 16)}`).catch(() => {});
   }
 
   try {

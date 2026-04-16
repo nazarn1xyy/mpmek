@@ -12,7 +12,7 @@
 - 🔔 Web Push + Telegram нотифікації про заміни
 - 🗓 Два режими: список та тижнева сітка (Google Calendar)
 - 📴 Працює офлайн завдяки Service Worker
-- 🖼 Поділитися розкладом як зображенням (`@napi-rs/canvas`)
+- 🖼 Поділитися розкладом як зображенням (`@napi-rs/canvas`, Node runtime — не Edge)
 - 🤖 Telegram-бот `@mpmek_bot` з inline-пошуком груп
 
 ## 🛠 Стек
@@ -67,6 +67,8 @@ VAPID_SUBJECT=mailto:...
 CRON_SECRET=...            # Для захисту notify-subs від cron
 TELEGRAM_BOT_TOKEN=...     # Для @mpmek_bot
 TELEGRAM_WEBHOOK_SECRET=...# Перевірка Telegram webhook
+PUSH_ENCRYPTION_KEY=...    # Опц. AES-256 (64 hex) для шифрування push-підписок у Redis
+                           # Згенерувати: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ## 🔄 Оновлення розкладу

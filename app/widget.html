@@ -103,7 +103,28 @@
     <script>
     (async () => {
         const root = document.getElementById('root');
-        const group = localStorage.getItem('selectedGroup');
+        let group = localStorage.getItem('selectedGroup');
+
+        // Fallback: if localStorage was cleared (Safari ITP, private mode) but user
+        // is logged in, try to fetch their group from server.
+        if (!group) {
+            const authToken = localStorage.getItem('authToken');
+            if (authToken) {
+                try {
+                    const resp = await fetch('/api/auth?action=me', {
+                        headers: { 'Authorization': 'Bearer ' + authToken }
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.user && data.user.group) {
+                            group = data.user.group;
+                            localStorage.setItem('selectedGroup', group);
+                        }
+                    }
+                } catch { /* ignore, fall through to empty state */ }
+            }
+        }
+
         if (!group) {
             root.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><div class="empty-title">Групу не обрано</div><div class="empty-desc">Відкрийте основний додаток, щоб обрати групу</div><div class="widget-footer"><a href="./">Відкрити Розклад</a></div></div>`;
             return;

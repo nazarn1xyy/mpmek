@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    // Legacy localStorage cleanup (adminDeviceId was used pre-Bearer-auth)
+    localStorage.removeItem('adminDeviceId');
+
     // ===== State =====
     let scheduleData = null;
     let selectedGroup = localStorage.getItem('selectedGroup');
@@ -292,10 +295,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             let data;
             if (isLoginMode) {
-                const deviceId = localStorage.getItem('adminDeviceId') || undefined;
-                data = await authFetch('login', 'POST', { username, password, deviceId });
-                // Store admin device ID if returned
-                if (data.deviceId) localStorage.setItem('adminDeviceId', data.deviceId);
+                data = await authFetch('login', 'POST', { username, password });
             } else {
                 const displayName = authDisplayName.value.trim();
                 if (!displayName) { showAuthError('Введіть ім\'я та прізвище'); authSubmit.disabled = false; return; }
@@ -506,6 +506,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     changeGroupBtn.addEventListener('click', () => {
         localStorage.removeItem('selectedGroup');
         selectedGroup = null;
+        // Clear server-side group so next login doesn't restore the old one
+        if (authToken) {
+            authFetch('setgroup', 'POST', { group: '' }).catch(() => {});
+        }
         obIntro.classList.add('hidden');
         obAuth.classList.add('hidden');
         obGroups.classList.remove('hidden');
@@ -662,6 +666,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         hwModalInput.value = existingText || '';
         hwModalTitle.textContent = existingText ? 'Редагувати завдання' : 'Додати завдання';
         hwModal.classList.remove('hidden');
+        // Focus input after modal animates in (300ms is safe for most transitions)
+        setTimeout(() => {
+            hwModalInput.focus();
+            // Place cursor at end of existing text
+            if (existingText) {
+                hwModalInput.setSelectionRange(existingText.length, existingText.length);
+            }
+        }, 250);
         
         // Auto-expand setup
         hwModalInput.style.height = '100px'; 
@@ -819,6 +831,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Render Schedule (DocumentFragment for batch DOM insert) =====
     function renderSchedule() {
+        if (!scheduleData) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Немає з'єднання</p><p class="empty-state-desc">Не вдалося завантажити розклад. Перевірте інтернет.</p></div>`;
+            return;
+        }
         if (!scheduleData[selectedGroup]) {
             diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Групу не знайдено</p><p class="empty-state-desc">Група «${escHtml(selectedGroup)}» більше не існує. Оберіть іншу.</p></div>`;
             return;
@@ -1398,6 +1414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function subscribeToPush() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!selectedGroup) return; // no group → server would reject with 400
         try {
             const reg = await navigator.serviceWorker.ready;
             let subscription = await reg.pushManager.getSubscription();
