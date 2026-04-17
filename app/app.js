@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
     let VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
     // Fetch fresh VAPID key from server (allows rotation without client rebuild)
-    fetch('/api/vapid-key').then(r => r.json()).then(d => { if (d.publicKey) VAPID_PUBLIC_KEY = d.publicKey; }).catch(() => {});
+    fetch('/api/auth?action=vapid-key').then(r => r.json()).then(d => { if (d.publicKey) VAPID_PUBLIC_KEY = d.publicKey; }).catch(() => {});
 
     let LESSON_TIMES = {
         1: "08:30 - 09:50",

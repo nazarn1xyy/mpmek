@@ -61,6 +61,14 @@ module.exports = async (req, res) => {
   try {
     const action = req.query.action;
 
+    // ── VAPID public key (no auth required) ──
+    if (req.method === 'GET' && action === 'vapid-key') {
+      const key = process.env.VAPID_PUBLIC_KEY;
+      if (!key) return res.status(500).json({ error: 'VAPID key not configured' });
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.json({ publicKey: key });
+    }
+
     // ── Register ──
     if (req.method === 'POST' && action === 'register') {
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
