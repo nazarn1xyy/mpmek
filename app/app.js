@@ -1191,34 +1191,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Pull-to-refresh (schedule screen) =====
     (function initPullToRefresh() {
-        let startY = 0, pulling = false;
-        const threshold = 80;
+        let startY = 0, pulling = false, dist = 0;
+        const TRIGGER = 120; // px needed to trigger refresh
         const indicator = document.createElement('div');
-        indicator.style.cssText = 'position:fixed;top:-40px;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:var(--surface-color);box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:top .2s;z-index:999;font-size:18px';
+        indicator.style.cssText = 'position:fixed;top:-44px;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:var(--surface-color);box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:top .2s;z-index:999;font-size:18px;pointer-events:none';
         indicator.textContent = '↻';
         document.body.appendChild(indicator);
 
-        diaryContainer.addEventListener('touchstart', (e) => {
-            if (diaryContainer.scrollTop <= 0 && !screens.schedule.classList.contains('hidden')) {
+        window.addEventListener('touchstart', (e) => {
+            // Only activate when page is scrolled to the very top and schedule is visible
+            if (window.scrollY <= 0 && !screens.schedule.classList.contains('hidden')) {
                 startY = e.touches[0].clientY;
+                dist = 0;
                 pulling = true;
             }
         }, { passive: true });
 
-        diaryContainer.addEventListener('touchmove', (e) => {
+        window.addEventListener('touchmove', (e) => {
             if (!pulling) return;
-            const dy = e.touches[0].clientY - startY;
-            if (dy > 0 && dy < 150) {
-                indicator.style.top = Math.min(dy - 40, 20) + 'px';
+            dist = e.touches[0].clientY - startY;
+            if (dist > 10 && dist < 200) {
+                indicator.style.top = Math.min(dist - 44, 24) + 'px';
+                indicator.style.opacity = Math.min(dist / TRIGGER, 1);
+            } else if (dist <= 0) {
+                // User is scrolling up (normal), cancel pull
+                pulling = false;
+                indicator.style.top = '-44px';
+                indicator.style.opacity = '0';
             }
         }, { passive: true });
 
-        diaryContainer.addEventListener('touchend', () => {
-            if (!pulling) return;
-            const top = parseInt(indicator.style.top);
+        window.addEventListener('touchend', () => {
+            if (!pulling) { return; }
             pulling = false;
-            indicator.style.top = '-40px';
-            if (top >= 15) {
+            indicator.style.top = '-44px';
+            indicator.style.opacity = '0';
+            if (dist >= TRIGGER) {
                 location.reload();
             }
         });
