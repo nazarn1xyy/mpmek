@@ -15,7 +15,7 @@ function getUserRole(username) {
 
 function pbkdf2(password, salt) {
   return new Promise((resolve, reject) => {
-    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, key) => {
+    crypto.pbkdf2(password, salt, 600000, 64, 'sha512', (err, key) => {
       if (err) reject(err);
       else resolve(key.toString('hex'));
     });
@@ -69,8 +69,11 @@ module.exports = async (req, res) => {
       if (username.length < 3 || !/^[a-z0-9_]+$/.test(username)) {
         return res.status(400).json({ error: 'Логін: від 3 символів, латиниця, цифри, _' });
       }
-      if (password.length < 6 || password.length > 128) {
-        return res.status(400).json({ error: 'Пароль: від 6 до 128 символів' });
+      if (password.length < 8 || password.length > 128) {
+        return res.status(400).json({ error: 'Пароль: від 8 до 128 символів' });
+      }
+      if (!/[a-zA-Zа-яА-ЯіІїЇєЄґҐ]/.test(password) || !/\d/.test(password)) {
+        return res.status(400).json({ error: 'Пароль повинен містити хоча б одну літеру та одну цифру' });
       }
       if (displayName.length < 2) {
         return res.status(400).json({ error: 'Ім\'я: мінімум 2 символи' });
@@ -81,17 +84,11 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Цей логін зарезервовано' });
       }
 
-      // Check uniqueness
-      const existing = await redis('GET', `auth:user:${username}`);
-      if (existing) {
-        return res.status(409).json({ error: 'Цей логін вже зайнятий' });
-      }
-
-      // Hash password
+      // Hash password first (before atomic write)
       const salt = crypto.randomBytes(32).toString('hex');
       const hash = await pbkdf2(password, salt);
 
-      // Store user
+      // Atomic uniqueness check + store (SETNX prevents race condition)
       const userData = {
         displayName,
         passwordHash: hash,
@@ -99,7 +96,10 @@ module.exports = async (req, res) => {
         group: '',
         createdAt: new Date().toISOString()
       };
-      await redis('SET', `auth:user:${username}`, JSON.stringify(userData));
+      const setResult = await redis('SET', `auth:user:${username}`, JSON.stringify(userData), 'NX');
+      if (!setResult) {
+        return res.status(409).json({ error: 'Цей логін вже зайнятий' });
+      }
 
       // Create session
       const token = crypto.randomBytes(32).toString('hex');
@@ -225,8 +225,9 @@ module.exports = async (req, res) => {
             }
           }
         }
-      } catch {
-        // If anything fails, allow (better than blocking a valid user)
+      } catch (e) {
+        console.error('Group validation error:', e);
+        return res.status(503).json({ error: 'Не вдалося перевірити групу. Спробуйте пізніше' });
       }
       } // end if (group)
 

@@ -6,6 +6,15 @@ const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Се
 const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:50', 6: '16:20' };
 
 module.exports = async function handler(req, res) {
+  // Verify cron secret — Vercel sends Authorization: Bearer <CRON_SECRET>
+  const CRON_SECRET = process.env.CRON_SECRET;
+  if (CRON_SECRET) {
+    const auth = req.headers.authorization;
+    if (!auth || auth !== `Bearer ${CRON_SECRET}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
   try {
     const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {

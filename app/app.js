@@ -1434,9 +1434,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
             }
+            const subHeaders = { 'Content-Type': 'application/json' };
+            if (authToken) subHeaders['Authorization'] = 'Bearer ' + authToken;
             await fetch('/api/push?action=subscribe', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: subHeaders,
                 body: JSON.stringify({
                     subscription: subscription.toJSON(),
                     group: selectedGroup,
@@ -1454,9 +1456,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const reg = await navigator.serviceWorker.ready;
             const subscription = await reg.pushManager.getSubscription();
             if (subscription) {
+                const unsubHeaders = { 'Content-Type': 'application/json' };
+                if (authToken) unsubHeaders['Authorization'] = 'Bearer ' + authToken;
                 await fetch('/api/push?action=unsubscribe', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: unsubHeaders,
                     body: JSON.stringify({ endpoint: subscription.endpoint })
                 });
                 await subscription.unsubscribe();

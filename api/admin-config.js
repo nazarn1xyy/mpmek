@@ -140,7 +140,7 @@ async function handlePublish(req, res) {
     return res.status(400).json({ error: validationError });
   }
 
-  const newContent = JSON.stringify(schedule, null, 2);
+  const newContent = JSON.stringify(schedule);
 
   // 1. Push schedule.json with retry on 409 (concurrent admin conflict)
   await ghPutWithRetry(

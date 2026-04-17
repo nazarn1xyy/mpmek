@@ -2,9 +2,24 @@ const crypto = require('crypto');
 const { redis, rateLimit } = require('./_lib/redis');
 const { encryptSubscription } = require('./_lib/push-crypto');
 
+async function getSession(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  if (!token || token.length > 128) return null;
+  const uname = await redis('GET', `auth:session:${token}`);
+  return uname || null;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Require authenticated session for push management
+  const user = await getSession(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   const action = req.query.action;

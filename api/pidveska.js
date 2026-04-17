@@ -166,6 +166,10 @@ async function handleAdd(req, res, ghHeaders, owner, repo) {
       if (!scheduleData[group]['ПІДВІСКА']) {
         scheduleData[group]['ПІДВІСКА'] = [];
       }
+      // Cap total підвіска entries per group to prevent schedule.json bloat
+      if (scheduleData[group]['ПІДВІСКА'].length >= 200) {
+        throw Object.assign(new Error('Too many підвіска entries (max 200)'), { status: 400 });
+      }
       const existing = new Set(
         scheduleData[group]['ПІДВІСКА'].map(e => `${e.date}|${e.number}`)
       );
@@ -180,7 +184,7 @@ async function handleAdd(req, res, ghHeaders, owner, repo) {
       }
       if (added === 0) return null;
       lastAdded = added;
-      return { newContent: JSON.stringify(scheduleData, null, 2), meta: { added } };
+      return { newContent: JSON.stringify(scheduleData), meta: { added } };
     },
     `📌 Підвіска (${group}): +${validEntries.length} через бот`,
     ghHeaders
@@ -222,7 +226,7 @@ async function handleDelete(req, res, ghHeaders, owner, repo) {
       );
       const removed = before - scheduleData[group]['ПІДВІСКА'].length;
       if (removed === 0) return null;
-      return { newContent: JSON.stringify(scheduleData, null, 2), meta: { removed } };
+      return { newContent: JSON.stringify(scheduleData), meta: { removed } };
     },
     `🗑 Підвіска видалена (${group}): ${date} пара ${para}`,
     ghHeaders
