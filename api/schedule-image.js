@@ -38,11 +38,18 @@ async function ensureFont() {
   if (fs.existsSync(bold)) {
     GlobalFonts.registerFromPath(bold, 'SF Pro Display Bold');
   }
-  // Fallback to Inter if SF Pro not found
+  // Fallback to Inter if SF Pro not found — cache in /tmp for reuse across invocations
   if (!fs.existsSync(regular)) {
+    const tmpFont = '/tmp/inter-fallback.ttf';
     try {
-      const resp = await fetch('https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf');
-      const buf = Buffer.from(await resp.arrayBuffer());
+      let buf;
+      if (fs.existsSync(tmpFont)) {
+        buf = fs.readFileSync(tmpFont);
+      } else {
+        const resp = await fetch('https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf');
+        buf = Buffer.from(await resp.arrayBuffer());
+        fs.writeFileSync(tmpFont, buf);
+      }
       GlobalFonts.register(buf, 'SF Pro Display');
       GlobalFonts.register(buf, 'SF Pro Display Bold');
     } catch {}

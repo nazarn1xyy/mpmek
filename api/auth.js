@@ -32,8 +32,17 @@ async function getSession(req) {
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
   if (!token || token.length > 128) return null;
-  const uname = await redis('GET', `auth:session:${token}`);
-  if (!uname) return null;
+  const raw = await redis('GET', `auth:session:${token}`);
+  if (!raw) return null;
+  // Format: "username:sessionVer" (new) or "username" (legacy)
+  const colonIdx = raw.indexOf(':');
+  const uname = colonIdx > 0 ? raw.slice(0, colonIdx) : raw;
+  const ver = colonIdx > 0 ? raw.slice(colonIdx + 1) : null;
+  // Verify session version matches current (invalidates old sessions after re-login)
+  if (ver) {
+    const currentVer = await redis('GET', `auth:sver:${uname}`);
+    if (currentVer && ver !== currentVer) return null;
+  }
   return { token, username: uname };
 }
 
@@ -101,9 +110,11 @@ module.exports = async (req, res) => {
         return res.status(409).json({ error: 'Цей логін вже зайнятий' });
       }
 
-      // Create session
+      // Create session (with version for future invalidation)
+      const sessionVer = crypto.randomBytes(4).toString('hex');
+      await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
       const token = crypto.randomBytes(32).toString('hex');
-      await redis('SET', `auth:session:${token}`, username);
+      await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
       return res.status(201).json({
@@ -146,8 +157,11 @@ module.exports = async (req, res) => {
           await redis('SET', `auth:user:${username}`, JSON.stringify(user));
         }
 
+        // Invalidate old sessions + create new
+        const sessionVer = crypto.randomBytes(4).toString('hex');
+        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
         const token = crypto.randomBytes(32).toString('hex');
-        await redis('SET', `auth:session:${token}`, username);
+        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
         return res.json({
@@ -164,9 +178,11 @@ module.exports = async (req, res) => {
         }
       }
 
-      // Create session
+      // Invalidate old sessions + create new
+      const sessionVer = crypto.randomBytes(4).toString('hex');
+      await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
       const token = crypto.randomBytes(32).toString('hex');
-      await redis('SET', `auth:session:${token}`, username);
+      await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
       return res.json({

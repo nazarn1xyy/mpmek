@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis, parseRedisEntries } = require('../_lib/redis');
+const { redis, parseRedisEntries, safeCompare } = require('../_lib/redis');
 const { decryptSubscription } = require('../_lib/push-crypto');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
@@ -9,8 +9,9 @@ module.exports = async function handler(req, res) {
   // Verify cron secret — Vercel sends Authorization: Bearer <CRON_SECRET>
   const CRON_SECRET = process.env.CRON_SECRET;
   if (CRON_SECRET) {
-    const auth = req.headers.authorization;
-    if (!auth || auth !== `Bearer ${CRON_SECRET}`) {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!safeCompare(token, CRON_SECRET)) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
   }

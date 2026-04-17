@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error('pidveska API error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

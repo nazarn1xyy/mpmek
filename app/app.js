@@ -6,6 +6,19 @@ window.onerror = function(msg, src, line, col, err) {
     console.error('Global error:', msg, src, line, col, err);
 };
 
+// ===== Offline/Online indicator =====
+(function() {
+    const bar = document.createElement('div');
+    bar.id = 'offlineBar';
+    bar.textContent = 'Немає з\'єднання — дані можуть бути застарілими';
+    bar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:6px 16px;text-align:center;font-size:13px;font-weight:600;background:#ff3b30;color:#fff;font-family:-apple-system,sans-serif';
+    document.body.prepend(bar);
+    function update() { bar.style.display = navigator.onLine ? 'none' : 'block'; }
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    update();
+})();
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Legacy localStorage cleanup (adminDeviceId was used pre-Bearer-auth)
     localStorage.removeItem('adminDeviceId');
@@ -18,7 +31,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let _hwCache = null; // cached homework object
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
-    const VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
+    let VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
+    // Fetch fresh VAPID key from server (allows rotation without client rebuild)
+    fetch('/api/vapid-key').then(r => r.json()).then(d => { if (d.publicKey) VAPID_PUBLIC_KEY = d.publicKey; }).catch(() => {});
 
     let LESSON_TIMES = {
         1: "08:30 - 09:50",
@@ -340,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Logout
     logoutBtn.addEventListener('click', async () => {
-        try { await authFetch('logout', 'POST'); } catch {}
+        try { await authFetch('logout', 'POST'); } catch (e) { console.warn('Logout request failed:', e); }
         authToken = null;
         currentUser = null;
         localStorage.removeItem('authToken');
@@ -670,6 +685,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Homework Modal =====
+    // Focus trap utility for modals (a11y)
+    function trapFocus(container, e) {
+        const focusable = container.querySelectorAll('button:not([disabled]), textarea, input, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length === 0) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
     function openHomeworkModal(key, subject, dayLabel, existingText) {
         modalCurrentKey = key;
         hwModalSubject.textContent = `${subject} — ${dayLabel}`;
@@ -715,6 +739,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !hwModal.classList.contains('hidden')) {
             closeHomeworkModal();
+        }
+        if (e.key === 'Tab' && !hwModal.classList.contains('hidden')) {
+            trapFocus(hwModal, e);
         }
     });
 
@@ -1162,6 +1189,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gridView) renderGridView(); else renderSchedule();
     }
 
+    // ===== Pull-to-refresh (schedule screen) =====
+    (function initPullToRefresh() {
+        let startY = 0, pulling = false;
+        const threshold = 80;
+        const indicator = document.createElement('div');
+        indicator.style.cssText = 'position:fixed;top:-40px;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:var(--surface-color);box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:top .2s;z-index:999;font-size:18px';
+        indicator.textContent = '↻';
+        document.body.appendChild(indicator);
+
+        diaryContainer.addEventListener('touchstart', (e) => {
+            if (diaryContainer.scrollTop <= 0 && !screens.schedule.classList.contains('hidden')) {
+                startY = e.touches[0].clientY;
+                pulling = true;
+            }
+        }, { passive: true });
+
+        diaryContainer.addEventListener('touchmove', (e) => {
+            if (!pulling) return;
+            const dy = e.touches[0].clientY - startY;
+            if (dy > 0 && dy < 150) {
+                indicator.style.top = Math.min(dy - 40, 20) + 'px';
+            }
+        }, { passive: true });
+
+        diaryContainer.addEventListener('touchend', () => {
+            if (!pulling) return;
+            const top = parseInt(indicator.style.top);
+            pulling = false;
+            indicator.style.top = '-40px';
+            if (top >= 15) {
+                location.reload();
+            }
+        });
+    })();
+
     viewToggleBtn.addEventListener('click', () => {
         gridView = !gridView;
         localStorage.setItem('gridView', gridView ? '1' : '0');
@@ -1251,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const blob = await resp.blob();
             const file = new File([blob], filename, { type: 'image/png' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try { await navigator.share({ files: [file], title, text }); } catch {}
+                try { await navigator.share({ files: [file], title, text }); } catch (e) { console.warn('Share cancelled/failed:', e); }
             } else {
                 const u = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1477,7 +1539,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 group: selectedGroup,
                 lessonTimes: LESSON_TIMES
             })));
-        } catch {}
+        } catch (e) { console.warn('storeNotifConfig failed:', e); }
     }
 
     async function showDailyNotification(force) {
@@ -1511,7 +1573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     tag: 'daily-schedule'
                 });
                 localStorage.setItem('lastNotifDate', today);
-            } catch {}
+            } catch (e) { console.warn('Fallback notification failed:', e); }
         }
     }
 
@@ -1673,8 +1735,8 @@ if ('serviceWorker' in navigator) {
                     await reg.periodicSync.register('daily-schedule', {
                         minInterval: 12 * 60 * 60 * 1000 // 12 hours
                     });
-                } catch {}
+                } catch (e) { console.warn('Periodic sync registration failed:', e); }
             }
-        }).catch(() => {});
+        }).catch((e) => console.warn('SW registration failed:', e));
     });
 }
