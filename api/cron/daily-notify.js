@@ -8,12 +8,15 @@ const DEFAULT_TIMES = { 1: '08:30', 2: '10:00', 3: '11:50', 4: '13:20', 5: '14:5
 module.exports = async function handler(req, res) {
   // Verify cron secret — Vercel sends Authorization: Bearer <CRON_SECRET>
   const CRON_SECRET = process.env.CRON_SECRET;
+  const auth = req.headers.authorization || '';
+  console.log('[cron] invoked, method:', req.method, 'has auth header:', !!auth, 'CRON_SECRET configured:', !!CRON_SECRET, 'user-agent:', req.headers['user-agent']);
   if (CRON_SECRET) {
-    const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (!safeCompare(token, CRON_SECRET)) {
+      console.warn('[cron] auth FAILED — token length:', token.length, 'secret length:', CRON_SECRET.length);
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    console.log('[cron] auth OK');
   }
 
   try {
@@ -133,6 +136,7 @@ module.exports = async function handler(req, res) {
       await redis('HDEL', 'push-subs', id);
     }
 
+    console.log('[cron] done — sent:', sent, 'failed:', failed, 'cleaned:', toDelete.length, 'totalSubs:', entries.length);
     return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, totalSubs: entries.length });
   } catch (error) {
     console.error('Cron error:', error);
