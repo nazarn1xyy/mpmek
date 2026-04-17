@@ -1,3 +1,11 @@
+// Global error handlers — surface unhandled errors to user
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+});
+window.onerror = function(msg, src, line, col, err) {
+    console.error('Global error:', msg, src, line, col, err);
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Legacy localStorage cleanup (adminDeviceId was used pre-Bearer-auth)
     localStorage.removeItem('adminDeviceId');
@@ -613,7 +621,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         await refreshSchedule(false);
         syncHomeworkFromServer().catch(() => {});
     } catch (e) {
-        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
+        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p><button id="retryLoadBtn" style="margin-top:1rem;padding:.75rem 1.5rem;border-radius:16px;border:1px solid var(--border-color);background:var(--surface-color);color:var(--text-color);font-size:1rem;font-weight:600;cursor:pointer">Спробувати знову</button></div>`;
+        const retryBtn = document.getElementById('retryLoadBtn');
+        if (retryBtn) retryBtn.addEventListener('click', () => location.reload());
         return;
     }
 
@@ -1618,15 +1628,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
-        setInterval(() => {
+        let _refreshTimer = setInterval(() => {
             if (document.hidden) return;
             if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
                 renderCurrentView();
             }
         }, 60000);
+        // Pause refresh timer when not on schedule screen
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && _refreshTimer) {
+                clearInterval(_refreshTimer);
+                _refreshTimer = null;
+            } else if (!document.hidden && !_refreshTimer) {
+                _refreshTimer = setInterval(() => {
+                    if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                        renderCurrentView();
+                    }
+                }, 60000);
+            }
+        });
 
         // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v41';
+        const DEPLOY_VERSION = 'rozklad-v42';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

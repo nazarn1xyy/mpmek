@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v41';
+const CACHE_NAME = 'rozklad-v42';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -7,15 +7,22 @@ const STATIC_ASSETS = [
   './style.css',
   './app.js',
   './manifest.json',
-  './icon.png'
+  './icon.png',
+  './inline-boot.js'
 ];
 
 // Pre-cache on install
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
+});
+
+// Allow client to trigger skipWaiting after user confirms update
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Purge old caches on activate

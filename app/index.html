@@ -11,6 +11,10 @@
     <meta property="og:url" content="https://mpmek.site">
     <link rel="canonical" href="https://mpmek.site/">
     <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Розклад Студента">
+    <meta name="twitter:description" content="Зручний додаток для перегляду розкладу пар">
+    <meta name="twitter:image" content="https://mpmek.site/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="color-scheme" content="light dark">
@@ -21,8 +25,7 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
     <link rel="preload" href="style.css?v=37" as="style">
-    <link rel="preload" href="schedule.json" as="fetch" crossorigin="anonymous">
-    <link rel="preload" href="app.js?v=38" as="script">
+    <link rel="preload" href="app.js?v=39" as="script">
     <style>
         /* Critical CSS — inlined for instant first paint */
         :root{--bg-color:#fff;--text-color:#1a1a1a;--surface-color:#f5f5f5;--border-color:#e0e0e0;--accent-color:#000;--nav-bg:rgba(255,255,255,.9);--nav-border:#eee;--font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -40,8 +43,22 @@
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
     <link rel="stylesheet" href="style.css?v=37">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Розклад Студента",
+      "description": "Зручний PWA додаток для перегляду розкладу пар студента МПМЕК",
+      "url": "https://mpmek.site",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UAH" },
+      "inLanguage": "uk"
+    }
+    </script>
 </head>
 <body>
+    <noscript><div style="padding:2rem;text-align:center;font-family:sans-serif"><h2>JavaScript вимкнено</h2><p>Для роботи додатку необхідно увімкнути JavaScript у налаштуваннях браузера.</p></div></noscript>
     <div id="app">
         <!-- Onboarding Screen -->
         <div id="onboarding" class="screen hidden">
@@ -161,7 +178,7 @@
                     <button id="shareScheduleBtn" class="icon-btn share-btn" aria-label="Поділитися">
                         <svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                     </button>
-                    <button id="weekTypeToggle" class="icon-btn">ОСНОВНИЙ</button>
+                    <button id="weekTypeToggle" class="icon-btn" aria-label="Тип тижня">ОСНОВНИЙ</button>
                 </div>
             </header>
             <div id="notifPrompt" class="notif-prompt hidden">
@@ -263,7 +280,7 @@
     <!-- iOS Install Overlay -->
     <div id="installOverlay" class="install-overlay" role="dialog" aria-modal="true" aria-labelledby="installTitle">
         <div class="install-content">
-            <a href="#" class="install-close" aria-label="Закрити" onclick="event.preventDefault();history.replaceState(null,'',location.pathname+location.search);document.getElementById('installOverlay').style.display='none';setTimeout(function(){document.getElementById('installOverlay').style.display=''},100);">&times;</a>
+            <a href="#" class="install-close" aria-label="Закрити">&times;</a>
             <div class="phone-mockup">
                 <div class="phone-grid">
                     <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
@@ -271,7 +288,7 @@
                     <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
                     <div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div><div class="phone-grid-item"></div>
                 </div>
-                <img src="icon.png" class="phone-app-icon" alt="App Icon">
+                <img src="icon.png" class="phone-app-icon" alt="Іконка Розклад Студента">
             </div>
             <h2 id="installTitle" class="install-title">Додати Розклад на екран</h2>
             <div class="install-steps">
@@ -283,49 +300,7 @@
             </div>
         </div>
     </div>
-    <script>
-        // When a new Service Worker takes control, show non-blocking toast
-        // instead of auto-reloading (which would lose unsaved work).
-        if ('serviceWorker' in navigator) {
-            var _swUpdateShown = false;
-            navigator.serviceWorker.addEventListener('controllerchange', function() {
-                if (_swUpdateShown) return;
-                _swUpdateShown = true;
-                var toast = document.createElement('div');
-                toast.setAttribute('role', 'alert');
-                toast.style.cssText = 'position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 16px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.3);z-index:99999;display:flex;align-items:center;gap:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;max-width:92vw';
-                var msg = document.createElement('span');
-                msg.textContent = 'Доступна нова версія';
-                var btn = document.createElement('button');
-                btn.textContent = 'Оновити';
-                btn.style.cssText = 'background:#fff;color:#000;border:none;padding:6px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px';
-                btn.onclick = function() { location.reload(); };
-                var close = document.createElement('button');
-                close.textContent = '✕';
-                close.setAttribute('aria-label', 'Закрити');
-                close.style.cssText = 'background:transparent;color:#888;border:none;padding:4px 8px;cursor:pointer;font-size:16px';
-                close.onclick = function() { toast.remove(); };
-                toast.appendChild(msg);
-                toast.appendChild(btn);
-                toast.appendChild(close);
-                document.body.appendChild(toast);
-            });
-        }
-        window.addEventListener('hashchange',function(){
-            var m=document.getElementById('metaThemeColor');
-            if(location.hash==='#installOverlay'){
-                if(m)m.content='#ffffff';
-                document.documentElement.style.backgroundColor='#fff';
-                document.body.style.backgroundColor='#fff';
-            }else{
-                var d=document.body.getAttribute('data-theme')==='dark';
-                var c=d?'#000000':'#ffffff';
-                if(m)m.content=c;
-                document.documentElement.style.backgroundColor=c;
-                document.body.style.backgroundColor='';
-            }
-        });
-    </script>
+    <script src="inline-boot.js?v=1" defer></script>
 
     <!-- Bottom Navigation -->
     <nav id="bottomNav" class="bottom-nav hidden">
@@ -357,7 +332,7 @@
         </a>
     </nav>
 
-    <script src="app.js?v=38" defer></script>
+    <script src="app.js?v=39" defer></script>
     <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
