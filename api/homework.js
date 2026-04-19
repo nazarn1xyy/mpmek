@@ -47,7 +47,17 @@ module.exports = async function handler(req, res) {
           // attachment metadata: "day:num:files"
           const parts = field.replace(/:files$/, '').split(':');
           const key = `${group}|${parts[0]}|${parts[1]}`;
-          try { files[key] = JSON.parse(value); } catch { files[key] = []; }
+          try {
+            const arr = JSON.parse(value);
+            // Deduplicate by name+size (same file uploaded multiple times)
+            const seen = new Set();
+            files[key] = arr.filter(f => {
+              const k = `${f.name}:${f.size}`;
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return true;
+            });
+          } catch { files[key] = []; }
         } else {
           const [day, num] = field.split(':');
           result[`${group}|${day}|${num}`] = value;
@@ -95,6 +105,12 @@ module.exports = async function handler(req, res) {
       try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
       if (existing.length >= MAX_ATTACHMENTS) {
         return res.status(400).json({ error: `Максимум ${MAX_ATTACHMENTS} файлів` });
+      }
+
+      // Prevent duplicate uploads (same name + same size)
+      const isDuplicate = existing.some(e => e.name === fileName.slice(0, 100) && e.size === buf.length);
+      if (isDuplicate) {
+        return res.json({ ok: true, attachment: existing.find(e => e.name === fileName.slice(0, 100)), total: existing.length, duplicate: true });
       }
 
       // Upload to Vercel Blob
