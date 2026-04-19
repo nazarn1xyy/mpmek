@@ -56,6 +56,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         d.textContent = s;
         return d.innerHTML;
     }
+    // Sanitize URL — only allow https: (prevents javascript: / data: XSS)
+    function safeUrl(url) {
+        if (typeof url !== 'string') return '#';
+        const u = url.trim();
+        return (u.startsWith('https://') || u.startsWith('http://')) ? escHtml(u) : '#';
+    }
 
     // Non-blocking toast (replaces alert) — announces to screen readers
     let _toastTimer = null;
@@ -136,13 +142,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function syncHomeworkFromServer() {
-        if (!selectedGroup) { console.log('[hw-sync] skip: no group'); return; }
+        if (!selectedGroup) return;
         try {
-            console.log('[hw-sync] fetching for group:', selectedGroup);
             const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`, { cache: 'no-store' });
-            if (!resp.ok) { console.warn('[hw-sync] bad response:', resp.status); return; }
+            if (!resp.ok) return;
             const data = await resp.json();
-            console.log('[hw-sync] server returned', Object.keys(data.texts || {}).length, 'texts,', Object.keys(data.files || {}).length, 'file entries');
             // New format: { texts: {...}, files: {...} }
             const serverTexts = data.texts || data; // backward compat
             const serverFiles = data.files || {};
@@ -164,7 +168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
-            console.log('[hw-sync] done, changed:', changed, 'hw keys:', Object.keys(getHomework()).length, 'files keys:', Object.keys(_hwFiles).length);
             // Always re-render after sync
             renderSchedule();
             renderHomeworkTab();
@@ -646,12 +649,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Load Data =====
     try {
-        console.log('[init] loading schedule + homework in parallel, group:', selectedGroup);
         await Promise.all([
             refreshSchedule(false).catch(e => console.warn('[init] schedule load error:', e)),
             syncHomeworkFromServer().catch(e => console.warn('[init] hw sync error:', e))
         ]);
-        console.log('[init] both loaded, hw keys:', Object.keys(getHomework()).length, 'files:', Object.keys(_hwFiles).length);
         if (scheduleData) renderSchedule();
     } catch (e) {
         console.warn('[init] load data error:', e);
@@ -796,9 +797,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chip = document.createElement('div');
             chip.className = 'hw-attach-chip';
             if (att.type && att.type.startsWith('image/')) {
-                chip.innerHTML = `<img src="${att.url}" alt="${escHtml(att.name)}" loading="lazy" crossorigin="anonymous"><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
+                chip.innerHTML = `<img src="${safeUrl(att.url)}" alt="${escHtml(att.name)}" loading="lazy" crossorigin="anonymous"><button class="hw-chip-remove" data-url="${safeUrl(att.url)}">&times;</button>`;
             } else {
-                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
+                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${safeUrl(att.url)}">&times;</button>`;
             }
             hwAttachPreview.appendChild(chip);
         });
@@ -1032,9 +1033,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (keyFiles.length > 0) {
             attachHtml = '<div class="hw-attachments">' + keyFiles.map(a => {
                 if (a.type && a.type.startsWith('image/')) {
-                    return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy" crossorigin="anonymous">`;
+                    return `<img src="${safeUrl(a.url)}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${safeUrl(a.url)}" loading="lazy" crossorigin="anonymous">`;
                 }
-                return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
+                return `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
             }).join('') + '</div>';
         }
 
@@ -1046,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showLightbox(src) {
         const lb = document.createElement('div');
         lb.className = 'hw-lightbox';
-        lb.innerHTML = `<button class="lb-close" aria-label="Закрити">&times;</button><img src="${src}" alt="Фото" crossorigin="anonymous">`;
+        lb.innerHTML = `<button class="lb-close" aria-label="Закрити">&times;</button><img src="${safeUrl(src)}" alt="Фото" crossorigin="anonymous">`;
         // Close on background click or close button
         lb.addEventListener('click', (ev) => {
             if (ev.target === lb || ev.target.classList.contains('lb-close')) {
@@ -1584,9 +1585,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (cardFiles.length > 0) {
                     cardAttHtml = '<div class="hw-attachments">' + cardFiles.map(a => {
                         if (a.type && a.type.startsWith('image/')) {
-                            return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy" crossorigin="anonymous">`;
+                            return `<img src="${safeUrl(a.url)}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${safeUrl(a.url)}" loading="lazy" crossorigin="anonymous">`;
                         }
-                        return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
+                        return `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
                     }).join('') + '</div>';
                 }
                 card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;

@@ -132,6 +132,9 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'delete-attachment') {
       const user = await authenticate(req);
       if (!user) return res.status(401).json({ error: 'Авторизуйтесь' });
+      if (await rateLimit(`hw:del:${user.username}`, 30, 60)) {
+        return res.status(429).json({ error: 'Too many requests' });
+      }
 
       const { group, day, number, url } = req.body || {};
       if (!group || !day || number === undefined || !url) {
