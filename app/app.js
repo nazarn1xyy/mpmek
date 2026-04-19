@@ -136,11 +136,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function syncHomeworkFromServer() {
-        if (!selectedGroup) return;
+        if (!selectedGroup) { console.log('[hw-sync] skip: no group'); return; }
         try {
-            const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`);
-            if (!resp.ok) return;
+            console.log('[hw-sync] fetching for group:', selectedGroup);
+            const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`, { cache: 'no-store' });
+            if (!resp.ok) { console.warn('[hw-sync] bad response:', resp.status); return; }
             const data = await resp.json();
+            console.log('[hw-sync] server returned', Object.keys(data.texts || {}).length, 'texts,', Object.keys(data.files || {}).length, 'file entries');
             // New format: { texts: {...}, files: {...} }
             const serverTexts = data.texts || data; // backward compat
             const serverFiles = data.files || {};
@@ -162,11 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
-            // Always re-render after sync — even if no data changed,
-            // the initial render may have happened before sync completed
+            console.log('[hw-sync] done, changed:', changed, 'hw keys:', Object.keys(getHomework()).length, 'files keys:', Object.keys(_hwFiles).length);
+            // Always re-render after sync
             renderSchedule();
             renderHomeworkTab();
-        } catch (e) { console.warn('HW sync fetch failed:', e); }
+        } catch (e) { console.warn('[hw-sync] FAILED:', e); }
     }
 
     // ===== DOM Elements (cached once) =====
@@ -644,11 +646,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Load Data =====
     try {
+        console.log('[init] loading schedule + homework in parallel, group:', selectedGroup);
         // Run both in parallel so homework data is ready when schedule renders
         await Promise.all([
             refreshSchedule(false),
-            syncHomeworkFromServer().catch(() => {})
+            syncHomeworkFromServer().catch((e) => console.warn('[init] hw sync error:', e))
         ]);
+        console.log('[init] both loaded, hw keys:', Object.keys(getHomework()).length, 'files:', Object.keys(_hwFiles).length);
         // Re-render with both schedule + homework data available
         renderSchedule();
     } catch (e) {
