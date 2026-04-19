@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v42';
+const CACHE_NAME = 'rozklad-v43';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -42,6 +42,12 @@ self.addEventListener('fetch', event => {
   }
 
   const url = new URL(event.request.url);
+
+  // Skip cross-origin requests entirely (Vercel Blob images, CDNs, analytics, etc)
+  // Let the browser handle them natively — no caching, no interference
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Skip caching for auth/push/admin APIs — sensitive data
   if (url.pathname.startsWith('/api/auth') || url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/admin')) {
