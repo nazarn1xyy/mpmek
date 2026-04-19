@@ -647,19 +647,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Load Data =====
     try {
         console.log('[init] loading schedule + homework in parallel, group:', selectedGroup);
-        // Run both in parallel so homework data is ready when schedule renders
         await Promise.all([
-            refreshSchedule(false),
-            syncHomeworkFromServer().catch((e) => console.warn('[init] hw sync error:', e))
+            refreshSchedule(false).catch(e => console.warn('[init] schedule load error:', e)),
+            syncHomeworkFromServer().catch(e => console.warn('[init] hw sync error:', e))
         ]);
         console.log('[init] both loaded, hw keys:', Object.keys(getHomework()).length, 'files:', Object.keys(_hwFiles).length);
-        // Re-render with both schedule + homework data available
-        renderSchedule();
+        if (scheduleData) renderSchedule();
     } catch (e) {
-        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p><button id="retryLoadBtn" style="margin-top:1rem;padding:.75rem 1.5rem;border-radius:16px;border:1px solid var(--border-color);background:var(--surface-color);color:var(--text-color);font-size:1rem;font-weight:600;cursor:pointer">Спробувати знову</button></div>`;
-        const retryBtn = document.getElementById('retryLoadBtn');
-        if (retryBtn) retryBtn.addEventListener('click', () => location.reload());
-        return;
+        console.warn('[init] load data error:', e);
     }
 
     // ===== Groups =====
