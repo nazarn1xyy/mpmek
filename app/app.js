@@ -160,11 +160,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     syncHomeworkToServer(parts[0], parts[1], parts[2], localHw[key]);
                 }
             }
-            // Merge file attachments
+            // Check if file attachments changed
+            const filesChanged = JSON.stringify(_hwFiles) !== JSON.stringify(serverFiles);
             _hwFiles = serverFiles;
-            if (changed) {
-                setHomework(merged);
+            if (changed) setHomework(merged);
+            // Re-render if anything changed (text or files)
+            if (changed || filesChanged) {
                 renderSchedule();
+                // Re-render homework tab if it's currently visible
+                if (screens.homework && !screens.homework.classList.contains('hidden')) {
+                    renderHomeworkTab();
+                }
             }
         } catch (e) { console.warn('HW sync fetch failed:', e); }
     }
@@ -571,6 +577,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             refreshSchedule(true);
         } else if (screenId === 'homework') {
             renderHomeworkTab();
+            // Fetch latest from server in background (will re-render when done)
+            if (selectedGroup) syncHomeworkFromServer().catch(() => {});
         }
     }
 
