@@ -740,6 +740,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function uploadAttachment(group, day, number, file) {
+        if (!authToken) throw new Error('Авторизуйтесь для завантаження файлів');
         let blob = file, fileName = file.name, fileType = file.type;
         // Convert images to WebP
         if (file.type.startsWith('image/')) {
@@ -751,8 +752,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Файл занадто великий (макс 3 МБ)');
         }
         const base64 = await blobToBase64(blob);
-        const headers = { 'Content-Type': 'application/json' };
-        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken };
         const resp = await fetch('/api/homework?action=upload', {
             method: 'POST',
             headers,
@@ -760,7 +760,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error || 'Upload failed');
+            throw new Error(err.error || `Upload failed (${resp.status})`);
         }
         return (await resp.json()).attachment;
     }
@@ -823,6 +823,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // File input handler
     hwFileInput.addEventListener('change', () => {
+        if (!authToken) {
+            hwUploadStatus.textContent = 'Увійдіть щоб прикріпити файли';
+            hwFileInput.value = '';
+            return;
+        }
         const files = Array.from(hwFileInput.files);
         const maxTotal = 5;
         const existingCount = (_hwFiles[modalCurrentKey] || []).length + _pendingFiles.length;
