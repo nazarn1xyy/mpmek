@@ -1085,7 +1085,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             delete hw[key];
             setHomework(hw);
             const parts = key.split('|');
-            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
+            if (parts.length === 3) {
+                syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
+                // Also delete all file attachments for this lesson
+                const files = _hwFiles[key] || [];
+                files.forEach(f => deleteAttachment(parts[0], parts[1], parts[2], f.url).catch(() => {}));
+                delete _hwFiles[key];
+            }
             renderSchedule();
             return;
         }
@@ -1097,7 +1103,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             delete hw[key];
             setHomework(hw);
             const parts = key.split('|');
-            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
+            if (parts.length === 3) {
+                syncHomeworkToServer(parts[0], parts[1], parts[2], '').catch(() => {});
+                const files = _hwFiles[key] || [];
+                files.forEach(f => deleteAttachment(parts[0], parts[1], parts[2], f.url).catch(() => {}));
+                delete _hwFiles[key];
+            }
             renderHomeworkTab();
             return;
         }
