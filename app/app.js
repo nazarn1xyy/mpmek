@@ -692,6 +692,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             authFetch('setgroup', 'POST', { group: selectedGroup }).catch(() => {});
         }
         showScreen('schedule');
+        // Sync homework from server so cross-device data appears
+        syncHomeworkFromServer().catch(() => {});
     });
 
     // Debounced search
@@ -905,45 +907,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    let _hwSaveBusy = false;
     hwModalSave.addEventListener('click', async () => {
-        const text = hwModalInput.value.trim();
+        if (_hwSaveBusy) return; // guard against double-click
         if (!modalCurrentKey) return;
+        _hwSaveBusy = true;
+        hwModalSave.disabled = true;
+        const text = hwModalInput.value.trim();
         const key = modalCurrentKey;
         const parts = key.split('|');
 
-        // Save text
-        const hw = getHomework();
-        if (text) {
-            hw[key] = text;
-        } else {
-            delete hw[key];
-        }
-        setHomework(hw);
-        if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
+        try {
+            // Save text
+            const hw = getHomework();
+            if (text) {
+                hw[key] = text;
+            } else {
+                delete hw[key];
+            }
+            setHomework(hw);
+            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
 
-        // Upload pending files
-        if (_pendingFiles.length > 0 && parts.length === 3) {
-            hwModalSave.disabled = true;
-            hwUploadStatus.textContent = 'Завантаження...';
-            let uploaded = 0;
-            for (const file of _pendingFiles) {
-                try {
-                    hwUploadStatus.textContent = `Завантаження ${++uploaded}/${_pendingFiles.length}...`;
-                    const att = await uploadAttachment(parts[0], parts[1], parts[2], file);
-                    if (!_hwFiles[key]) _hwFiles[key] = [];
-                    _hwFiles[key].push(att);
-                } catch (e) {
-                    console.warn('Upload failed:', e);
-                    hwUploadStatus.textContent = e.message || 'Помилка завантаження';
-                    await new Promise(r => setTimeout(r, 1500));
+            // Upload pending files
+            if (_pendingFiles.length > 0 && parts.length === 3) {
+                // Snapshot and clear to prevent re-upload if handler re-runs
+                const filesToUpload = _pendingFiles.slice();
+                _pendingFiles = [];
+                hwUploadStatus.textContent = 'Завантаження...';
+                let uploaded = 0;
+                for (const file of filesToUpload) {
+                    try {
+                        hwUploadStatus.textContent = `Завантаження ${++uploaded}/${filesToUpload.length}...`;
+                        const att = await uploadAttachment(parts[0], parts[1], parts[2], file);
+                        if (!_hwFiles[key]) _hwFiles[key] = [];
+                        _hwFiles[key].push(att);
+                    } catch (e) {
+                        console.warn('Upload failed:', e);
+                        hwUploadStatus.textContent = e.message || 'Помилка завантаження';
+                        await new Promise(r => setTimeout(r, 1500));
+                    }
                 }
             }
+        } finally {
+            _hwSaveBusy = false;
             hwModalSave.disabled = false;
+            closeHomeworkModal();
+            renderSchedule();
+            renderHomeworkTab();
         }
-
-        closeHomeworkModal();
-        renderSchedule();
-        renderHomeworkTab();
     });
 
     // ===== SVG icon templates (avoid re-creating the same strings) =====
