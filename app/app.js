@@ -160,15 +160,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     syncHomeworkToServer(parts[0], parts[1], parts[2], localHw[key]);
                 }
             }
-            // Check if file attachments changed
-            const filesChanged = JSON.stringify(_hwFiles) !== JSON.stringify(serverFiles);
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
-            // Always re-render after sync so data appears on all screens
-            if (changed || filesChanged) {
-                renderSchedule();
-                renderHomeworkTab();
-            }
+            // Always re-render after sync — even if no data changed,
+            // the initial render may have happened before sync completed
+            renderSchedule();
+            renderHomeworkTab();
         } catch (e) { console.warn('HW sync fetch failed:', e); }
     }
 
