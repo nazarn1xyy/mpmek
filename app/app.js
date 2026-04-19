@@ -659,6 +659,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Groups =====
     function renderGroupList(filter = '') {
+        if (!scheduleData) return;
         const frag = document.createDocumentFragment();
         const lowerFilter = filter.toLowerCase();
         const groups = Object.keys(scheduleData).filter(k => k !== '_settings');

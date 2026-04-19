@@ -35,7 +35,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first for JSON (always fresh data), stale-while-revalidate for static assets
+// Network-first for everything — always serve fresh, fallback to cache when offline
 self.addEventListener('fetch', event => {
   // Skip caching for admin panel
   if (event.request.url.includes('/admin')) {
