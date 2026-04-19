@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v44';
+const CACHE_NAME = 'rozklad-v45';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -11,8 +11,9 @@ const STATIC_ASSETS = [
   './inline-boot.js'
 ];
 
-// Pre-cache on install
+// Pre-cache on install — skipWaiting forces immediate activation
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
@@ -25,12 +26,12 @@ self.addEventListener('message', event => {
   }
 });
 
-// Purge old caches on activate
+// Purge old caches on activate + claim all clients immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME && k !== NOTIF_CACHE).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
 });
 

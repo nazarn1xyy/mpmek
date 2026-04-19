@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chip = document.createElement('div');
             chip.className = 'hw-attach-chip';
             if (att.type && att.type.startsWith('image/')) {
-                chip.innerHTML = `<img src="${att.url}" alt="${escHtml(att.name)}" loading="lazy"><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
+                chip.innerHTML = `<img src="${att.url}" alt="${escHtml(att.name)}" loading="lazy" crossorigin="anonymous"><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
             } else {
                 chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
             }
@@ -1030,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (keyFiles.length > 0) {
             attachHtml = '<div class="hw-attachments">' + keyFiles.map(a => {
                 if (a.type && a.type.startsWith('image/')) {
-                    return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy">`;
+                    return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy" crossorigin="anonymous">`;
                 }
                 return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
             }).join('') + '</div>';
@@ -1560,7 +1560,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (cardFiles.length > 0) {
                     cardAttHtml = '<div class="hw-attachments">' + cardFiles.map(a => {
                         if (a.type && a.type.startsWith('image/')) {
-                            return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy">`;
+                            return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy" crossorigin="anonymous">`;
                         }
                         return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
                     }).join('') + '</div>';
