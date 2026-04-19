@@ -1,4 +1,4 @@
-const { redis, parseRedisHash, rateLimit, safeKey } = require('./_lib/redis');
+const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername } = require('./_lib/redis');
 const { put, del } = require('@vercel/blob');
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
@@ -10,11 +10,7 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
 
 // Authenticate via Bearer token, return { username, group, isAdmin } or null
 async function authenticate(req) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
-  if (!token || token.length > 128) return null;
-  const uname = await redis('GET', `auth:session:${token}`);
+  const uname = await getSessionUsername(req);
   if (!uname) return null;
   const raw = await redis('GET', `auth:user:${uname}`);
   if (!raw) return null;

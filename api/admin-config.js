@@ -7,7 +7,7 @@
  *
  * Auth (for every route): X-Admin-Pin header + Authorization: Bearer <admin session token>
  */
-const { redis, rateLimit, safeCompare } = require('./_lib/redis');
+const { redis, rateLimit, safeCompare, getSessionUsername } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const GH_TOKEN = process.env.GITHUB_TOKEN;
@@ -17,11 +17,7 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 async function hasAdminSession(req) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return false;
-  const token = auth.slice(7);
-  if (!token || token.length > 128) return false;
-  const uname = await redis('GET', `auth:session:${token}`);
+  const uname = await getSessionUsername(req);
   if (!uname) return false;
   return ADMIN_USERNAMES.includes(uname);
 }

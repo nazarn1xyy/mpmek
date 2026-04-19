@@ -2,17 +2,13 @@
 // Call: POST /api/telegram-setup with X-Admin-Pin + Authorization: Bearer <admin session>
 // This will register the webhook and enable inline mode
 
-const { redis, safeCompare } = require('./_lib/redis');
+const { redis, safeCompare, getSessionUsername } = require('./_lib/redis');
 
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 async function hasAdminSession(req) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return false;
-  const token = auth.slice(7);
-  if (!token || token.length > 128) return false;
-  const uname = await redis('GET', `auth:session:${token}`);
+  const uname = await getSessionUsername(req);
   if (!uname) return false;
   return ADMIN_USERNAMES.includes(uname);
 }

@@ -77,4 +77,23 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
-module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare };
+// Extract username from Bearer token (handles both "username" legacy and "username:sessionVer" formats)
+// Returns null if token invalid, session not found, or sessionVer mismatch.
+async function getSessionUsername(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+  if (!token || token.length > 128) return null;
+  const raw = await redis('GET', `auth:session:${token}`);
+  if (!raw) return null;
+  const colonIdx = raw.indexOf(':');
+  const uname = colonIdx > 0 ? raw.slice(0, colonIdx) : raw;
+  const ver = colonIdx > 0 ? raw.slice(colonIdx + 1) : null;
+  if (ver) {
+    const currentVer = await redis('GET', `auth:sver:${uname}`);
+    if (currentVer && ver !== currentVer) return null;
+  }
+  return uname;
+}
+
+module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare, getSessionUsername };

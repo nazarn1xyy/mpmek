@@ -1493,16 +1493,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Lookup subject from schedule data
                 if (scheduleData && scheduleData[selectedGroup]) {
-                    const weekTypes = Object.keys(scheduleData[selectedGroup]);
-                    for (let w = 0; w < weekTypes.length; w++) {
-                        const wd = scheduleData[selectedGroup][weekTypes[w]];
-                        if (Array.isArray(wd)) {
-                            // ПІДВІСКА array: match by number (day in hw key is day name, not date)
-                            const found = wd.find(p => parseInt(p.number) === parseInt(entry.number));
-                            if (found) { subjectName = found.subject; break; }
-                        } else if (wd[day]) {
-                            const found = wd[day].find(p => parseInt(p.number) === parseInt(entry.number));
-                            if (found) { subjectName = found.subject; break; }
+                    const groupData = scheduleData[selectedGroup];
+                    // 1. Check ПІДВІСКА first: find substitution whose date falls on `day`
+                    const subs = groupData['ПІДВІСКА'] || [];
+                    let subFound = null;
+                    for (const sub of subs) {
+                        if (parseInt(sub.number) !== parseInt(entry.number)) continue;
+                        if (!sub.date) continue;
+                        // Parse date like "17.04" or "17.04.2025" to get day of week
+                        const parts = sub.date.split('.');
+                        if (parts.length < 2) continue;
+                        const d = new Date();
+                        d.setDate(parseInt(parts[0]));
+                        d.setMonth(parseInt(parts[1]) - 1);
+                        if (parts[2]) d.setFullYear(parseInt(parts[2]));
+                        const subDayName = ukDays[d.getDay()];
+                        if (subDayName === day) { subFound = sub; break; }
+                    }
+                    if (subFound) {
+                        subjectName = subFound.subject;
+                    } else {
+                        // 2. Fallback: ОСНОВНИЙ РОЗКЛАД / ЧИСЕЛЬНИК / ЗНАМЕННИК
+                        const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+                        for (const wt of weekTypes) {
+                            const wd = groupData[wt];
+                            if (wd && wd[day]) {
+                                const found = wd[day].find(p => parseInt(p.number) === parseInt(entry.number));
+                                if (found) { subjectName = found.subject; break; }
+                            }
                         }
                     }
                 }

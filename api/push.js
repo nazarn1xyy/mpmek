@@ -1,14 +1,9 @@
 const crypto = require('crypto');
-const { redis, rateLimit } = require('./_lib/redis');
+const { redis, rateLimit, getSessionUsername } = require('./_lib/redis');
 const { encryptSubscription } = require('./_lib/push-crypto');
 
 async function getSession(req) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
-  if (!token || token.length > 128) return null;
-  const uname = await redis('GET', `auth:session:${token}`);
-  return uname || null;
+  return await getSessionUsername(req);
 }
 
 module.exports = async function handler(req, res) {
