@@ -647,8 +647,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Load Data =====
     try {
-        await refreshSchedule(false);
-        syncHomeworkFromServer().catch(() => {});
+        // Run both in parallel so homework data is ready when schedule renders
+        await Promise.all([
+            refreshSchedule(false),
+            syncHomeworkFromServer().catch(() => {})
+        ]);
+        // Re-render with both schedule + homework data available
+        renderSchedule();
     } catch (e) {
         diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p><button id="retryLoadBtn" style="margin-top:1rem;padding:.75rem 1.5rem;border-radius:16px;border:1px solid var(--border-color);background:var(--surface-color);color:var(--text-color);font-size:1rem;font-weight:600;cursor:pointer">Спробувати знову</button></div>`;
         const retryBtn = document.getElementById('retryLoadBtn');
@@ -689,8 +694,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             authFetch('setgroup', 'POST', { group: selectedGroup }).catch(() => {});
         }
         showScreen('schedule');
-        // Sync homework from server so cross-device data appears
-        syncHomeworkFromServer().catch(() => {});
+        // Sync homework then re-render so homework appears immediately
+        syncHomeworkFromServer().then(() => { renderSchedule(); renderHomeworkTab(); }).catch(() => {});
     });
 
     // Debounced search
