@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v49';
+const CACHE_NAME = 'rozklad-v50';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -86,21 +86,17 @@ self.addEventListener('fetch', event => {
       }).catch(() => caches.match(cacheKey))
     );
   } else {
-    // Stale-while-revalidate for static assets (CSS, JS, HTML, images)
-    // Strip query params so cache-busted requests (e.g. app.js?v=31) match pre-cached app.js
+    // Network-first for static assets (CSS, JS, HTML) — always serve fresh code
+    // Fallback to cache only when offline
     const cacheKey = new Request(url.origin + url.pathname);
     event.respondWith(
-      caches.match(cacheKey).then(cached => {
-        const fetchPromise = fetch(event.request).then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
-          }
-          return networkResponse;
-        }).catch(() => cached);
-
-        return cached || fetchPromise;
-      })
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(cacheKey))
     );
   }
 });
