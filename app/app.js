@@ -1044,8 +1044,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showLightbox(src) {
         const lb = document.createElement('div');
         lb.className = 'hw-lightbox';
-        lb.innerHTML = `<img src="${src}" alt="Фото">`;
-        lb.addEventListener('click', () => lb.remove());
+        lb.innerHTML = `<button class="lb-close" aria-label="Закрити">&times;</button><img src="${src}" alt="Фото" crossorigin="anonymous">`;
+        // Close on background click or close button
+        lb.addEventListener('click', (ev) => {
+            if (ev.target === lb || ev.target.classList.contains('lb-close')) {
+                lb.classList.add('lb-closing');
+                setTimeout(() => lb.remove(), 200);
+            }
+        });
+        // Close on Escape
+        const onKey = (ev) => {
+            if (ev.key === 'Escape') { lb.classList.add('lb-closing'); setTimeout(() => lb.remove(), 200); document.removeEventListener('keydown', onKey); }
+        };
+        document.addEventListener('keydown', onKey);
         document.body.appendChild(lb);
     }
 
