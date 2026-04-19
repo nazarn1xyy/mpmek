@@ -3,6 +3,9 @@
   "functions": {
     "api/schedule-image.js": {
       "includeFiles": "api/_fonts/**"
+    },
+    "api/homework.js": {
+      "maxDuration": 15
     }
   },
   "crons": [

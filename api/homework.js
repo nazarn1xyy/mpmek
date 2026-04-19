@@ -1,4 +1,9 @@
 const { redis, parseRedisHash, rateLimit, safeKey } = require('./_lib/redis');
+const { put, del } = require('@vercel/blob');
+
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
+const MAX_ATTACHMENTS = 5;
+const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -29,7 +34,9 @@ module.exports = async function handler(req, res) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
 
   try {
-    if (req.method === 'GET') {
+    const action = req.query.action;
+
+    if (req.method === 'GET' && !action) {
       // GET is public — anyone in the group can read collaborative homework
       const { group } = req.query;
       if (!group) return res.status(400).json({ error: 'group is required' });
@@ -38,15 +45,118 @@ module.exports = async function handler(req, res) {
       const raw = await redis('HGETALL', `hw:${safeKey(group)}`);
       const hash = parseRedisHash(raw);
       const result = {};
+      const files = {};
       for (const [field, value] of Object.entries(hash)) {
-        const [day, num] = field.split(':');
-        result[`${group}|${day}|${num}`] = value;
+        if (field.endsWith(':files')) {
+          // attachment metadata: "day:num:files"
+          const parts = field.replace(/:files$/, '').split(':');
+          const key = `${group}|${parts[0]}|${parts[1]}`;
+          try { files[key] = JSON.parse(value); } catch { files[key] = []; }
+        } else {
+          const [day, num] = field.split(':');
+          result[`${group}|${day}|${num}`] = value;
+        }
       }
-      return res.json(result);
+      return res.json({ texts: result, files });
     }
 
-    // Write operations require authentication
-    if (req.method === 'POST' || req.method === 'DELETE') {
+    // ── Upload attachment ──
+    if (req.method === 'POST' && action === 'upload') {
+      const user = await authenticate(req);
+      if (!user) return res.status(401).json({ error: 'Авторизуйтесь' });
+      if (await rateLimit(`hw:upload:${user.username}`, 15, 60)) {
+        return res.status(429).json({ error: 'Too many uploads' });
+      }
+
+      const { group, day, number, fileName, fileType, fileData } = req.body || {};
+      if (!group || !day || number === undefined || !fileData || !fileName) {
+        return res.status(400).json({ error: 'group, day, number, fileName, fileData required' });
+      }
+      if (!user.isAdmin && user.group !== group) {
+        return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
+      }
+      const mimeType = typeof fileType === 'string' ? fileType : 'application/octet-stream';
+      if (!ALLOWED_TYPES.includes(mimeType)) {
+        return res.status(400).json({ error: 'Недозволений тип файлу' });
+      }
+
+      // Decode base64
+      const buf = Buffer.from(fileData, 'base64');
+      if (buf.length > MAX_FILE_SIZE) {
+        return res.status(400).json({ error: `Файл занадто великий (макс ${MAX_FILE_SIZE / 1024 / 1024} МБ)` });
+      }
+
+      const num = Number(number);
+      if (!Number.isFinite(num) || num < 1 || num > 8) {
+        return res.status(400).json({ error: 'invalid number' });
+      }
+      const sg = safeKey(group);
+      const field = `${safeKey(day, 20)}:${num}:files`;
+
+      // Check existing attachments count
+      const existingRaw = await redis('HGET', `hw:${sg}`, field);
+      let existing = [];
+      try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
+      if (existing.length >= MAX_ATTACHMENTS) {
+        return res.status(400).json({ error: `Максимум ${MAX_ATTACHMENTS} файлів` });
+      }
+
+      // Upload to Vercel Blob
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+      const blobPath = `hw/${sg}/${safeKey(day, 20)}/${num}/${Date.now()}_${safeName}`;
+      const blob = await put(blobPath, buf, {
+        access: 'public',
+        contentType: mimeType,
+        addRandomSuffix: false
+      });
+
+      existing.push({ url: blob.url, name: fileName.slice(0, 100), type: mimeType, size: buf.length });
+      await redis('HSET', `hw:${sg}`, field, JSON.stringify(existing));
+
+      return res.json({ ok: true, attachment: existing[existing.length - 1], total: existing.length });
+    }
+
+    // ── Delete attachment ──
+    if (req.method === 'POST' && action === 'delete-attachment') {
+      const user = await authenticate(req);
+      if (!user) return res.status(401).json({ error: 'Авторизуйтесь' });
+
+      const { group, day, number, url } = req.body || {};
+      if (!group || !day || number === undefined || !url) {
+        return res.status(400).json({ error: 'group, day, number, url required' });
+      }
+      if (!user.isAdmin && user.group !== group) {
+        return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
+      }
+      const num = Number(number);
+      if (!Number.isFinite(num) || num < 1 || num > 8) {
+        return res.status(400).json({ error: 'invalid number' });
+      }
+      const sg = safeKey(group);
+      const field = `${safeKey(day, 20)}:${num}:files`;
+
+      const existingRaw = await redis('HGET', `hw:${sg}`, field);
+      let existing = [];
+      try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
+
+      const idx = existing.findIndex(a => a.url === url);
+      if (idx === -1) return res.status(404).json({ error: 'Файл не знайдено' });
+
+      // Delete from Vercel Blob
+      try { await del(url); } catch (e) { console.warn('Blob delete failed:', e); }
+
+      existing.splice(idx, 1);
+      if (existing.length > 0) {
+        await redis('HSET', `hw:${sg}`, field, JSON.stringify(existing));
+      } else {
+        await redis('HDEL', `hw:${sg}`, field);
+      }
+
+      return res.json({ ok: true, remaining: existing.length });
+    }
+
+    // Write operations (text) require authentication
+    if ((req.method === 'POST' && !action) || req.method === 'DELETE') {
       const user = await authenticate(req);
       if (!user) {
         return res.status(401).json({ error: 'Авторизуйтесь, щоб редагувати завдання' });

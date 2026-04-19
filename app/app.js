@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
+    let _hwFiles = {};   // cached homework attachments { key: [{url,name,type,size}] }
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
     let VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
@@ -139,23 +140,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`);
             if (!resp.ok) return;
-            const serverHw = await resp.json();
+            const data = await resp.json();
+            // New format: { texts: {...}, files: {...} }
+            const serverTexts = data.texts || data; // backward compat
+            const serverFiles = data.files || {};
             const localHw = getHomework();
             let merged = { ...localHw };
             let changed = false;
             // Server wins for existing server keys (skip empty values)
-            for (const [key, value] of Object.entries(serverHw)) {
+            for (const [key, value] of Object.entries(serverTexts)) {
                 if (!value) { if (merged[key]) { delete merged[key]; changed = true; } continue; }
                 if (merged[key] !== value) { merged[key] = value; changed = true; }
             }
             // Push local-only keys to server
             const prefix = selectedGroup + '|';
             for (const key of Object.keys(localHw)) {
-                if (key.startsWith(prefix) && !serverHw[key]) {
+                if (key.startsWith(prefix) && !serverTexts[key]) {
                     const parts = key.split('|');
                     syncHomeworkToServer(parts[0], parts[1], parts[2], localHw[key]);
                 }
             }
+            // Merge file attachments
+            _hwFiles = serverFiles;
             if (changed) {
                 setHomework(merged);
                 renderSchedule();
@@ -197,6 +203,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const hwModalInput = document.getElementById('hwModalInput');
     const hwModalCancel = document.getElementById('hwModalCancel');
     const hwModalSave = document.getElementById('hwModalSave');
+    const hwFileInput = document.getElementById('hwFileInput');
+    const hwAttachPreview = document.getElementById('hwAttachPreview');
+    const hwUploadStatus = document.getElementById('hwUploadStatus');
 
     const obIntro = document.getElementById('onboardingIntro');
     const obAuth = document.getElementById('onboardingAuth');
@@ -694,16 +703,151 @@ document.addEventListener('DOMContentLoaded', async () => {
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
 
+    // ===== Attachment helpers =====
+    let _pendingFiles = []; // files queued in modal before save
+
+    // Convert image to WebP via canvas (client-side, fast)
+    function imageToWebP(file, maxDim = 1600, quality = 0.82) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.width, h = img.height;
+                if (w > maxDim || h > maxDim) {
+                    const scale = maxDim / Math.max(w, h);
+                    w = Math.round(w * scale);
+                    h = Math.round(h * scale);
+                }
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                c.getContext('2d').drawImage(img, 0, 0, w, h);
+                c.toBlob(blob => {
+                    if (!blob) return reject(new Error('WebP conversion failed'));
+                    resolve(blob);
+                }, 'image/webp', quality);
+            };
+            img.onerror = () => reject(new Error('Image load failed'));
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result.split(',')[1]);
+            r.onerror = reject;
+            r.readAsDataURL(blob);
+        });
+    }
+
+    async function uploadAttachment(group, day, number, file) {
+        let blob = file, fileName = file.name, fileType = file.type;
+        // Convert images to WebP
+        if (file.type.startsWith('image/')) {
+            blob = await imageToWebP(file);
+            fileName = file.name.replace(/\.[^.]+$/, '.webp');
+            fileType = 'image/webp';
+        }
+        if (blob.size > 3 * 1024 * 1024) {
+            throw new Error('Файл занадто великий (макс 3 МБ)');
+        }
+        const base64 = await blobToBase64(blob);
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        const resp = await fetch('/api/homework?action=upload', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ group, day, number, fileName, fileType, fileData: base64 })
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Upload failed');
+        }
+        return (await resp.json()).attachment;
+    }
+
+    async function deleteAttachment(group, day, number, url) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        await fetch('/api/homework?action=delete-attachment', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ group, day, number, url })
+        });
+    }
+
+    function renderAttachPreview() {
+        // Show existing server attachments + pending local files
+        hwAttachPreview.innerHTML = '';
+        const existing = (_hwFiles[modalCurrentKey] || []);
+        existing.forEach(att => {
+            const chip = document.createElement('div');
+            chip.className = 'hw-attach-chip';
+            if (att.type && att.type.startsWith('image/')) {
+                chip.innerHTML = `<img src="${att.url}" alt="${escHtml(att.name)}" loading="lazy"><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
+            } else {
+                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${att.url}">&times;</button>`;
+            }
+            hwAttachPreview.appendChild(chip);
+        });
+        _pendingFiles.forEach((f, i) => {
+            const chip = document.createElement('div');
+            chip.className = 'hw-attach-chip';
+            if (f.type.startsWith('image/')) {
+                const url = URL.createObjectURL(f);
+                chip.innerHTML = `<img src="${url}" alt="${escHtml(f.name)}" loading="lazy"><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
+            } else {
+                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(f.name)}</div><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
+            }
+            hwAttachPreview.appendChild(chip);
+        });
+    }
+
+    // Delegate clicks on attachment preview chips
+    hwAttachPreview.addEventListener('click', async (e) => {
+        const removeBtn = e.target.closest('.hw-chip-remove');
+        if (!removeBtn) return;
+        const url = removeBtn.dataset.url;
+        const pendingIdx = removeBtn.dataset.pending;
+        if (url && modalCurrentKey) {
+            // Delete server attachment
+            const parts = modalCurrentKey.split('|');
+            try {
+                await deleteAttachment(parts[0], parts[1], parts[2], url);
+                _hwFiles[modalCurrentKey] = (_hwFiles[modalCurrentKey] || []).filter(a => a.url !== url);
+            } catch (e) { console.warn('Delete attachment failed:', e); }
+        } else if (pendingIdx !== undefined) {
+            _pendingFiles.splice(Number(pendingIdx), 1);
+        }
+        renderAttachPreview();
+    });
+
+    // File input handler
+    hwFileInput.addEventListener('change', () => {
+        const files = Array.from(hwFileInput.files);
+        const maxTotal = 5;
+        const existingCount = (_hwFiles[modalCurrentKey] || []).length + _pendingFiles.length;
+        const allowed = files.slice(0, maxTotal - existingCount);
+        if (allowed.length < files.length) {
+            hwUploadStatus.textContent = `Макс ${maxTotal} файлів`;
+            setTimeout(() => { hwUploadStatus.textContent = ''; }, 2000);
+        }
+        _pendingFiles.push(...allowed);
+        hwFileInput.value = '';
+        renderAttachPreview();
+    });
+
     function openHomeworkModal(key, subject, dayLabel, existingText) {
         modalCurrentKey = key;
+        _pendingFiles = [];
         hwModalSubject.textContent = `${subject} — ${dayLabel}`;
         hwModalInput.value = existingText || '';
         hwModalTitle.textContent = existingText ? 'Редагувати завдання' : 'Додати завдання';
+        hwUploadStatus.textContent = '';
         hwModal.classList.remove('hidden');
-        // Focus input after modal animates in (300ms is safe for most transitions)
+        renderAttachPreview();
+        // Focus input after modal animates in
         setTimeout(() => {
             hwModalInput.focus();
-            // Place cursor at end of existing text
             if (existingText) {
                 hwModalInput.setSelectionRange(existingText.length, existingText.length);
             }
@@ -729,6 +873,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         hwModal.classList.add('hidden');
         modalCurrentKey = null;
         hwModalInput.value = '';
+        _pendingFiles = [];
+        hwAttachPreview.innerHTML = '';
+        hwUploadStatus.textContent = '';
     }
 
     hwModalCancel.addEventListener('click', closeHomeworkModal);
@@ -745,21 +892,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    hwModalSave.addEventListener('click', () => {
+    hwModalSave.addEventListener('click', async () => {
         const text = hwModalInput.value.trim();
         if (!modalCurrentKey) return;
+        const key = modalCurrentKey;
+        const parts = key.split('|');
 
+        // Save text
         const hw = getHomework();
         if (text) {
-            hw[modalCurrentKey] = text;
+            hw[key] = text;
         } else {
-            delete hw[modalCurrentKey];
+            delete hw[key];
         }
         setHomework(hw);
-        const parts = modalCurrentKey.split('|');
         if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
+
+        // Upload pending files
+        if (_pendingFiles.length > 0 && parts.length === 3) {
+            hwModalSave.disabled = true;
+            hwUploadStatus.textContent = 'Завантаження...';
+            let uploaded = 0;
+            for (const file of _pendingFiles) {
+                try {
+                    hwUploadStatus.textContent = `Завантаження ${++uploaded}/${_pendingFiles.length}...`;
+                    const att = await uploadAttachment(parts[0], parts[1], parts[2], file);
+                    if (!_hwFiles[key]) _hwFiles[key] = [];
+                    _hwFiles[key].push(att);
+                } catch (e) {
+                    console.warn('Upload failed:', e);
+                    hwUploadStatus.textContent = e.message || 'Помилка завантаження';
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+            }
+            hwModalSave.disabled = false;
+        }
+
         closeHomeworkModal();
         renderSchedule();
+        renderHomeworkTab();
     });
 
     // ===== SVG icon templates (avoid re-creating the same strings) =====
@@ -821,12 +992,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${escapedSubject}</div>`;
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        // Attachment thumbnails
+        const keyFiles = _hwFiles[key] || [];
+        let attachHtml = '';
+        if (keyFiles.length > 0) {
+            attachHtml = '<div class="hw-attachments">' + keyFiles.map(a => {
+                if (a.type && a.type.startsWith('image/')) {
+                    return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy">`;
+                }
+                return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
+            }).join('') + '</div>';
+        }
+
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}${attachHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
+    }
+
+    // ===== Image lightbox =====
+    function showLightbox(src) {
+        const lb = document.createElement('div');
+        lb.className = 'hw-lightbox';
+        lb.innerHTML = `<img src="${src}" alt="Фото">`;
+        lb.addEventListener('click', () => lb.remove());
+        document.body.appendChild(lb);
     }
 
     // ===== Event delegation (single listener on document) =====
     document.addEventListener('click', (e) => {
+        // Lightbox for attachment thumbnails
+        const thumb = e.target.closest('.hw-att-thumb');
+        if (thumb) {
+            showLightbox(thumb.dataset.full || thumb.src);
+            return;
+        }
+
         const hwBtn = e.target.closest('.homework-btn');
         if (hwBtn) {
             const { key, subject, day } = hwBtn.dataset;
@@ -1251,6 +1450,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 entries.push({ key, day: parts[1], number: parts[2], text: hw[key] });
             }
         }
+        // Also include keys that only have files but no text
+        for (const key in _hwFiles) {
+            if (key.startsWith(prefix) && !hw[key] && _hwFiles[key].length > 0) {
+                const parts = key.split('|');
+                entries.push({ key, day: parts[1], number: parts[2], text: '' });
+            }
+        }
 
         if (entries.length === 0) {
             homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">Ура! Ви ще не додали жодного домашнього завдання.</p></div>`;
@@ -1299,7 +1505,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const escapedSub = escHtml(subjectName);
                 const card = document.createElement('div');
                 card.className = 'hw-card';
-                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div><div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
+                const cardFiles = _hwFiles[entry.key] || [];
+                let cardAttHtml = '';
+                if (cardFiles.length > 0) {
+                    cardAttHtml = '<div class="hw-attachments">' + cardFiles.map(a => {
+                        if (a.type && a.type.startsWith('image/')) {
+                            return `<img src="${a.url}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${a.url}" loading="lazy">`;
+                        }
+                        return `<a href="${a.url}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
+                    }).join('') + '</div>';
+                }
+                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
                 frag.appendChild(card);
             }
         }
