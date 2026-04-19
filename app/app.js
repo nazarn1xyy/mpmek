@@ -164,13 +164,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const filesChanged = JSON.stringify(_hwFiles) !== JSON.stringify(serverFiles);
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
-            // Re-render if anything changed (text or files)
+            // Always re-render after sync so data appears on all screens
             if (changed || filesChanged) {
                 renderSchedule();
-                // Re-render homework tab if it's currently visible
-                if (screens.homework && !screens.homework.classList.contains('hidden')) {
-                    renderHomeworkTab();
-                }
+                renderHomeworkTab();
             }
         } catch (e) { console.warn('HW sync fetch failed:', e); }
     }
@@ -778,11 +775,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function deleteAttachment(group, day, number, url) {
         const headers = { 'Content-Type': 'application/json' };
         if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-        await fetch('/api/homework?action=delete-attachment', {
+        const resp = await fetch('/api/homework?action=delete-attachment', {
             method: 'POST',
             headers,
             body: JSON.stringify({ group, day, number, url })
         });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Помилка видалення');
+        }
     }
 
     function renderAttachPreview() {
@@ -822,9 +823,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Delete server attachment
             const parts = modalCurrentKey.split('|');
             try {
+                removeBtn.disabled = true;
+                removeBtn.textContent = '...';
                 await deleteAttachment(parts[0], parts[1], parts[2], url);
                 _hwFiles[modalCurrentKey] = (_hwFiles[modalCurrentKey] || []).filter(a => a.url !== url);
-            } catch (e) { console.warn('Delete attachment failed:', e); }
+            } catch (e) {
+                console.warn('Delete attachment failed:', e);
+                hwUploadStatus.textContent = e.message || 'Помилка видалення';
+                setTimeout(() => { hwUploadStatus.textContent = ''; }, 3000);
+                return; // Don't re-render — file wasn't deleted
+            }
         } else if (pendingIdx !== undefined) {
             _pendingFiles.splice(Number(pendingIdx), 1);
         }
