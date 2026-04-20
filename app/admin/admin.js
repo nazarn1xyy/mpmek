@@ -52,48 +52,29 @@
     let pinCode = '';
     let verifiedPin = '';
 
-    document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (pinCode.length >= 4) return;
-            pinCode += btn.dataset.val;
-            updatePinDots();
-            if (pinCode.length === 4) {
-                setTimeout(() => handlePinComplete(), 200);
-            }
-        });
-        // Explicit touch feedback for iOS (`:active` is unreliable)
-        btn.addEventListener('touchstart', () => {
-            btn.style.transform = 'scale(0.9)';
-            btn.style.background = 'var(--surface-2)';
-        }, { passive: true });
-        btn.addEventListener('touchend', () => {
-            btn.style.transform = '';
-            btn.style.background = '';
-        }, { passive: true });
-        btn.addEventListener('touchcancel', () => {
-            btn.style.transform = '';
-            btn.style.background = '';
-        }, { passive: true });
-    });
+    // Event delegation on the keypad — one listener for all buttons.
+    // Using `click` which fires reliably on all browsers (iOS, Android, desktop).
+    const keypad = document.querySelector('.pin-keypad');
+    keypad.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pin-key');
+        if (!btn) return;
 
-    const pinDeleteBtn = document.getElementById('pinDelete');
-    pinDeleteBtn.addEventListener('click', () => {
-        pinCode = pinCode.slice(0, -1);
+        if (btn.id === 'pinDelete') {
+            pinCode = pinCode.slice(0, -1);
+            updatePinDots();
+            pinScreen.classList.remove('error');
+            return;
+        }
+
+        const val = btn.dataset.val;
+        if (!val) return; // empty spacer
+        if (pinCode.length >= 4) return;
+        pinCode += val;
         updatePinDots();
-        pinScreen.classList.remove('error');
+        if (pinCode.length === 4) {
+            setTimeout(() => handlePinComplete(), 200);
+        }
     });
-    pinDeleteBtn.addEventListener('touchstart', () => {
-        pinDeleteBtn.style.transform = 'scale(0.9)';
-        pinDeleteBtn.style.color = 'var(--text)';
-    }, { passive: true });
-    pinDeleteBtn.addEventListener('touchend', () => {
-        pinDeleteBtn.style.transform = '';
-        pinDeleteBtn.style.color = '';
-    }, { passive: true });
-    pinDeleteBtn.addEventListener('touchcancel', () => {
-        pinDeleteBtn.style.transform = '';
-        pinDeleteBtn.style.color = '';
-    }, { passive: true });
 
     function updatePinDots() {
         pinDots.forEach((dot, i) => {
