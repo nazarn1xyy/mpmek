@@ -61,13 +61,39 @@
                 setTimeout(() => handlePinComplete(), 200);
             }
         });
+        // Explicit touch feedback for iOS (`:active` is unreliable)
+        btn.addEventListener('touchstart', () => {
+            btn.style.transform = 'scale(0.9)';
+            btn.style.background = 'var(--surface-2)';
+        }, { passive: true });
+        btn.addEventListener('touchend', () => {
+            btn.style.transform = '';
+            btn.style.background = '';
+        }, { passive: true });
+        btn.addEventListener('touchcancel', () => {
+            btn.style.transform = '';
+            btn.style.background = '';
+        }, { passive: true });
     });
 
-    document.getElementById('pinDelete').addEventListener('click', () => {
+    const pinDeleteBtn = document.getElementById('pinDelete');
+    pinDeleteBtn.addEventListener('click', () => {
         pinCode = pinCode.slice(0, -1);
         updatePinDots();
         pinScreen.classList.remove('error');
     });
+    pinDeleteBtn.addEventListener('touchstart', () => {
+        pinDeleteBtn.style.transform = 'scale(0.9)';
+        pinDeleteBtn.style.color = 'var(--text)';
+    }, { passive: true });
+    pinDeleteBtn.addEventListener('touchend', () => {
+        pinDeleteBtn.style.transform = '';
+        pinDeleteBtn.style.color = '';
+    }, { passive: true });
+    pinDeleteBtn.addEventListener('touchcancel', () => {
+        pinDeleteBtn.style.transform = '';
+        pinDeleteBtn.style.color = '';
+    }, { passive: true });
 
     function updatePinDots() {
         pinDots.forEach((dot, i) => {
