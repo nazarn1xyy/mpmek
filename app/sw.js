@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v54';
+const CACHE_NAME = 'rozklad-v55';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -27,10 +27,20 @@ self.addEventListener('message', event => {
 });
 
 // Purge old caches on activate + claim all clients immediately
+// Also strip any admin entries from ALL caches (cleans up from legacy SW versions)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== NOTIF_CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.map(async (k) => {
+        // Delete outdated cache entirely
+        if (k !== CACHE_NAME && k !== NOTIF_CACHE) {
+          return caches.delete(k);
+        }
+        // In current cache: remove any /admin entries that might exist
+        const cache = await caches.open(k);
+        const reqs = await cache.keys();
+        await Promise.all(reqs.filter(r => r.url.includes('/admin')).map(r => cache.delete(r)));
+      }))
     ).then(() => self.clients.claim())
   );
 });
