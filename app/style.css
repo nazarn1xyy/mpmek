@@ -666,12 +666,15 @@ input:checked + .slider:before {
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background-color: var(--nav-bg);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid var(--nav-border);
     display: flex;
     justify-content: space-around;
     align-items: center;
     z-index: 100;
     user-select: none;
+    will-change: transform;
+    contain: layout style;
 }
 
 .nav-item {

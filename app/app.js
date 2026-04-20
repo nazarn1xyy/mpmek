@@ -50,11 +50,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const ukDays = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 
-    // Escape HTML to prevent XSS
+    // Escape HTML to prevent XSS (reuse single element)
+    const _escDiv = document.createElement('div');
     function escHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
+        _escDiv.textContent = s;
+        return _escDiv.innerHTML;
     }
     // Sanitize URL — only allow https: (prevents javascript: / data: XSS)
     function safeUrl(url) {
@@ -168,9 +168,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
-            // Always re-render after sync
-            renderSchedule();
-            renderHomeworkTab();
+            // Re-render only visible screens
+            if (screens.schedule && !screens.schedule.classList.contains('hidden')) renderSchedule();
+            if (screens.homework && !screens.homework.classList.contains('hidden')) renderHomeworkTab();
         } catch (e) { console.warn('[hw-sync] FAILED:', e); }
     }
 
@@ -642,6 +642,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refresh data when user returns to the app / tab
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && selectedGroup) {
+            // refreshSchedule already calls renderSchedule via rerender(),
+            // syncHomeworkFromServer will only re-render visible screens
             refreshSchedule(true);
             syncHomeworkFromServer().catch(() => {});
         }
@@ -721,6 +723,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
+                URL.revokeObjectURL(img.src);
                 let w = img.width, h = img.height;
                 if (w > maxDim || h > maxDim) {
                     const scale = maxDim / Math.max(w, h);
@@ -735,7 +738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     resolve(blob);
                 }, 'image/webp', quality);
             };
-            img.onerror = () => reject(new Error('Image load failed'));
+            img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Image load failed')); };
             img.src = URL.createObjectURL(file);
         });
     }
@@ -789,7 +792,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    let _previewObjUrls = [];
     function renderAttachPreview() {
+        // Revoke previous ObjectURLs to prevent memory leak
+        _previewObjUrls.forEach(u => URL.revokeObjectURL(u));
+        _previewObjUrls = [];
         // Show existing server attachments + pending local files
         hwAttachPreview.innerHTML = '';
         const existing = (_hwFiles[modalCurrentKey] || []);
@@ -808,6 +815,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             chip.className = 'hw-attach-chip';
             if (f.type.startsWith('image/')) {
                 const url = URL.createObjectURL(f);
+                _previewObjUrls.push(url);
                 chip.innerHTML = `<img src="${url}" alt="${escHtml(f.name)}" loading="lazy"><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
             } else {
                 chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(f.name)}</div><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
@@ -1345,6 +1353,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const substitutionsList = groupData['ПІДВІСКА'] || [];
+        // Pre-index substitutions by date for O(1) lookup per cell
+        const subsIndex = {};
+        for (const s of substitutionsList) {
+            if (!subsIndex[s.date]) subsIndex[s.date] = [];
+            subsIndex[s.date].push(s);
+        }
         const maxPairs = 6;
         const nowMin = kyivNow.totalMinutes;
 
@@ -1382,11 +1396,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const dateStr = weekDates[day];
                 let pairs = weekData[day] ? [...weekData[day]] : [];
 
-                const subsForDate = substitutionsList.filter(s => s.date === dateStr);
-                subsForDate.forEach(sub => {
+                const subsForDate = subsIndex[dateStr] || [];
+                for (const sub of subsForDate) {
                     pairs = pairs.filter(pr => parseInt(pr.number) !== parseInt(sub.number));
                     pairs.push({ ...sub, isSubstitution: true });
-                });
+                }
 
                 const pair = pairs.find(pr => parseInt(pr.number) === p);
                 const isToday = weekOffset === 0 && day === todayLabel;
