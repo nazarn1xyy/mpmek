@@ -1,5 +1,24 @@
+// On-screen diagnostic panel — shown in DOM so user can see even without console
+(function setupDiag() {
+    const diag = document.createElement('div');
+    diag.id = '__diag';
+    diag.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#001;color:#0f0;font:11px monospace;padding:4px 8px;z-index:999999;white-space:pre-wrap;max-height:120px;overflow:auto;border-bottom:1px solid #0f0';
+    diag.textContent = 'diag ready. tap a digit…';
+    document.body.appendChild(diag);
+    window.__log = (msg) => {
+        const ts = new Date().toISOString().slice(11, 19);
+        diag.textContent = `[${ts}] ${msg}\n` + diag.textContent;
+    };
+    window.addEventListener('error', (e) => window.__log('JS ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
+    window.addEventListener('unhandledrejection', (e) => window.__log('PROMISE ERROR: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+})();
+
 (() => {
     'use strict';
+
+    try {
+        window.__log('admin.js IIFE started');
+    } catch {}
 
     // ===== Constants =====
     const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
@@ -36,6 +55,8 @@
     const statusText = document.getElementById('statusText');
     const toast = document.getElementById('toast');
 
+    window.__log('DOM refs: pinScreen=' + !!pinScreen + ' pinDots=' + pinDots.length);
+
     // Sections
     const sections = {
         groups: document.getElementById('sec-groups'),
@@ -52,28 +73,51 @@
     let pinCode = '';
     let verifiedPin = '';
 
-    // Event delegation on the keypad — one listener for all buttons.
-    // Using `click` which fires reliably on all browsers (iOS, Android, desktop).
+    // Multi-strategy listener: click + pointerdown, on BOTH keypad and document for max compatibility
     const keypad = document.querySelector('.pin-keypad');
-    keypad.addEventListener('click', (e) => {
-        const btn = e.target.closest('.pin-key');
-        if (!btn) return;
+    window.__log('keypad=' + !!keypad);
 
+    function handleKeyPress(btn) {
+        window.__log('handleKeyPress btn=' + (btn ? btn.dataset.val || btn.id : 'null'));
+        if (!btn) return;
         if (btn.id === 'pinDelete') {
             pinCode = pinCode.slice(0, -1);
             updatePinDots();
             pinScreen.classList.remove('error');
             return;
         }
-
         const val = btn.dataset.val;
-        if (!val) return; // empty spacer
+        if (!val) return;
         if (pinCode.length >= 4) return;
         pinCode += val;
         updatePinDots();
+        window.__log('pinCode=' + pinCode);
         if (pinCode.length === 4) {
             setTimeout(() => handlePinComplete(), 200);
         }
+    }
+
+    // Primary: click (most reliable)
+    if (keypad) {
+        keypad.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pin-key');
+            window.__log('click event, target=' + (e.target && e.target.tagName) + ' btn=' + !!btn);
+            handleKeyPress(btn);
+        });
+    }
+
+    // Backup: document-level click (in case keypad ref is broken)
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pin-key');
+        if (!btn) return;
+        if (!pinScreen || pinScreen.classList.contains('hidden')) return;
+        // If keypad listener already handled it, pinCode will have changed.
+        // Use a flag to avoid double-processing.
+        if (e._pinHandled) return;
+        e._pinHandled = true;
+        window.__log('doc click fallback');
+        // Only process if keypad listener didn't (i.e. keypad is null or listener broken)
+        if (!keypad) handleKeyPress(btn);
     });
 
     function updatePinDots() {
