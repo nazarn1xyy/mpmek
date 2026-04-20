@@ -85,7 +85,7 @@
     async function handlePinComplete() {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            shakePin('Спершу увійдіть як адмін на сайті');
+            showPinError('Спершу увійдіть на головному сайті як адмін, потім поверніться сюди', true);
             return;
         }
         try {
@@ -98,26 +98,53 @@
             if (resp.ok) {
                 verifiedPin = pinCode;
                 unlockAdmin();
+            } else if (resp.status === 401) {
+                showPinError('Сесія закінчилась. Увійдіть знову на головному сайті', true);
             } else if (resp.status === 403) {
-                shakePin('Потрібен акаунт адміна');
+                showPinError('Ваш акаунт не має прав адміна', true);
             } else if (resp.status === 429) {
-                shakePin('Забагато спроб. Зачекайте');
+                shakePin('Забагато спроб. Зачекайте хвилину');
             } else {
                 shakePin('Невірний PIN-код');
             }
-        } catch {
+        } catch (e) {
+            console.error('[admin] PIN verify failed:', e);
             shakePin('Помилка з\'єднання');
         }
     }
 
+    // Transient error (auto-clears after 1.5s, shakes dots red)
     function shakePin(msg) {
         pinScreen.classList.add('error');
         pinHint.textContent = msg;
+        pinHint.style.color = '#ff4444';
+        pinHint.style.fontWeight = '600';
         pinCode = '';
         setTimeout(() => {
             updatePinDots();
             pinScreen.classList.remove('error');
-        }, 600);
+            pinHint.style.color = '';
+            pinHint.style.fontWeight = '';
+        }, 1500);
+    }
+
+    // Persistent error with optional "Login" button (for auth issues — user needs to take action)
+    function showPinError(msg, showLoginBtn) {
+        pinScreen.classList.add('error');
+        pinHint.innerHTML = '';
+        const msgEl = document.createElement('div');
+        msgEl.textContent = msg;
+        msgEl.style.cssText = 'color:#ff4444;font-weight:600;font-size:15px;margin-bottom:12px';
+        pinHint.appendChild(msgEl);
+        if (showLoginBtn) {
+            const btn = document.createElement('a');
+            btn.href = '../';
+            btn.textContent = 'Перейти на головний сайт →';
+            btn.style.cssText = 'display:inline-block;padding:10px 16px;background:#fff;color:#000;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px';
+            pinHint.appendChild(btn);
+        }
+        pinCode = '';
+        updatePinDots();
     }
 
     async function unlockAdmin() {
