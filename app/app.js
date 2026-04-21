@@ -627,6 +627,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 delete data._settings;
             }
             scheduleData = data;
+            // Auto-migrate short-year group names to full-year (e.g. КСМ-24-1 → КСМ-2024-1)
+            if (selectedGroup && !data[selectedGroup]) {
+                const migrated = selectedGroup.replace(/(?<=-)(\d{2})(?=-|$)/g, (m) => (parseInt(m) < 50 ? '20' : '19') + m);
+                if (migrated !== selectedGroup && data[migrated]) {
+                    selectedGroup = migrated;
+                    localStorage.setItem('selectedGroup', selectedGroup);
+                }
+            }
             _lastFetchTime = Date.now();
             rerender();
         } catch (e) {
