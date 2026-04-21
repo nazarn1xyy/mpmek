@@ -39,8 +39,26 @@ module.exports = async function handler(req, res) {
       if (!group) return res.status(400).json({ error: 'group is required' });
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
 
-      const raw = await redis('HGETALL', `hw:${safeKey(group)}`);
-      const hash = parseRedisHash(raw);
+      let raw = await redis('HGETALL', `hw:${safeKey(group)}`);
+      let hash = parseRedisHash(raw);
+
+      // Auto-migrate: if no data found, check old short-year group name (КСМ-24-1 → КСМ-2024-1)
+      if (Object.keys(hash).length === 0) {
+        const oldGroup = group.replace(/(\d{4})(?=-|$)/g, m => m.slice(2));
+        if (oldGroup !== group) {
+          const oldRaw = await redis('HGETALL', `hw:${safeKey(oldGroup)}`);
+          const oldHash = parseRedisHash(oldRaw);
+          if (Object.keys(oldHash).length > 0) {
+            // Migrate data to new key
+            const args = [];
+            for (const [f, v] of Object.entries(oldHash)) args.push(f, v);
+            if (args.length > 0) await redis('HSET', `hw:${safeKey(group)}`, ...args);
+            await redis('DEL', `hw:${safeKey(oldGroup)}`);
+            hash = oldHash;
+          }
+        }
+      }
+
       const result = {};
       const files = {};
       for (const [field, value] of Object.entries(hash)) {

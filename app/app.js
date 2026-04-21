@@ -633,6 +633,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (migrated !== selectedGroup && data[migrated]) {
                     selectedGroup = migrated;
                     localStorage.setItem('selectedGroup', selectedGroup);
+                    if (authToken) authFetch('setgroup', 'POST', { group: selectedGroup }).catch(() => {});
                 }
             }
             _lastFetchTime = Date.now();
