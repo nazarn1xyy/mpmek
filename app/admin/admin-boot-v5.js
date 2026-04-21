@@ -74,8 +74,9 @@
         } catch {}
     })();
 
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    let loginBusy = false;
+    async function doLogin() {
+        if (loginBusy) return;
         const username = document.getElementById('loginUsername').value.trim().toLowerCase();
         const password = document.getElementById('loginPassword').value;
         if (!username || !password) {
@@ -83,6 +84,7 @@
             loginHint.style.color = '#ff4444';
             return;
         }
+        loginBusy = true;
         loginSubmit.disabled = true;
         loginHint.textContent = 'Вхід...';
         loginHint.style.color = '';
@@ -97,6 +99,7 @@
                 loginHint.textContent = data.error || 'Помилка входу';
                 loginHint.style.color = '#ff4444';
                 loginSubmit.disabled = false;
+                loginBusy = false;
                 return;
             }
             authToken = data.token;
@@ -104,11 +107,19 @@
             currentUser = data.user;
             proceedAfterLogin();
         } catch (err) {
-            loginHint.textContent = 'Помилка з\'єднання';
+            loginHint.textContent = 'Помилка з\'єднання: ' + err.message;
             loginHint.style.color = '#ff4444';
             loginSubmit.disabled = false;
+            loginBusy = false;
         }
-    });
+    }
+
+    // Multiple strategies: form submit + direct click + touchstart
+    if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
+    if (loginSubmit) {
+        loginSubmit.addEventListener('click', (e) => { e.preventDefault(); doLogin(); });
+        loginSubmit.addEventListener('touchstart', (e) => { e.preventDefault(); doLogin(); }, { passive: false });
+    }
 
     function proceedAfterLogin() {
         loginScreen.classList.add('hidden');
