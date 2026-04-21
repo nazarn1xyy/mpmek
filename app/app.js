@@ -1,10 +1,37 @@
-// Global error handlers — surface unhandled errors to user
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('Unhandled promise rejection:', e.reason);
-});
-window.onerror = function(msg, src, line, col, err) {
-    console.error('Global error:', msg, src, line, col, err);
-};
+// Global error handlers — show visible fallback instead of white screen
+(function() {
+    var shown = false;
+    function showCrash(detail) {
+        if (shown) return;
+        shown = true;
+        var d = document.getElementById('app');
+        if (!d) d = document.body;
+        d.innerHTML = '<div style="padding:2rem;text-align:center;font-family:-apple-system,sans-serif;color:#333">' +
+            '<h2 style="margin-bottom:1rem">Щось пішло не так</h2>' +
+            '<p style="margin-bottom:1rem;font-size:14px;color:#888">' + (detail || '') + '</p>' +
+            '<button onclick="location.reload()" style="padding:10px 24px;border:none;border-radius:10px;background:#000;color:#fff;font-size:15px;cursor:pointer">Перезавантажити</button>' +
+            '</div>';
+    }
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e.reason);
+        showCrash(e.reason && e.reason.message ? e.reason.message : String(e.reason));
+    });
+    window.onerror = function(msg, src, line) {
+        console.error('Global error:', msg, src, line);
+        showCrash(msg + ' (line ' + line + ')');
+    };
+    // Safety net: if after 6s nothing visible, show fallback
+    setTimeout(function() {
+        var app = document.getElementById('app');
+        if (!app) return;
+        var screens = app.querySelectorAll('.screen');
+        var anyVisible = false;
+        for (var i = 0; i < screens.length; i++) {
+            if (!screens[i].classList.contains('hidden')) { anyVisible = true; break; }
+        }
+        if (!anyVisible && !shown) showCrash('Додаток не завантажився вчасно');
+    }, 6000);
+})();
 
 // ===== Offline/Online indicator =====
 (function() {
