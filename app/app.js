@@ -633,11 +633,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             scheduleData = data;
             // Auto-migrate short-year group names to full-year (e.g. КСМ-24-1 → КСМ-2024-1)
             if (selectedGroup && !data[selectedGroup]) {
-                const migrated = selectedGroup.replace(/(?<=-)(\d{2})(?=-|$)/g, (m) => (parseInt(m) < 50 ? '20' : '19') + m);
+                var migrated = selectedGroup.split('-').map(function(p) {
+                    if (/^\d{2}$/.test(p) && parseInt(p) >= 20) return (parseInt(p) < 50 ? '20' : '19') + p;
+                    return p;
+                }).join('-');
                 if (migrated !== selectedGroup && data[migrated]) {
                     selectedGroup = migrated;
                     localStorage.setItem('selectedGroup', selectedGroup);
-                    if (authToken) authFetch('setgroup', 'POST', { group: selectedGroup }).catch(() => {});
+                    if (authToken) authFetch('setgroup', 'POST', { group: selectedGroup }).catch(function(){});
                 }
             }
             _lastFetchTime = Date.now();
