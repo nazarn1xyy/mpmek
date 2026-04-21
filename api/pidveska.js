@@ -4,14 +4,44 @@
  * DELETE: remove a підвіска entry
  * Auth: bot_token must match TELEGRAM_BOT_TOKEN env var
  */
-const { safeCompare } = require('./_lib/redis');
+const { safeCompare, getSessionUsername, redis } = require('./_lib/redis');
 
 const DATE_RE = /^\d{2}\.\d{2}$/;
+
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+const STAROSTA_ACCOUNTS = {};
+(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
+  const sep = entry.indexOf(':');
+  if (sep > 0) {
+    const username = entry.slice(0, sep).trim().toLowerCase();
+    const group = entry.slice(sep + 1).trim();
+    if (username && group) STAROSTA_ACCOUNTS[username] = group;
+  }
+});
+
+// Authenticate via Bearer token — returns { username, group, role } or null
+async function authenticateBearer(req) {
+  const uname = await getSessionUsername(req);
+  if (!uname) return null;
+  if (ADMIN_USERNAMES.includes(uname)) return { username: uname, group: null, role: 'admin' };
+  if (STAROSTA_ACCOUNTS[uname]) return { username: uname, group: STAROSTA_ACCOUNTS[uname], role: 'starosta' };
+  // Check stored user role
+  const raw = await redis('GET', `auth:user:${uname}`);
+  if (raw) {
+    try {
+      const user = JSON.parse(raw);
+      if (user.role === 'starosta') return { username: uname, group: user.group, role: 'starosta' };
+    } catch {}
+  }
+  return null; // normal users cannot use this API
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
   res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -19,12 +49,19 @@ module.exports = async function handler(req, res) {
   const GH_OWNER = process.env.GITHUB_OWNER || 'nazarn1xyy';
   const GH_REPO = process.env.GITHUB_REPO || 'mpmek';
 
-  if (!BOT_TOKEN || !GH_TOKEN) {
-    return res.status(500).json({ error: 'Missing env vars (TELEGRAM_BOT_TOKEN or GITHUB_TOKEN)' });
+  if (!GH_TOKEN) {
+    return res.status(500).json({ error: 'Missing env var (GITHUB_TOKEN)' });
   }
 
+  // Auth: bot_token (Telegram bot) OR Bearer token (starosta/admin)
   const { bot_token } = req.body || {};
-  if (!safeCompare(bot_token, BOT_TOKEN)) {
+  let authUser = null;
+  if (bot_token && BOT_TOKEN && safeCompare(bot_token, BOT_TOKEN)) {
+    authUser = { username: 'bot', group: null, role: 'admin' };
+  } else {
+    authUser = await authenticateBearer(req);
+  }
+  if (!authUser) {
     return res.status(403).json({ error: 'unauthorized' });
   }
 
@@ -36,9 +73,9 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'POST') {
-      return await handleAdd(req, res, ghHeaders, GH_OWNER, GH_REPO);
+      return await handleAdd(req, res, ghHeaders, GH_OWNER, GH_REPO, authUser);
     } else if (req.method === 'DELETE') {
-      return await handleDelete(req, res, ghHeaders, GH_OWNER, GH_REPO);
+      return await handleDelete(req, res, ghHeaders, GH_OWNER, GH_REPO, authUser);
     } else {
       return res.status(405).json({ error: 'method not allowed' });
     }
@@ -135,10 +172,14 @@ function sanitizeEntry(e) {
   return { date, number, subject, teacher };
 }
 
-async function handleAdd(req, res, ghHeaders, owner, repo) {
+async function handleAdd(req, res, ghHeaders, owner, repo, authUser) {
   const { group, entries } = req.body || {};
   if (!group || typeof group !== 'string' || group.length > 80) {
     return res.status(400).json({ error: 'group required (max 80 chars)' });
+  }
+  // Starostas can only modify their own group
+  if (authUser && authUser.role === 'starosta' && authUser.group !== group) {
+    return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
   }
   if (!Array.isArray(entries) || entries.length === 0) {
     return res.status(400).json({ error: 'entries[] required' });
@@ -202,10 +243,14 @@ async function handleAdd(req, res, ghHeaders, owner, repo) {
   return res.json({ ok: true, added: meta.added });
 }
 
-async function handleDelete(req, res, ghHeaders, owner, repo) {
+async function handleDelete(req, res, ghHeaders, owner, repo, authUser) {
   const { group, date, number } = req.body || {};
   if (!group || typeof group !== 'string' || group.length > 80) {
     return res.status(400).json({ error: 'group required' });
+  }
+  // Starostas can only modify their own group
+  if (authUser && authUser.role === 'starosta' && authUser.group !== group) {
+    return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
   }
   if (typeof date !== 'string' || !DATE_RE.test(date)) {
     return res.status(400).json({ error: 'date must be DD.MM' });

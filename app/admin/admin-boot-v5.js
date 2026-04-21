@@ -1,24 +1,9 @@
-// On-screen diagnostic panel — shown in DOM so user can see even without console
-(function setupDiag() {
-    const diag = document.createElement('div');
-    diag.id = '__diag';
-    diag.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#001;color:#0f0;font:11px monospace;padding:4px 8px;z-index:999999;white-space:pre-wrap;max-height:120px;overflow:auto;border-bottom:1px solid #0f0';
-    diag.textContent = 'diag ready. tap a digit…';
-    document.body.appendChild(diag);
-    window.__log = (msg) => {
-        const ts = new Date().toISOString().slice(11, 19);
-        diag.textContent = `[${ts}] ${msg}\n` + diag.textContent;
-    };
-    window.addEventListener('error', (e) => window.__log('JS ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
-    window.addEventListener('unhandledrejection', (e) => window.__log('PROMISE ERROR: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
-})();
-
 (() => {
     'use strict';
 
-    try {
-        window.__log('admin.js IIFE started');
-    } catch {}
+    // ===== User session state =====
+    let currentUser = null; // { username, displayName, group, role }
+    let authToken = localStorage.getItem('authToken');
 
     // ===== Constants =====
     const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
@@ -47,6 +32,7 @@
     let hasChanges = false;
 
     // ===== DOM refs =====
+    const loginScreen = document.getElementById('loginScreen');
     const pinScreen = document.getElementById('pinScreen');
     const adminPanel = document.getElementById('adminPanel');
     const pinHint = document.getElementById('pinHint');
@@ -55,13 +41,12 @@
     const statusText = document.getElementById('statusText');
     const toast = document.getElementById('toast');
 
-    window.__log('DOM refs: pinScreen=' + !!pinScreen + ' pinDots=' + pinDots.length);
-
     // Sections
     const sections = {
         groups: document.getElementById('sec-groups'),
         schedule: document.getElementById('sec-schedule'),
         subs: document.getElementById('sec-subs'),
+        homework: document.getElementById('sec-homework'),
         bells: document.getElementById('sec-bells'),
         config: document.getElementById('sec-config')
     };
@@ -69,16 +54,84 @@
     // Track new substitutions added in this session (for push notification)
     let newSubsAdded = [];
 
-    // ===== PIN Authentication =====
+    // ===== Login Screen =====
+    const loginForm = document.getElementById('loginForm');
+    const loginHint = document.getElementById('loginHint');
+    const loginSubmit = document.getElementById('loginSubmit');
+
+    // Check if user already has a valid session
+    (async function checkExistingSession() {
+        if (!authToken) return; // no saved token, show login screen
+        try {
+            const resp = await fetch('/api/auth?action=me', {
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                currentUser = data.user;
+                proceedAfterLogin();
+            }
+        } catch {}
+    })();
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim().toLowerCase();
+        const password = document.getElementById('loginPassword').value;
+        if (!username || !password) {
+            loginHint.textContent = 'Введіть логін і пароль';
+            loginHint.style.color = '#ff4444';
+            return;
+        }
+        loginSubmit.disabled = true;
+        loginHint.textContent = 'Вхід...';
+        loginHint.style.color = '';
+        try {
+            const resp = await fetch('/api/auth?action=login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                loginHint.textContent = data.error || 'Помилка входу';
+                loginHint.style.color = '#ff4444';
+                loginSubmit.disabled = false;
+                return;
+            }
+            authToken = data.token;
+            localStorage.setItem('authToken', authToken);
+            currentUser = data.user;
+            proceedAfterLogin();
+        } catch (err) {
+            loginHint.textContent = 'Помилка з\'єднання';
+            loginHint.style.color = '#ff4444';
+            loginSubmit.disabled = false;
+        }
+    });
+
+    function proceedAfterLogin() {
+        loginScreen.classList.add('hidden');
+        if (currentUser.role === 'admin') {
+            // Admin: show PIN screen
+            pinScreen.classList.remove('hidden');
+        } else if (currentUser.role === 'starosta') {
+            // Starosta: skip PIN, go directly to limited panel
+            unlockStarosta();
+        } else {
+            loginHint.textContent = 'У вас немає доступу до адмін-панелі';
+            loginHint.style.color = '#ff4444';
+            loginScreen.classList.remove('hidden');
+        }
+    }
+
+    // ===== PIN Authentication (Admin only) =====
     let pinCode = '';
     let verifiedPin = '';
 
-    // Multi-strategy listener: click + pointerdown, on BOTH keypad and document for max compatibility
     const keypad = document.querySelector('.pin-keypad');
-    window.__log('keypad=' + !!keypad);
 
     function handleKeyPress(btn) {
-        window.__log('handleKeyPress btn=' + (btn ? btn.dataset.val || btn.id : 'null'));
         if (!btn) return;
         if (btn.id === 'pinDelete') {
             pinCode = pinCode.slice(0, -1);
@@ -91,34 +144,17 @@
         if (pinCode.length >= 4) return;
         pinCode += val;
         updatePinDots();
-        window.__log('pinCode=' + pinCode);
         if (pinCode.length === 4) {
             setTimeout(() => handlePinComplete(), 200);
         }
     }
 
-    // Primary: click (most reliable)
     if (keypad) {
         keypad.addEventListener('click', (e) => {
             const btn = e.target.closest('.pin-key');
-            window.__log('click event, target=' + (e.target && e.target.tagName) + ' btn=' + !!btn);
             handleKeyPress(btn);
         });
     }
-
-    // Backup: document-level click (in case keypad ref is broken)
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.pin-key');
-        if (!btn) return;
-        if (!pinScreen || pinScreen.classList.contains('hidden')) return;
-        // If keypad listener already handled it, pinCode will have changed.
-        // Use a flag to avoid double-processing.
-        if (e._pinHandled) return;
-        e._pinHandled = true;
-        window.__log('doc click fallback');
-        // Only process if keypad listener didn't (i.e. keypad is null or listener broken)
-        if (!keypad) handleKeyPress(btn);
-    });
 
     function updatePinDots() {
         pinDots.forEach((dot, i) => {
@@ -127,9 +163,8 @@
     }
 
     async function handlePinComplete() {
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showPinError('Спершу увійдіть на головному сайті як адмін, потім поверніться сюди', true);
+            showPinError('Сесія не знайдена', true);
             return;
         }
         try {
@@ -143,9 +178,9 @@
                 verifiedPin = pinCode;
                 unlockAdmin();
             } else if (resp.status === 401) {
-                showPinError('Сесія закінчилась. Увійдіть знову на головному сайті', true);
+                showPinError('Сесія закінчилась', true);
             } else if (resp.status === 403) {
-                showPinError('Ваш акаунт не має прав адміна', true);
+                showPinError('Немає прав адміна', true);
             } else if (resp.status === 429) {
                 shakePin('Забагато спроб. Зачекайте хвилину');
             } else {
@@ -157,7 +192,6 @@
         }
     }
 
-    // Transient error (auto-clears after 1.5s, shakes dots red)
     function shakePin(msg) {
         pinScreen.classList.add('error');
         pinHint.textContent = msg;
@@ -172,7 +206,6 @@
         }, 1500);
     }
 
-    // Persistent error with optional "Login" button (for auth issues — user needs to take action)
     function showPinError(msg, showLoginBtn) {
         pinScreen.classList.add('error');
         pinHint.innerHTML = '';
@@ -191,10 +224,35 @@
         updatePinDots();
     }
 
+    // ===== Unlock: Admin (full access) =====
     async function unlockAdmin() {
         pinScreen.classList.add('hidden');
         adminPanel.classList.remove('hidden');
         await loadAdminConfig();
+        loadSchedule();
+    }
+
+    // ===== Unlock: Starosta (limited access) =====
+    function unlockStarosta() {
+        adminPanel.classList.remove('hidden');
+        // Hide admin-only sidebar items
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            const sec = item.dataset.section;
+            if (['groups', 'schedule', 'bells', 'config'].includes(sec)) {
+                item.style.display = 'none';
+            }
+        });
+        // Hide publish button
+        publishBtn.style.display = 'none';
+        // Set header
+        document.querySelector('.sidebar-header h2').textContent = '📋 ' + (currentUser.group || 'Староста');
+        // Activate substitutions section by default
+        document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+        Object.values(sections).forEach(s => { if (s) s.classList.remove('active'); });
+        const subsBtn = document.querySelector('.sidebar-item[data-section="subs"]');
+        if (subsBtn) subsBtn.classList.add('active');
+        if (sections.subs) sections.subs.classList.add('active');
+        // Load schedule data
         loadSchedule();
     }
 
@@ -204,10 +262,11 @@
             const target = item.dataset.section;
             document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
             item.classList.add('active');
-            Object.values(sections).forEach(s => s.classList.remove('active'));
-            sections[target].classList.add('active');
+            Object.values(sections).forEach(s => { if (s) s.classList.remove('active'); });
+            if (sections[target]) sections[target].classList.add('active');
 
             if (target === 'subs') renderSubsSection();
+            if (target === 'homework') renderHomeworkSection();
             if (target === 'bells') renderBells();
             if (target === 'config') renderConfig();
         });
@@ -466,9 +525,15 @@
 
     function renderSubsSection() {
         const groups = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
-        const current = subsGroupSelect.value;
-        subsGroupSelect.innerHTML = '<option value="">Оберіть групу...</option>' +
-            groups.map(g => `<option value="${escAttr(g)}"${g === current ? ' selected' : ''}>${escHtml(g)}</option>`).join('');
+        if (currentUser && currentUser.role === 'starosta' && currentUser.group) {
+            // Starosta: lock to their group
+            subsGroupSelect.innerHTML = `<option value="${escAttr(currentUser.group)}" selected>${escHtml(currentUser.group)}</option>`;
+            subsGroupSelect.disabled = true;
+        } else {
+            const current = subsGroupSelect.value;
+            subsGroupSelect.innerHTML = '<option value="">Оберіть групу...</option>' +
+                groups.map(g => `<option value="${escAttr(g)}"${g === current ? ' selected' : ''}>${escHtml(g)}</option>`).join('');
+        }
         renderSubsEditor();
     }
 
@@ -545,7 +610,7 @@
         if (e.target === subModal) subModal.classList.add('hidden');
     });
 
-    document.getElementById('subModalOk').addEventListener('click', () => {
+    document.getElementById('subModalOk').addEventListener('click', async () => {
         const group = subsGroupSelect.value;
         if (!group) return;
 
@@ -570,20 +635,140 @@
         const parts = dateRaw.split('-');
         const date = parts[2] + '.' + parts[1];
 
+        const newSub = { date, number, subject, teacher };
+
+        // Starosta: use API directly
+        if (currentUser && currentUser.role === 'starosta') {
+            subModal.classList.add('hidden');
+            statusText.textContent = '⏳ Додаємо заміну...';
+            try {
+                const resp = await fetch('/api/pidveska', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({ group, entries: [newSub] })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+                showToast('Заміну додано!', 'success');
+                // Reload schedule to show updated data
+                await loadSchedule();
+                renderSubsEditor();
+            } catch (e) {
+                showToast('Помилка: ' + e.message, 'error');
+                statusText.textContent = '❌ ' + e.message;
+            }
+            return;
+        }
+
+        // Admin: local edit + publish later
         if (!scheduleData[group]['ПІДВІСКА']) {
             scheduleData[group]['ПІДВІСКА'] = [];
         }
 
-        const newSub = { date, number, subject, teacher };
         scheduleData[group]['ПІДВІСКА'].push(newSub);
-
-        // Track for push notification
         newSubsAdded.push({ group, ...newSub });
 
         subModal.classList.add('hidden');
         markChanged();
         renderSubsEditor();
         showToast('Заміну додано', 'success');
+    });
+
+    // ===== Homework Section (Starosta) =====
+    let hwData = {}; // { "group|day|num": "text" }
+
+    async function renderHomeworkSection() {
+        const hwEditor = document.getElementById('hwEditor');
+        if (!hwEditor) return;
+        const group = currentUser && currentUser.group;
+        if (!group || !scheduleData || !scheduleData[group]) {
+            hwEditor.innerHTML = '<p class="placeholder-text">Група не знайдена у розкладі</p>';
+            return;
+        }
+
+        // Load homework from server
+        hwEditor.innerHTML = '<p class="placeholder-text">Завантаження ДЗ...</p>';
+        try {
+            const resp = await fetch('/api/homework?group=' + encodeURIComponent(group));
+            if (resp.ok) {
+                const data = await resp.json();
+                hwData = data.texts || {};
+            }
+        } catch (e) {
+            console.warn('Failed to load HW:', e);
+        }
+
+        // Determine current week schedule
+        const groupData = scheduleData[group];
+        const weekTypes = Object.keys(groupData).filter(k => k !== 'ПІДВІСКА' && k !== '_settings');
+        // Use first available week type (simplified — could detect numerator/denominator)
+        const weekType = weekTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : weekTypes[0];
+        if (!weekType) {
+            hwEditor.innerHTML = '<p class="placeholder-text">Розклад групи порожній</p>';
+            return;
+        }
+
+        const weekData = groupData[weekType];
+        let html = `<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Група: <strong>${escHtml(group)}</strong> • ${escHtml(weekType)}</p>`;
+
+        DAYS.forEach(day => {
+            const lessons = weekData[day] || [];
+            if (lessons.length === 0) return;
+            html += `<div class="sub-date-group" style="margin-bottom:16px">
+                <div class="sub-date-header"><span>${escHtml(day)}</span></div>
+                <div class="sub-date-body">`;
+            lessons.forEach(l => {
+                const key = `${group}|${day}|${l.number}`;
+                const existing = hwData[key] || '';
+                html += `
+                    <div class="sub-row" style="flex-wrap:wrap;gap:8px">
+                        <span style="min-width:24px;font-weight:600;color:var(--accent)">${l.number}</span>
+                        <span style="flex:1;min-width:120px;color:var(--text-muted)">${escHtml(l.subject)}</span>
+                        <input type="text" class="input" style="flex:2;min-width:200px" placeholder="Домашнє завдання..."
+                            value="${escAttr(existing)}" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}">
+                        <button class="btn-icon" data-action="saveHw" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}" title="Зберегти">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                        </button>
+                    </div>`;
+            });
+            html += `</div></div>`;
+        });
+
+        hwEditor.innerHTML = html;
+    }
+
+    // Save homework via API
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action="saveHw"]');
+        if (!btn) return;
+        const group = btn.dataset.hwGroup;
+        const day = btn.dataset.hwDay;
+        const number = btn.dataset.hwNum;
+        const input = document.querySelector(`input[data-hw-group="${group}"][data-hw-day="${day}"][data-hw-num="${number}"]`);
+        if (!input) return;
+        const text = input.value.trim();
+        try {
+            const resp = await fetch('/api/homework', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ group, day, number: parseInt(number), text })
+            });
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => ({}));
+                throw new Error(data.error || 'HTTP ' + resp.status);
+            }
+            showToast('ДЗ збережено!', 'success');
+            btn.style.color = '#4caf50';
+            setTimeout(() => { btn.style.color = ''; }, 1500);
+        } catch (err) {
+            showToast('Помилка: ' + err.message, 'error');
+        }
     });
 
     // ===== Bells Section =====
@@ -836,9 +1021,37 @@
             setTimeout(() => document.getElementById('subNumberInput').focus(), 100);
         },
 
-        removeSub(idx) {
+        async removeSub(idx) {
             const group = subsGroupSelect.value;
             if (!group || !scheduleData[group]['ПІДВІСКА']) return;
+            const sub = scheduleData[group]['ПІДВІСКА'][idx];
+            if (!sub) return;
+
+            // Starosta: use API
+            if (currentUser && currentUser.role === 'starosta') {
+                statusText.textContent = '⏳ Видаляємо заміну...';
+                try {
+                    const resp = await fetch('/api/pidveska', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + authToken
+                        },
+                        body: JSON.stringify({ group, date: sub.date, number: sub.number })
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+                    showToast('Заміну видалено!', 'success');
+                    await loadSchedule();
+                    renderSubsEditor();
+                } catch (e) {
+                    showToast('Помилка: ' + e.message, 'error');
+                    statusText.textContent = '❌ ' + e.message;
+                }
+                return;
+            }
+
+            // Admin: local edit
             scheduleData[group]['ПІДВІСКА'].splice(idx, 1);
             if (scheduleData[group]['ПІДВІСКА'].length === 0) {
                 delete scheduleData[group]['ПІДВІСКА'];
@@ -862,7 +1075,32 @@
         deleteSubDate(date) {
             const group = subsGroupSelect.value;
             if (!group || !scheduleData[group]['ПІДВІСКА']) return;
-            openConfirm('Видалити заміни', `Видалити всі заміни за ${date}?`, () => {
+            openConfirm('Видалити заміни', `Видалити всі заміни за ${date}?`, async () => {
+                // Starosta: delete each sub via API
+                if (currentUser && currentUser.role === 'starosta') {
+                    const subsForDate = scheduleData[group]['ПІДВІСКА'].filter(s => s.date === date);
+                    statusText.textContent = '⏳ Видаляємо заміни...';
+                    try {
+                        for (const sub of subsForDate) {
+                            await fetch('/api/pidveska', {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer ' + authToken
+                                },
+                                body: JSON.stringify({ group, date: sub.date, number: sub.number })
+                            });
+                        }
+                        showToast('Заміни видалено!', 'success');
+                        await loadSchedule();
+                        renderSubsEditor();
+                    } catch (e) {
+                        showToast('Помилка: ' + e.message, 'error');
+                    }
+                    return;
+                }
+
+                // Admin: local edit
                 scheduleData[group]['ПІДВІСКА'] = scheduleData[group]['ПІДВІСКА'].filter(s => s.date !== date);
                 if (scheduleData[group]['ПІДВІСКА'].length === 0) {
                     delete scheduleData[group]['ПІДВІСКА'];

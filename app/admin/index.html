@@ -147,8 +147,27 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 </head>
 <body data-theme="dark" ontouchstart="">
 
-    <!-- PIN Screen -->
-    <div id="pinScreen" class="pin-screen" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+    <!-- Login Screen (shown first for all users) -->
+    <div id="loginScreen" class="pin-screen" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="pin-card" style="max-width:360px">
+            <div class="pin-icon">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" stroke-width="1.5" fill="none">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+            <h1 id="loginTitle">Вхід</h1>
+            <p id="loginHint" style="min-height:20px">Введіть логін і пароль</p>
+            <form id="loginForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;width:100%">
+                <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
+                <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
+                <button id="loginSubmit" type="submit" style="padding:12px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer">Увійти</button>
+            </form>
+            <a href="../" style="margin-top:16px;color:var(--text-muted);font-size:13px;text-decoration:none">← На головний сайт</a>
+        </div>
+    </div>
+
+    <!-- PIN Screen (only for admins after login) -->
+    <div id="pinScreen" class="pin-screen hidden" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
         <div class="pin-card">
             <div class="pin-icon">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" stroke-width="1.5" fill="none">
@@ -207,6 +226,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 <button class="sidebar-item" data-section="subs">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3l-7 7"/><path d="M3 3l7 7"/><path d="M16 21h5v-5"/><path d="M8 21H3v-5"/><path d="M21 21l-7-7"/><path d="M3 21l7-7"/></svg>
                     <span>Заміни</span>
+                </button>
+                <button class="sidebar-item" data-section="homework">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>ДЗ</span>
                 </button>
                 <button class="sidebar-item" data-section="bells">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -272,6 +295,16 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 </div>
                 <div id="subsEditor" class="subs-editor">
                     <p class="placeholder-text">Оберіть групу для редагування замін</p>
+                </div>
+            </section>
+
+            <!-- Section: Homework (starosta) -->
+            <section id="sec-homework" class="section">
+                <div class="section-header">
+                    <h2>Домашнє завдання</h2>
+                </div>
+                <div id="hwEditor" class="subs-editor">
+                    <p class="placeholder-text">Тут можна додати ДЗ для вашої групи</p>
                 </div>
             </section>
 
@@ -373,7 +406,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="admin-boot-v5.js"></script>
+    <script src="admin-boot-v5.js?v=6"></script>
 
 
 </body>

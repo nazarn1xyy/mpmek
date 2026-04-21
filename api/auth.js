@@ -9,8 +9,22 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
-function getUserRole(username) {
-  return ADMIN_USERNAMES.includes(username) ? 'admin' : 'user';
+// Starosta accounts from env (format: "username:group,username:group,...")
+const STAROSTA_ACCOUNTS = {};
+(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
+  const sep = entry.indexOf(':');
+  if (sep > 0) {
+    const username = entry.slice(0, sep).trim().toLowerCase();
+    const group = entry.slice(sep + 1).trim();
+    if (username && group) STAROSTA_ACCOUNTS[username] = group;
+  }
+});
+
+function getUserRole(username, userData) {
+  if (ADMIN_USERNAMES.includes(username)) return 'admin';
+  if (STAROSTA_ACCOUNTS[username]) return 'starosta';
+  if (userData && userData.role === 'starosta') return 'starosta';
+  return 'user';
 }
 
 function pbkdf2(password, salt) {
@@ -96,8 +110,8 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Ім\'я: мінімум 2 символи' });
       }
 
-      // Block admin usernames from normal registration
-      if (ADMIN_USERNAMES.includes(username)) {
+      // Block admin and starosta usernames from normal registration
+      if (ADMIN_USERNAMES.includes(username) || STAROSTA_ACCOUNTS[username]) {
         return res.status(403).json({ error: 'Цей логін зарезервовано' });
       }
 
@@ -176,7 +190,39 @@ module.exports = async (req, res) => {
           token,
           user: { username, displayName: user.displayName, group: user.group || '', role: 'admin' }
         });
-      } else {
+      }
+
+      // Starosta login: password = username + "123"
+      if (STAROSTA_ACCOUNTS[username]) {
+        const expectedPwd = username + '123';
+        if (!safeCompare(password, expectedPwd)) {
+          return res.status(401).json({ error: 'Невірний логін або пароль' });
+        }
+
+        const starostaGroup = STAROSTA_ACCOUNTS[username];
+        if (!user) {
+          user = { displayName: username, group: starostaGroup, role: 'starosta', createdAt: new Date().toISOString() };
+          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+        } else if (user.group !== starostaGroup || user.role !== 'starosta') {
+          user.group = starostaGroup;
+          user.role = 'starosta';
+          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+        }
+
+        const sessionVer = crypto.randomBytes(4).toString('hex');
+        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+        const token = crypto.randomBytes(32).toString('hex');
+        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
+        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+
+        return res.json({
+          token,
+          user: { username, displayName: user.displayName, group: starostaGroup, role: 'starosta' }
+        });
+      }
+
+      // Normal user login
+      {
         if (!user) {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
@@ -195,7 +241,7 @@ module.exports = async (req, res) => {
 
       return res.json({
         token,
-        user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username) }
+        user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username, user) }
       });
     }
 
@@ -212,7 +258,7 @@ module.exports = async (req, res) => {
           username: session.username,
           displayName: user.displayName,
           group: user.group || '',
-          role: getUserRole(session.username)
+          role: getUserRole(session.username, user)
         }
       });
     }

@@ -16,7 +16,8 @@ async function authenticate(req) {
   if (!raw) return null;
   try {
     const user = JSON.parse(raw);
-    return { username: uname, group: user.group || '', isAdmin: ADMIN_USERNAMES.includes(uname) };
+    const isAdmin = ADMIN_USERNAMES.includes(uname) || user.role === 'starosta';
+    return { username: uname, group: user.group || '', isAdmin };
   } catch { return null; }
 }
 
