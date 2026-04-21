@@ -49,29 +49,21 @@ module.exports = async function handler(req, res) {
       if (!group) return res.status(400).json({ error: 'group is required' });
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
 
-      let raw = await redis('HGETALL', `hw:${safeKey(group)}`);
+      const ng = normalizeGroup(group);
+      const hwKey = `hw:${safeKey(ng)}`;
+      let raw = await redis('HGETALL', hwKey);
       let hash = parseRedisHash(raw);
 
-      // Auto-migrate: check alternate group name format if no data found
-      if (Object.keys(hash).length === 0) {
-        // Build alternate group name by toggling year format in each segment
-        // КСМ-24-1 → КСМ-2024-1 (expand 2-digit to 4-digit)
-        // КСМ-2024-1 → КСМ-24-1 (shrink 4-digit to 2-digit)
-        const parts = group.split('-');
-        const altParts = parts.map(p => {
-          if (/^\d{4}$/.test(p)) return p.slice(2);           // 2024 → 24
-          if (/^\d{2}$/.test(p) && parseInt(p) >= 20) return (parseInt(p) < 50 ? '20' : '19') + p; // 24 → 2024
-          return p;
-        });
-        const altGroup = altParts.join('-');
-        console.log('[hw-migrate] group:', group, '→ altGroup:', altGroup, '| same:', group === altGroup);
-        if (altGroup !== group) {
-          const altRaw = await redis('HGETALL', `hw:${safeKey(altGroup)}`);
-          const altHash = parseRedisHash(altRaw);
-          console.log('[hw-migrate] altHash keys:', Object.keys(altHash));
-          if (Object.keys(altHash).length > 0) {
-            hash = altHash;
-          }
+      // One-time migration: move data from old key to normalized key
+      if (Object.keys(hash).length === 0 && ng !== group) {
+        const oldRaw = await redis('HGETALL', `hw:${safeKey(group)}`);
+        const oldHash = parseRedisHash(oldRaw);
+        if (Object.keys(oldHash).length > 0) {
+          const args = [];
+          for (const [f, v] of Object.entries(oldHash)) args.push(f, v);
+          await redis('HSET', hwKey, ...args);
+          await redis('DEL', `hw:${safeKey(group)}`);
+          hash = oldHash;
         }
       }
 
@@ -131,7 +123,7 @@ module.exports = async function handler(req, res) {
       if (!Number.isFinite(num) || num < 1 || num > 8) {
         return res.status(400).json({ error: 'invalid number' });
       }
-      const sg = safeKey(group);
+      const sg = safeKey(normalizeGroup(group));
       const field = `${safeKey(day, 20)}:${num}:files`;
 
       // Check existing attachments count
@@ -182,7 +174,7 @@ module.exports = async function handler(req, res) {
       if (!Number.isFinite(num) || num < 1 || num > 8) {
         return res.status(400).json({ error: 'invalid number' });
       }
-      const sg = safeKey(group);
+      const sg = safeKey(normalizeGroup(group));
       const field = `${safeKey(day, 20)}:${num}:files`;
 
       const existingRaw = await redis('HGET', `hw:${sg}`, field);
@@ -238,7 +230,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'invalid number' });
       }
 
-      const sg = safeKey(group);
+      const sg = safeKey(normalizeGroup(group));
       const field = `${safeKey(day, 20)}:${num}`;
 
       if (req.method === 'POST') {
