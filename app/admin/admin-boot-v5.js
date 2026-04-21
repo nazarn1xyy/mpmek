@@ -126,43 +126,11 @@
     }
 
     // ===== PIN Authentication (Admin only) =====
-    let pinCode = '';
+    // PIN touch/click handling is in the inline <script> in index.html (max reliability).
+    // We just hook into it via window._onPinComplete and window._pinReset.
     let verifiedPin = '';
 
-    const keypad = document.querySelector('.pin-keypad');
-
-    function handleKeyPress(btn) {
-        if (!btn) return;
-        if (btn.id === 'pinDelete') {
-            pinCode = pinCode.slice(0, -1);
-            updatePinDots();
-            pinScreen.classList.remove('error');
-            return;
-        }
-        const val = btn.dataset.val;
-        if (!val) return;
-        if (pinCode.length >= 4) return;
-        pinCode += val;
-        updatePinDots();
-        if (pinCode.length === 4) {
-            setTimeout(() => handlePinComplete(), 200);
-        }
-    }
-
-    if (keypad) {
-        keypad.addEventListener('click', (e) => {
-            const btn = e.target.closest('.pin-key');
-            handleKeyPress(btn);
-        });
-    }
-
-    function updatePinDots() {
-        pinDots.forEach((dot, i) => {
-            dot.dataset.filled = i < pinCode.length ? 'true' : 'false';
-        });
-    }
-
-    async function handlePinComplete() {
+    window._onPinComplete = async function(pinCode) {
         if (!authToken) {
             showPinError('Сесія не знайдена', true);
             return;
@@ -190,16 +158,15 @@
             console.error('[admin] PIN verify failed:', e);
             shakePin('Помилка з\'єднання');
         }
-    }
+    };
 
     function shakePin(msg) {
         pinScreen.classList.add('error');
         pinHint.textContent = msg;
         pinHint.style.color = '#ff4444';
         pinHint.style.fontWeight = '600';
-        pinCode = '';
+        if (window._pinReset) window._pinReset();
         setTimeout(() => {
-            updatePinDots();
             pinScreen.classList.remove('error');
             pinHint.style.color = '';
             pinHint.style.fontWeight = '';
@@ -220,8 +187,7 @@
             btn.style.cssText = 'display:inline-block;padding:10px 16px;background:#fff;color:#000;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px';
             pinHint.appendChild(btn);
         }
-        pinCode = '';
-        updatePinDots();
+        if (window._pinReset) window._pinReset();
     }
 
     // ===== Unlock: Admin (full access) =====
