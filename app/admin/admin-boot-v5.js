@@ -74,52 +74,12 @@
         } catch {}
     })();
 
-    let loginBusy = false;
-    async function doLogin() {
-        if (loginBusy) return;
-        const username = document.getElementById('loginUsername').value.trim().toLowerCase();
-        const password = document.getElementById('loginPassword').value;
-        if (!username || !password) {
-            loginHint.textContent = 'Введіть логін і пароль';
-            loginHint.style.color = '#ff4444';
-            return;
-        }
-        loginBusy = true;
-        loginSubmit.disabled = true;
-        loginHint.textContent = 'Вхід...';
-        loginHint.style.color = '';
-        try {
-            const resp = await fetch('/api/auth?action=login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await resp.json();
-            if (!resp.ok) {
-                loginHint.textContent = data.error || 'Помилка входу';
-                loginHint.style.color = '#ff4444';
-                loginSubmit.disabled = false;
-                loginBusy = false;
-                return;
-            }
-            authToken = data.token;
-            localStorage.setItem('authToken', authToken);
-            currentUser = data.user;
-            proceedAfterLogin();
-        } catch (err) {
-            loginHint.textContent = 'Помилка з\'єднання: ' + err.message;
-            loginHint.style.color = '#ff4444';
-            loginSubmit.disabled = false;
-            loginBusy = false;
-        }
-    }
-
-    // Multiple strategies: form submit + direct click + touchstart
-    if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
-    if (loginSubmit) {
-        loginSubmit.addEventListener('click', (e) => { e.preventDefault(); doLogin(); });
-        loginSubmit.addEventListener('touchstart', (e) => { e.preventDefault(); doLogin(); }, { passive: false });
-    }
+    // Hook into the inline login handler from index.html
+    window._onLoginSuccess = function(data) {
+        authToken = data.token;
+        currentUser = data.user;
+        proceedAfterLogin();
+    };
 
     function proceedAfterLogin() {
         loginScreen.classList.add('hidden');

@@ -157,11 +157,11 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             </div>
             <h1 id="loginTitle">Вхід</h1>
             <p id="loginHint" style="min-height:20px">Введіть логін і пароль</p>
-            <form id="loginForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;width:100%">
+            <div id="loginForm" style="display:flex;flex-direction:column;gap:12px;width:100%">
                 <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
                 <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
-                <button id="loginSubmit" type="submit" style="padding:12px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer">Увійти</button>
-            </form>
+                <button id="loginSubmit" type="button" onclick="window._doLogin&&window._doLogin()" style="padding:12px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer">Увійти</button>
+            </div>
             <a href="../" style="margin-top:16px;color:var(--text-muted);font-size:13px;text-decoration:none">← На головний сайт</a>
         </div>
     </div>
@@ -406,6 +406,42 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
+    <!-- Inline login handler: ensures login works even if external JS fails -->
+    <script>
+    (function(){
+        var busy = false;
+        var hint = document.getElementById('loginHint');
+        var btn = document.getElementById('loginSubmit');
+        window._doLogin = function() {
+            if (busy) return;
+            var u = document.getElementById('loginUsername').value.trim().toLowerCase();
+            var p = document.getElementById('loginPassword').value;
+            if (!u || !p) { hint.textContent = 'Введіть логін і пароль'; hint.style.color = '#ff4444'; return; }
+            busy = true;
+            btn.disabled = true;
+            hint.textContent = 'Вхід...';
+            hint.style.color = '';
+            fetch('/api/auth?action=login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+            .then(function(res){
+                if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; btn.disabled=false; busy=false; return; }
+                localStorage.setItem('authToken', res.data.token);
+                window._loginUser = res.data.user;
+                // If external JS set up _onLoginSuccess, call it; otherwise reload
+                if (window._onLoginSuccess) { window._onLoginSuccess(res.data); }
+                else { location.reload(); }
+            }).catch(function(e){ hint.textContent = 'Помилка: ' + e.message; hint.style.color='#ff4444'; btn.disabled=false; busy=false; });
+        };
+        // Also handle Enter key in password field
+        document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); window._doLogin(); }
+        });
+    })();
+    </script>
+
     <!-- Inline PIN bootstrap: ensures PIN works even before external JS loads -->
     <script>
     (function(){
@@ -444,7 +480,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         window._getPinCode = function() { return pinCode; };
     })();
     </script>
-    <script src="admin-boot-v5.js?v=8"></script>
+    <script src="admin-boot-v5.js?v=9"></script>
 
 
 </body>
