@@ -55,13 +55,61 @@
     let newSubsAdded = [];
 
     // ===== Login Screen =====
-    const loginForm = document.getElementById('loginForm');
     const loginHint = document.getElementById('loginHint');
-    const loginSubmit = document.getElementById('loginSubmit');
+    const loginSubmitBtn = document.getElementById('loginSubmit');
+
+    let loginBusy = false;
+    function doLogin() {
+        if (loginBusy) return;
+        const u = document.getElementById('loginUsername').value.trim().toLowerCase();
+        const p = document.getElementById('loginPassword').value;
+        if (!u || !p) {
+            loginHint.textContent = 'Введіть логін і пароль';
+            loginHint.style.color = '#ff4444';
+            return;
+        }
+        loginBusy = true;
+        loginSubmitBtn.disabled = true;
+        loginSubmitBtn.textContent = 'Вхід...';
+        loginHint.textContent = '';
+        fetch('/api/auth?action=login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(res => {
+            if (!res.ok) {
+                loginHint.textContent = res.data.error || 'Помилка входу';
+                loginHint.style.color = '#ff4444';
+                loginSubmitBtn.disabled = false;
+                loginSubmitBtn.textContent = 'Увійти';
+                loginBusy = false;
+                return;
+            }
+            authToken = res.data.token;
+            localStorage.setItem('authToken', authToken);
+            currentUser = res.data.user;
+            proceedAfterLogin();
+        })
+        .catch(err => {
+            loginHint.textContent = 'Помилка: ' + err.message;
+            loginHint.style.color = '#ff4444';
+            loginSubmitBtn.disabled = false;
+            loginSubmitBtn.textContent = 'Увійти';
+            loginBusy = false;
+        });
+    }
+
+    // Attach login button — direct listeners, no delegation
+    loginSubmitBtn.addEventListener('click', doLogin);
+    document.getElementById('loginPassword').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+    });
 
     // Check if user already has a valid session
     (async function checkExistingSession() {
-        if (!authToken) return; // no saved token, show login screen
+        if (!authToken) return;
         try {
             const resp = await fetch('/api/auth?action=me', {
                 headers: { 'Authorization': 'Bearer ' + authToken }
@@ -74,20 +122,11 @@
         } catch {}
     })();
 
-    // Hook into the inline login handler from index.html
-    window._onLoginSuccess = function(data) {
-        authToken = data.token;
-        currentUser = data.user;
-        proceedAfterLogin();
-    };
-
     function proceedAfterLogin() {
         loginScreen.classList.add('hidden');
         if (currentUser.role === 'admin') {
-            // Admin: show PIN screen
             pinScreen.classList.remove('hidden');
         } else if (currentUser.role === 'starosta') {
-            // Starosta: skip PIN, go directly to limited panel
             unlockStarosta();
         } else {
             loginHint.textContent = 'У вас немає доступу до адмін-панелі';
@@ -97,11 +136,43 @@
     }
 
     // ===== PIN Authentication (Admin only) =====
-    // PIN touch/click handling is in the inline <script> in index.html (max reliability).
-    // We just hook into it via window._onPinComplete and window._pinReset.
     let verifiedPin = '';
+    let pinCode = '';
 
-    window._onPinComplete = async function(pinCode) {
+    function updatePinDots() {
+        pinDots.forEach((dot, i) => {
+            dot.setAttribute('data-filled', i < pinCode.length ? 'true' : 'false');
+        });
+    }
+
+    // Direct listeners on EACH pin button
+    document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
+        function handler(e) {
+            e.preventDefault();
+            if (pinCode.length >= 4) return;
+            pinCode += btn.getAttribute('data-val');
+            updatePinDots();
+            if (pinCode.length === 4) {
+                setTimeout(() => handlePinComplete(), 200);
+            }
+        }
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchend', handler);
+    });
+
+    const pinDeleteBtn = document.getElementById('pinDelete');
+    if (pinDeleteBtn) {
+        function delHandler(e) {
+            e.preventDefault();
+            pinCode = pinCode.slice(0, -1);
+            pinScreen.classList.remove('error');
+            updatePinDots();
+        }
+        pinDeleteBtn.addEventListener('click', delHandler);
+        pinDeleteBtn.addEventListener('touchend', delHandler);
+    }
+
+    async function handlePinComplete() {
         if (!authToken) {
             showPinError('Сесія не знайдена', true);
             return;
@@ -126,17 +197,17 @@
                 shakePin('Невірний PIN-код');
             }
         } catch (e) {
-            console.error('[admin] PIN verify failed:', e);
             shakePin('Помилка з\'єднання');
         }
-    };
+    }
 
     function shakePin(msg) {
         pinScreen.classList.add('error');
         pinHint.textContent = msg;
         pinHint.style.color = '#ff4444';
         pinHint.style.fontWeight = '600';
-        if (window._pinReset) window._pinReset();
+        pinCode = '';
+        updatePinDots();
         setTimeout(() => {
             pinScreen.classList.remove('error');
             pinHint.style.color = '';
@@ -158,7 +229,8 @@
             btn.style.cssText = 'display:inline-block;padding:10px 16px;background:#fff;color:#000;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px';
             pinHint.appendChild(btn);
         }
-        if (window._pinReset) window._pinReset();
+        pinCode = '';
+        updatePinDots();
     }
 
     // ===== Unlock: Admin (full access) =====
