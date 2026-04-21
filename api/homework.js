@@ -44,14 +44,21 @@ module.exports = async function handler(req, res) {
 
       // Auto-migrate: check alternate group name format if no data found
       if (Object.keys(hash).length === 0) {
-        // Try short-year → full-year (КСМ-24-1 → КСМ-2024-1)
-        const fullYear = group.replace(/(?:^|(?<=-))\d{2}(?=-|$)/g, m => (parseInt(m) < 50 ? '20' : '19') + m);
-        // Try full-year → short-year (КСМ-2024-1 → КСМ-24-1)
-        const shortYear = group.replace(/(\d{4})(?=-|$)/g, m => m.slice(2));
-        const altGroup = fullYear !== group ? fullYear : (shortYear !== group ? shortYear : null);
-        if (altGroup) {
+        // Build alternate group name by toggling year format in each segment
+        // КСМ-24-1 → КСМ-2024-1 (expand 2-digit to 4-digit)
+        // КСМ-2024-1 → КСМ-24-1 (shrink 4-digit to 2-digit)
+        const parts = group.split('-');
+        const altParts = parts.map(p => {
+          if (/^\d{4}$/.test(p)) return p.slice(2);           // 2024 → 24
+          if (/^\d{2}$/.test(p) && parseInt(p) >= 20) return (parseInt(p) < 50 ? '20' : '19') + p; // 24 → 2024
+          return p;
+        });
+        const altGroup = altParts.join('-');
+        console.log('[hw-migrate] group:', group, '→ altGroup:', altGroup, '| same:', group === altGroup);
+        if (altGroup !== group) {
           const altRaw = await redis('HGETALL', `hw:${safeKey(altGroup)}`);
           const altHash = parseRedisHash(altRaw);
+          console.log('[hw-migrate] altHash keys:', Object.keys(altHash));
           if (Object.keys(altHash).length > 0) {
             hash = altHash;
           }
