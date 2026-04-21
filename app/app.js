@@ -658,15 +658,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Load Data =====
+    // Schedule FIRST (runs group name migration), THEN homework (uses correct group)
     try {
-        await Promise.all([
-            refreshSchedule(false).catch(e => console.warn('[init] schedule load error:', e)),
-            syncHomeworkFromServer().catch(e => console.warn('[init] hw sync error:', e))
-        ]);
-        if (scheduleData) renderSchedule();
-    } catch (e) {
-        console.warn('[init] load data error:', e);
-    }
+        await refreshSchedule(false);
+    } catch (e) { console.warn('[init] schedule load error:', e); }
+    if (scheduleData) renderSchedule();
+    try {
+        await syncHomeworkFromServer();
+    } catch (e) { console.warn('[init] hw sync error:', e); }
 
     // ===== Groups =====
     function renderGroupList(filter = '') {
