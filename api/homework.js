@@ -1,6 +1,16 @@
 const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername } = require('./_lib/redis');
 const { put, del } = require('@vercel/blob');
 
+// Normalize group name to full-year format for comparison (КСМ-24-1 → КСМ-2024-1)
+function normalizeGroup(g) {
+  if (!g) return '';
+  return g.split('-').map(p => {
+    if (/^\d{2}$/.test(p) && parseInt(p) >= 20) return (parseInt(p) < 50 ? '20' : '19') + p;
+    return p;
+  }).join('-');
+}
+function sameGroup(a, b) { return normalizeGroup(a) === normalizeGroup(b); }
+
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 const MAX_ATTACHMENTS = 5;
 const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -103,7 +113,7 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !fileData || !fileName) {
         return res.status(400).json({ error: 'group, day, number, fileName, fileData required' });
       }
-      if (!user.isAdmin && user.group !== group) {
+      if (!user.isAdmin && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const mimeType = typeof fileType === 'string' ? fileType : 'application/octet-stream';
@@ -165,7 +175,7 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !url) {
         return res.status(400).json({ error: 'group, day, number, url required' });
       }
-      if (!user.isAdmin && user.group !== group) {
+      if (!user.isAdmin && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const num = Number(number);
@@ -219,7 +229,7 @@ module.exports = async function handler(req, res) {
       if (typeof day !== 'string' || day.length > 20) return res.status(400).json({ error: 'invalid day' });
 
       // Users can only modify homework for their own group; admins can modify any
-      if (!user.isAdmin && user.group !== group) {
+      if (!user.isAdmin && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
 

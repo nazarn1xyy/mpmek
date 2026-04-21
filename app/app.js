@@ -133,11 +133,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const headers = { 'Content-Type': 'application/json' };
             if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-            await fetch('/api/homework', {
+            const resp = await fetch('/api/homework', {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ group, day, number, text: text || '' })
+                body: JSON.stringify({ group, day, number: parseInt(number), text: text || '' })
             });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                console.warn('[hw-sync] POST failed:', resp.status, err.error);
+            }
         } catch (e) { console.warn('HW sync push failed:', e); }
     }
 
