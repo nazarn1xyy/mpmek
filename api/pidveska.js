@@ -211,21 +211,27 @@ async function handleAdd(req, res, ghHeaders, owner, repo, authUser) {
       if (scheduleData[group]['ПІДВІСКА'].length >= 200) {
         throw Object.assign(new Error('Too many підвіска entries (max 200)'), { status: 400 });
       }
-      const existing = new Set(
-        scheduleData[group]['ПІДВІСКА'].map(e => `${e.date}|${e.number}`)
-      );
+      const existingMap = new Map();
+      scheduleData[group]['ПІДВІСКА'].forEach((e, i) => {
+        existingMap.set(`${e.date}|${e.number}`, i);
+      });
       let added = 0;
+      let updated = 0;
       for (const e of validEntries) {
         const key = `${e.date}|${e.number}`;
-        if (!existing.has(key)) {
+        if (existingMap.has(key)) {
+          // Replace existing entry with new data
+          scheduleData[group]['ПІДВІСКА'][existingMap.get(key)] = e;
+          updated++;
+        } else {
           scheduleData[group]['ПІДВІСКА'].push(e);
-          existing.add(key);
+          existingMap.set(key, scheduleData[group]['ПІДВІСКА'].length - 1);
           added++;
         }
       }
-      if (added === 0) return null;
+      if (added === 0 && updated === 0) return null;
       lastAdded = added;
-      return { newContent: JSON.stringify(scheduleData), meta: { added } };
+      return { newContent: JSON.stringify(scheduleData), meta: { added, updated } };
     },
     `📌 Підвіска (${group}): +${validEntries.length} через бот`,
     ghHeaders
@@ -234,13 +240,13 @@ async function handleAdd(req, res, ghHeaders, owner, repo, authUser) {
   void lastAdded;
 
   if (!meta) {
-    return res.json({ ok: true, added: 0, message: 'All entries already exist' });
+    return res.json({ ok: true, added: 0, updated: 0, message: 'All entries already exist' });
   }
 
   // Bump SW cache so clients see new підвіска immediately
   await bumpSwVersion(owner, repo, ghHeaders);
 
-  return res.json({ ok: true, added: meta.added });
+  return res.json({ ok: true, added: meta.added, updated: meta.updated });
 }
 
 async function handleDelete(req, res, ghHeaders, owner, repo, authUser) {
