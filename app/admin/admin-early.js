@@ -3,12 +3,13 @@
     var busy = false;
     var hint = document.getElementById('loginHint');
     var btn = document.getElementById('loginSubmit');
-    var passField = document.getElementById('loginPassword');
+    var form = document.getElementById('loginForm');
 
-    function doLogin() {
+    function doLogin(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (busy) return;
         var u = document.getElementById('loginUsername').value.trim().toLowerCase();
-        var p = passField.value;
+        var p = document.getElementById('loginPassword').value;
         if (!u || !p) { hint.textContent = 'Введіть логін і пароль'; hint.style.color = '#ff4444'; return; }
         busy = true;
         btn.disabled = true;
@@ -30,11 +31,13 @@
     }
 
     window._doLogin = doLogin;
-    btn.addEventListener('click', doLogin);
-    btn.addEventListener('touchend', function(e){ e.preventDefault(); doLogin(); });
-    passField.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
-    });
+    // Form submit is the most reliable event on iOS Safari
+    if (form) { form.addEventListener('submit', doLogin); }
+    // Fallback: direct button listeners
+    if (btn) {
+        btn.addEventListener('click', doLogin);
+        btn.addEventListener('touchend', function(e){ e.preventDefault(); doLogin(); });
+    }
 })();
 
 // PIN handler

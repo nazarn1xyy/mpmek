@@ -110,11 +110,10 @@
             proceedAfterLogin();
         };
     } else {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
         loginSubmitBtn.addEventListener('click', doLogin);
         loginSubmitBtn.addEventListener('touchend', (e) => { e.preventDefault(); doLogin(); });
-        document.getElementById('loginPassword').addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
-        });
     }
 
     // Check if user already has a valid session

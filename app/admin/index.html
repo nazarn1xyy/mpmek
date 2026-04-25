@@ -157,11 +157,11 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             </div>
             <h1 id="loginTitle">Вхід</h1>
             <p id="loginHint" style="min-height:20px">Введіть логін і пароль</p>
-            <div id="loginForm" style="display:flex;flex-direction:column;gap:12px;width:100%">
-                <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
-                <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none">
-                <button id="loginSubmit" type="button" style="padding:12px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer">Увійти</button>
-            </div>
+            <form id="loginForm" style="display:flex;flex-direction:column;gap:12px;width:100%" action="javascript:void(0)" method="post">
+                <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none" name="username">
+                <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" style="padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none" name="password">
+                <button id="loginSubmit" type="submit" style="padding:12px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer;-webkit-appearance:none;appearance:none">Увійти</button>
+            </form>
             <a href="../" style="margin-top:16px;color:var(--text-muted);font-size:13px;text-decoration:none">← На головний сайт</a>
         </div>
     </div>
