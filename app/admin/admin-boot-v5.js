@@ -101,11 +101,21 @@
         });
     }
 
-    // Attach login button — direct listeners, no delegation
-    loginSubmitBtn.addEventListener('click', doLogin);
-    document.getElementById('loginPassword').addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
-    });
+    // If admin-early.js loaded first, use its input handling + our callback
+    // Otherwise attach our own listeners as fallback
+    if (typeof window._doLogin === 'function') {
+        window._onLoginSuccess = function(data) {
+            authToken = data.token;
+            currentUser = data.user;
+            proceedAfterLogin();
+        };
+    } else {
+        loginSubmitBtn.addEventListener('click', doLogin);
+        loginSubmitBtn.addEventListener('touchend', (e) => { e.preventDefault(); doLogin(); });
+        document.getElementById('loginPassword').addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+        });
+    }
 
     // Check if user already has a valid session
     (async function checkExistingSession() {
@@ -145,31 +155,40 @@
         });
     }
 
-    // Direct listeners on EACH pin button
-    document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
-        function handler(e) {
-            e.preventDefault();
-            if (pinCode.length >= 4) return;
-            pinCode += btn.getAttribute('data-val');
+    // If admin-early.js loaded first, use its PIN input handling + our callback
+    if (typeof window._getPinCode === 'function') {
+        window._onPinComplete = function(code) {
+            pinCode = code;
             updatePinDots();
-            if (pinCode.length === 4) {
-                setTimeout(() => handlePinComplete(), 200);
+            handlePinComplete();
+        };
+    } else {
+        // Fallback: attach our own PIN listeners
+        document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
+            function handler(e) {
+                e.preventDefault();
+                if (pinCode.length >= 4) return;
+                pinCode += btn.getAttribute('data-val');
+                updatePinDots();
+                if (pinCode.length === 4) {
+                    setTimeout(() => handlePinComplete(), 200);
+                }
             }
-        }
-        btn.addEventListener('click', handler);
-        btn.addEventListener('touchend', handler);
-    });
+            btn.addEventListener('click', handler);
+            btn.addEventListener('touchend', handler);
+        });
 
-    const pinDeleteBtn = document.getElementById('pinDelete');
-    if (pinDeleteBtn) {
-        function delHandler(e) {
-            e.preventDefault();
-            pinCode = pinCode.slice(0, -1);
-            pinScreen.classList.remove('error');
-            updatePinDots();
+        const pinDeleteBtn = document.getElementById('pinDelete');
+        if (pinDeleteBtn) {
+            function delHandler(e) {
+                e.preventDefault();
+                pinCode = pinCode.slice(0, -1);
+                pinScreen.classList.remove('error');
+                updatePinDots();
+            }
+            pinDeleteBtn.addEventListener('click', delHandler);
+            pinDeleteBtn.addEventListener('touchend', delHandler);
         }
-        pinDeleteBtn.addEventListener('click', delHandler);
-        pinDeleteBtn.addEventListener('touchend', delHandler);
     }
 
     async function handlePinComplete() {
@@ -207,6 +226,7 @@
         pinHint.style.color = '#ff4444';
         pinHint.style.fontWeight = '600';
         pinCode = '';
+        if (typeof window._pinReset === 'function') window._pinReset();
         updatePinDots();
         setTimeout(() => {
             pinScreen.classList.remove('error');
@@ -230,6 +250,7 @@
             pinHint.appendChild(btn);
         }
         pinCode = '';
+        if (typeof window._pinReset === 'function') window._pinReset();
         updatePinDots();
     }
 
