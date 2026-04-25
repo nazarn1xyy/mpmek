@@ -3,6 +3,17 @@ const { redis, rateLimit, safeKey, safeCompare } = require('./_lib/redis');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
+// WebAuthn (Face ID / Touch ID)
+const RP_ID = process.env.WEBAUTHN_RP_ID || 'mpmek.site';
+const RP_NAME = 'МПМЕК Адмін';
+const RP_ORIGIN = process.env.WEBAUTHN_ORIGIN || `https://${RP_ID}`;
+
+let _webauthn = null;
+async function webauthn() {
+  if (!_webauthn) _webauthn = await import('@simplewebauthn/server');
+  return _webauthn;
+}
+
 // Admin usernames from env (comma-separated), e.g. "nazar,admin2"
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',')
@@ -317,6 +328,128 @@ module.exports = async (req, res) => {
         await redis('DEL', `auth:session:${session.token}`);
       }
       return res.json({ ok: true });
+    }
+
+    // ── WebAuthn: check if user has credential ──
+    if (req.method === 'GET' && action === 'webauthn-check') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const raw = await redis('GET', `webauthn:creds:${session.username}`);
+      const creds = raw ? JSON.parse(raw) : [];
+      return res.json({ registered: creds.length > 0 });
+    }
+
+    // ── WebAuthn: registration options ──
+    if (req.method === 'POST' && action === 'webauthn-register-options') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const wa = await webauthn();
+      const raw = await redis('GET', `webauthn:creds:${session.username}`);
+      const existing = raw ? JSON.parse(raw) : [];
+      const options = await wa.generateRegistrationOptions({
+        rpName: RP_NAME,
+        rpID: RP_ID,
+        userName: session.username,
+        userDisplayName: session.username,
+        attestationType: 'none',
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred',
+        },
+        excludeCredentials: existing.map(c => ({ id: c.credentialID })),
+      });
+      await redis('SET', `webauthn:challenge:${session.username}`, options.challenge, 'EX', 300);
+      return res.json(options);
+    }
+
+    // ── WebAuthn: verify registration ──
+    if (req.method === 'POST' && action === 'webauthn-register') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const wa = await webauthn();
+      const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
+      if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
+      await redis('DEL', `webauthn:challenge:${session.username}`);
+      try {
+        const verification = await wa.verifyRegistrationResponse({
+          response: req.body,
+          expectedChallenge,
+          expectedOrigin: RP_ORIGIN,
+          expectedRPID: RP_ID,
+        });
+        if (!verification.verified || !verification.registrationInfo) {
+          return res.status(400).json({ error: 'Verification failed' });
+        }
+        const { credential } = verification.registrationInfo;
+        const raw = await redis('GET', `webauthn:creds:${session.username}`);
+        const creds = raw ? JSON.parse(raw) : [];
+        creds.push({
+          credentialID: credential.id,
+          publicKey: Buffer.from(credential.publicKey).toString('base64'),
+          counter: credential.counter,
+          createdAt: new Date().toISOString(),
+        });
+        await redis('SET', `webauthn:creds:${session.username}`, JSON.stringify(creds));
+        return res.json({ ok: true });
+      } catch (e) {
+        console.error('WebAuthn register error:', e);
+        return res.status(400).json({ error: 'Verification failed' });
+      }
+    }
+
+    // ── WebAuthn: authentication options ──
+    if (req.method === 'POST' && action === 'webauthn-auth-options') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const wa = await webauthn();
+      const raw = await redis('GET', `webauthn:creds:${session.username}`);
+      const creds = raw ? JSON.parse(raw) : [];
+      if (creds.length === 0) return res.status(404).json({ error: 'No credentials' });
+      const options = await wa.generateAuthenticationOptions({
+        rpID: RP_ID,
+        userVerification: 'required',
+        allowCredentials: creds.map(c => ({ id: c.credentialID })),
+      });
+      await redis('SET', `webauthn:challenge:${session.username}`, options.challenge, 'EX', 300);
+      return res.json(options);
+    }
+
+    // ── WebAuthn: verify authentication ──
+    if (req.method === 'POST' && action === 'webauthn-auth') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const wa = await webauthn();
+      const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
+      if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
+      await redis('DEL', `webauthn:challenge:${session.username}`);
+      const raw = await redis('GET', `webauthn:creds:${session.username}`);
+      const creds = raw ? JSON.parse(raw) : [];
+      const cred = creds.find(c => c.credentialID === req.body.id);
+      if (!cred) return res.status(400).json({ error: 'Unknown credential' });
+      try {
+        const verification = await wa.verifyAuthenticationResponse({
+          response: req.body,
+          expectedChallenge,
+          expectedOrigin: RP_ORIGIN,
+          expectedRPID: RP_ID,
+          credential: {
+            id: cred.credentialID,
+            publicKey: new Uint8Array(Buffer.from(cred.publicKey, 'base64')),
+            counter: cred.counter,
+          },
+        });
+        if (!verification.verified) {
+          return res.status(400).json({ error: 'Verification failed' });
+        }
+        // Update counter
+        cred.counter = verification.authenticationInfo.newCounter;
+        await redis('SET', `webauthn:creds:${session.username}`, JSON.stringify(creds));
+        return res.json({ ok: true, verified: true });
+      } catch (e) {
+        console.error('WebAuthn auth error:', e);
+        return res.status(400).json({ error: 'Verification failed' });
+      }
     }
 
     return res.status(400).json({ error: 'Unknown action' });

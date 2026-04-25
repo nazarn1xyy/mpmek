@@ -38,6 +38,7 @@
     // ===== DOM refs =====
     const loginScreen = document.getElementById('loginScreen');
     const pinScreen = document.getElementById('pinScreen');
+    const faceidScreen = document.getElementById('faceidScreen');
     const adminPanel = document.getElementById('adminPanel');
     const pinHint = document.getElementById('pinHint');
     const pinDots = document.querySelectorAll('.pin-dot');
@@ -209,7 +210,7 @@
             });
             if (resp.ok) {
                 verifiedPin = pinCode;
-                unlockAdmin();
+                faceidFlow();
             } else if (resp.status === 401) {
                 showPinError('Сесія закінчилась', true);
             } else if (resp.status === 403) {
@@ -221,6 +222,175 @@
             }
         } catch (e) {
             shakePin('Помилка з\'єднання');
+        }
+    }
+
+    // ===== WebAuthn (Face ID / Touch ID) =====
+    function b64urlToArr(b64url) {
+        const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+        const bin = atob(b64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+    }
+    function arrToB64url(arr) {
+        const bytes = new Uint8Array(arr);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function webauthnAvailable() {
+        return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create);
+    }
+
+    async function startWebAuthnRegister() {
+        const optResp = await fetch('/api/auth?action=webauthn-register-options', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }
+        });
+        if (!optResp.ok) throw new Error('Failed to get options');
+        const options = await optResp.json();
+        options.challenge = b64urlToArr(options.challenge);
+        options.user.id = b64urlToArr(options.user.id);
+        if (options.excludeCredentials) {
+            options.excludeCredentials = options.excludeCredentials.map(c => ({ ...c, id: b64urlToArr(c.id) }));
+        }
+        const credential = await navigator.credentials.create({ publicKey: options });
+        const body = {
+            id: credential.id,
+            rawId: arrToB64url(credential.rawId),
+            type: credential.type,
+            response: {
+                attestationObject: arrToB64url(credential.response.attestationObject),
+                clientDataJSON: arrToB64url(credential.response.clientDataJSON),
+            },
+        };
+        if (credential.response.getTransports) {
+            body.response.transports = credential.response.getTransports();
+        }
+        const verResp = await fetch('/api/auth?action=webauthn-register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+            body: JSON.stringify(body),
+        });
+        if (!verResp.ok) throw new Error('Registration failed');
+        return true;
+    }
+
+    async function startWebAuthnAuth() {
+        const optResp = await fetch('/api/auth?action=webauthn-auth-options', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken }
+        });
+        if (!optResp.ok) throw new Error('Failed to get options');
+        const options = await optResp.json();
+        options.challenge = b64urlToArr(options.challenge);
+        if (options.allowCredentials) {
+            options.allowCredentials = options.allowCredentials.map(c => ({ ...c, id: b64urlToArr(c.id) }));
+        }
+        const assertion = await navigator.credentials.get({ publicKey: options });
+        const body = {
+            id: assertion.id,
+            rawId: arrToB64url(assertion.rawId),
+            type: assertion.type,
+            response: {
+                authenticatorData: arrToB64url(assertion.response.authenticatorData),
+                clientDataJSON: arrToB64url(assertion.response.clientDataJSON),
+                signature: arrToB64url(assertion.response.signature),
+            },
+        };
+        if (assertion.response.userHandle) {
+            body.response.userHandle = arrToB64url(assertion.response.userHandle);
+        }
+        const verResp = await fetch('/api/auth?action=webauthn-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+            body: JSON.stringify(body),
+        });
+        if (!verResp.ok) throw new Error('Auth failed');
+        return true;
+    }
+
+    async function faceidFlow() {
+        if (!webauthnAvailable()) {
+            unlockAdmin();
+            return;
+        }
+        try {
+            const checkResp = await fetch('/api/auth?action=webauthn-check', {
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+            if (!checkResp.ok) { unlockAdmin(); return; }
+            const checkData = await checkResp.json();
+
+            if (checkData.registered) {
+                // Has credential → require biometric auth
+                pinScreen.classList.add('hidden');
+                faceidScreen.classList.remove('hidden');
+                const hint = document.getElementById('faceidHint');
+                const status = document.getElementById('faceidStatus');
+                const btn = document.getElementById('faceidBtn');
+                hint.textContent = 'Підтвердіть особу через Face ID / Touch ID';
+                status.textContent = '';
+                document.getElementById('faceidSkip').style.display = 'none';
+
+                async function doAuth() {
+                    try {
+                        status.textContent = 'Очікування біометрії...';
+                        btn.disabled = true;
+                        await startWebAuthnAuth();
+                        btn.classList.add('success');
+                        status.textContent = '\u2705 Підтверджено!';
+                        status.style.color = '#22c55e';
+                        setTimeout(() => {
+                            faceidScreen.classList.add('hidden');
+                            unlockAdmin();
+                        }, 500);
+                    } catch (e) {
+                        btn.disabled = false;
+                        status.textContent = 'Не вдалось. Спробуйте ще раз';
+                        status.style.color = '#ff4444';
+                    }
+                }
+                btn.onclick = doAuth;
+                doAuth();
+            } else {
+                // No credential → offer registration
+                pinScreen.classList.add('hidden');
+                faceidScreen.classList.remove('hidden');
+                const title = document.getElementById('faceidTitle');
+                const hint = document.getElementById('faceidHint');
+                const status = document.getElementById('faceidStatus');
+                const btn = document.getElementById('faceidBtn');
+                const skip = document.getElementById('faceidSkip');
+                title.textContent = 'Налаштувати Face ID?';
+                hint.textContent = 'Додатковий захист при вході в адмін-панель';
+                status.textContent = '';
+                skip.style.display = '';
+                skip.onclick = () => { faceidScreen.classList.add('hidden'); unlockAdmin(); };
+
+                btn.onclick = async () => {
+                    try {
+                        status.textContent = 'Реєстрація біометрії...';
+                        btn.disabled = true;
+                        await startWebAuthnRegister();
+                        btn.classList.add('success');
+                        status.textContent = '\u2705 Face ID підключено!';
+                        status.style.color = '#22c55e';
+                        setTimeout(() => {
+                            faceidScreen.classList.add('hidden');
+                            unlockAdmin();
+                        }, 800);
+                    } catch (e) {
+                        btn.disabled = false;
+                        status.textContent = 'Не вдалось. Натисніть щоб спробувати ще';
+                        status.style.color = '#ff4444';
+                    }
+                };
+            }
+        } catch (e) {
+            unlockAdmin();
         }
     }
 

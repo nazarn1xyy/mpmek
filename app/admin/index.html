@@ -13,6 +13,11 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .hidden{display:none!important}
 .pin-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background-color:var(--bg);padding:20px}
 .pin-card{text-align:center;max-width:320px;width:100%}
+.faceid-btn{width:80px;height:80px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;transition:all .2s}
+.faceid-btn:active{transform:scale(.92);background:rgba(255,255,255,.05)}
+.faceid-btn.success{border-color:#22c55e;color:#22c55e}
+.faceid-skip{background:none;border:none;color:var(--text-muted);font-size:13px;cursor:pointer;font-family:var(--font);padding:8px 16px}
+.faceid-skip:hover{color:var(--text)}
 .pin-icon{color:var(--text-muted);margin-bottom:16px}
 .pin-card h1{font-size:24px;font-weight:700;margin-bottom:8px}
 .pin-card p{color:var(--text-muted);font-size:14px;margin-bottom:24px;min-height:20px}
@@ -366,6 +371,32 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         </div>
     </div>
 
+    <!-- Face ID Screen (after PIN, before panel unlock) -->
+    <div id="faceidScreen" class="pin-screen hidden" role="dialog" aria-modal="true">
+        <div class="pin-card">
+            <div class="pin-icon">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" stroke-width="1.5" fill="none">
+                    <path d="M7 3H5a2 2 0 0 0-2 2v2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M17 21h2a2 2 0 0 0 2-2v-2"/>
+                    <circle cx="9" cy="10" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="10" r="0.5" fill="currentColor" stroke="none"/>
+                    <path d="M9.5 15a3.5 3.5 0 0 0 5 0"/>
+                </svg>
+            </div>
+            <h1 id="faceidTitle">Біометрія</h1>
+            <p id="faceidHint">Підтвердіть особу через Face ID / Touch ID</p>
+            <button id="faceidBtn" class="faceid-btn" aria-label="Face ID">
+                <svg viewBox="0 0 24 24" width="36" height="36" stroke="currentColor" stroke-width="1.5" fill="none">
+                    <path d="M7 3H5a2 2 0 0 0-2 2v2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M17 21h2a2 2 0 0 0 2-2v-2"/>
+                    <circle cx="9" cy="10" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="10" r="0.5" fill="currentColor" stroke="none"/>
+                    <path d="M9.5 15a3.5 3.5 0 0 0 5 0"/>
+                </svg>
+            </button>
+            <p id="faceidStatus" style="font-size:14px;color:var(--text-muted);min-height:20px"></p>
+            <button id="faceidSkip" class="faceid-skip" style="display:none">Пропустити</button>
+        </div>
+    </div>
+
     <!-- Admin Panel -->
     <div id="adminPanel" class="admin-panel hidden">
         <!-- Sidebar / Top Nav -->
@@ -642,7 +673,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/admin/panel.js?v=5"></script>
+    <script src="/admin/panel.js?v=6"></script>
 
 
 </body>
