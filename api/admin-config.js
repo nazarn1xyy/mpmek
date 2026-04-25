@@ -7,6 +7,7 @@
  *
  * Auth (for every route): X-Admin-Pin header + Authorization: Bearer <admin session token>
  */
+const crypto = require('crypto');
 const { redis, rateLimit, safeCompare, getSessionUsername } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
@@ -15,6 +16,25 @@ const GH_OWNER = process.env.GITHUB_OWNER || 'nazarn1xyy';
 const GH_REPO = process.env.GITHUB_REPO || 'mpmek';
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+const STAROSTA_ACCOUNTS = {};
+(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
+  const sep = entry.indexOf(':');
+  if (sep > 0) {
+    const u = entry.slice(0, sep).trim().toLowerCase();
+    const g = entry.slice(sep + 1).trim();
+    if (u && g) STAROSTA_ACCOUNTS[u] = g;
+  }
+});
+
+function pbkdf2(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 600000, 64, 'sha512', (err, key) => {
+      if (err) reject(err);
+      else resolve(key.toString('hex'));
+    });
+  });
+}
 
 async function hasAdminSession(req) {
   const uname = await getSessionUsername(req);
@@ -169,29 +189,87 @@ async function handlePublish(req, res) {
 
 async function handleUsers(res) {
   const keys = await redis('KEYS', 'auth:user:*');
-  if (!keys || !keys.length) return res.json({ users: [], total: 0 });
-  const values = await redis('MGET', ...keys);
-  const users = [];
-  keys.forEach((key, i) => {
+  const values = keys && keys.length ? await redis('MGET', ...keys) : [];
+  const usersMap = {};
+  (keys || []).forEach((key, i) => {
     const username = key.replace('auth:user:', '');
     try {
       const d = JSON.parse(values[i]);
-      users.push({
+      usersMap[username] = {
         username,
         displayName: d.displayName || username,
         group: d.group || '',
         role: ADMIN_USERNAMES.includes(username) ? 'admin' : (d.role || 'user'),
-        createdAt: d.createdAt || null
-      });
+        createdAt: d.createdAt || null,
+        envStarosta: !!STAROSTA_ACCOUNTS[username]
+      };
     } catch {
-      users.push({ username, displayName: username, group: '', role: 'user', createdAt: null });
+      usersMap[username] = { username, displayName: username, group: '', role: 'user', createdAt: null };
     }
   });
+  for (const [u, g] of Object.entries(STAROSTA_ACCOUNTS)) {
+    if (!usersMap[u]) {
+      usersMap[u] = { username: u, displayName: u, group: g, role: 'starosta', createdAt: null, envStarosta: true };
+    } else if (usersMap[u].role !== 'admin') {
+      usersMap[u].envStarosta = true;
+      usersMap[u].role = 'starosta';
+      usersMap[u].group = usersMap[u].group || g;
+    }
+  }
+  const users = Object.values(usersMap);
   users.sort((a, b) => {
     const ro = { admin: 0, starosta: 1, user: 2 };
     return (ro[a.role] ?? 3) - (ro[b.role] ?? 3) || a.username.localeCompare(b.username);
   });
   return res.json({ users, total: users.length });
+}
+
+async function handleSetRole(req, res) {
+  const { username, role, group } = req.body || {};
+  const uname = (username || '').trim().toLowerCase();
+  if (!uname) return res.status(400).json({ error: 'Username required' });
+  if (!['user', 'starosta'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot modify admin' });
+  const raw = await redis('GET', `auth:user:${uname}`);
+  if (!raw) return res.status(404).json({ error: 'User not found' });
+  const userData = JSON.parse(raw);
+  if (role === 'starosta') {
+    userData.role = 'starosta';
+    if (group) userData.group = group;
+  } else {
+    delete userData.role;
+  }
+  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  return res.json({ ok: true });
+}
+
+async function handleCreateStarosta(req, res) {
+  const { username, password, displayName, group } = req.body || {};
+  const uname = (username || '').trim().toLowerCase();
+  const pwd = password || '';
+  const name = (displayName || '').trim();
+  const grp = (group || '').trim();
+  if (!uname || !pwd || !grp) return res.status(400).json({ error: 'Логін, пароль і група обов\'язкові' });
+  if (uname.length < 3 || !/^[a-z0-9_]+$/.test(uname)) return res.status(400).json({ error: 'Логін: від 3 символів, латиниця/цифри/_' });
+  if (pwd.length < 4) return res.status(400).json({ error: 'Пароль: мінімум 4 символи' });
+  if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Логін зарезервовано' });
+  const existing = await redis('GET', `auth:user:${uname}`);
+  if (existing) return res.status(409).json({ error: 'Користувач вже існує' });
+  const salt = crypto.randomBytes(32).toString('hex');
+  const hash = await pbkdf2(pwd, salt);
+  const userData = { displayName: name || uname, passwordHash: hash, salt, group: grp, role: 'starosta', createdAt: new Date().toISOString() };
+  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  return res.json({ ok: true, username: uname });
+}
+
+async function handleDeleteUser(req, res) {
+  const { username } = req.body || {};
+  const uname = (username || '').trim().toLowerCase();
+  if (!uname) return res.status(400).json({ error: 'Username required' });
+  if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot delete admin' });
+  await redis('DEL', `auth:user:${uname}`);
+  await redis('DEL', `auth:sver:${uname}`);
+  return res.json({ ok: true });
 }
 
 module.exports = async function handler(req, res) {
@@ -255,20 +333,12 @@ module.exports = async function handler(req, res) {
   try {
     const action = req.query.action;
 
-    // POST with action=publish → push schedule.json to GitHub
-    if (req.method === 'POST' && action === 'publish') {
-      return await handlePublish(req, res);
-    }
-
-    // GET with action=users → list all registered users
-    if (req.method === 'GET' && action === 'users') {
-      return await handleUsers(res);
-    }
-
-    // GET → auth probe (returns ok if credentials are valid)
-    if (req.method === 'GET' && !action) {
-      return res.status(200).json({ ok: true });
-    }
+    if (req.method === 'POST' && action === 'publish') return await handlePublish(req, res);
+    if (req.method === 'GET' && action === 'users') return await handleUsers(res);
+    if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
+    if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
+    if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
+    if (req.method === 'GET' && !action) return res.status(200).json({ ok: true });
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {

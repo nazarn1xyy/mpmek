@@ -1510,22 +1510,26 @@
     });
 
     // -- Users Section --
-    let usersLoaded = false;
+    let allUsersData = [];
+    const userModal = document.getElementById('userModal');
+    const starostaModal = document.getElementById('starostaModal');
+
+    function adminHeaders() {
+        return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken, 'X-Admin-Pin': verifiedPin };
+    }
+
     async function loadUsers() {
         const container = document.getElementById('usersList');
         if (!container) return;
         container.innerHTML = '<p class="placeholder-text">Завантаження...</p>';
         try {
             const resp = await fetch('/api/admin-config?action=users', {
-                headers: {
-                    'Authorization': 'Bearer ' + authToken,
-                    'X-Admin-Pin': verifiedPin
-                }
+                headers: { 'Authorization': 'Bearer ' + authToken, 'X-Admin-Pin': verifiedPin }
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
-            renderUsers(data.users || []);
-            usersLoaded = true;
+            allUsersData = data.users || [];
+            renderUsers(allUsersData);
         } catch (e) {
             container.innerHTML = '<p class="placeholder-text" style="color:var(--danger)">Помилка: ' + escHtml(e.message) + '</p>';
         }
@@ -1537,7 +1541,7 @@
         const countEl = document.getElementById('usersCount');
         if (countEl) countEl.textContent = '(' + users.length + ')';
         if (users.length === 0) {
-            container.innerHTML = '<p class="placeholder-text">Немає зареєстрованих користувачів</p>';
+            container.innerHTML = '<p class="placeholder-text">Немає користувачів</p>';
             return;
         }
         container.innerHTML = users.map(u => {
@@ -1545,10 +1549,11 @@
             const roleClass = u.role === 'admin' ? 'admin' : u.role === 'starosta' ? 'starosta' : 'user';
             const roleLabel = u.role === 'admin' ? 'Admin' : u.role === 'starosta' ? 'Староста' : 'User';
             const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('uk') : '';
-            return '<div class="user-card" data-username="' + escAttr(u.username) + '">'
+            const envTag = u.envStarosta ? '<span class="env-badge">ENV</span>' : '';
+            return '<div class="user-card" data-username="' + escAttr(u.username) + '" data-role="' + escAttr(u.role) + '">'
                 + '<div class="user-avatar">' + escHtml(initials) + '</div>'
                 + '<div class="user-info">'
-                + '<div class="user-name">' + escHtml(u.displayName || u.username) + '</div>'
+                + '<div class="user-name">' + escHtml(u.displayName || u.username) + envTag + '</div>'
                 + '<div class="user-meta">'
                 + '<span>@' + escHtml(u.username) + '</span>'
                 + (u.group ? ' <span>\uD83D\uDCDA ' + escHtml(u.group) + '</span>' : '')
@@ -1558,6 +1563,17 @@
                 + '</div>';
         }).join('');
     }
+
+    // -- Role Filter Tabs --
+    document.querySelectorAll('.role-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const f = tab.dataset.filter;
+            if (f === 'all') { renderUsers(allUsersData); return; }
+            renderUsers(allUsersData.filter(u => u.role === f));
+        });
+    });
 
     // -- User Search Filter --
     const userSearchEl = document.getElementById('userSearch');
@@ -1570,5 +1586,149 @@
             });
         });
     }
+
+    // -- User Card Click → Detail Modal --
+    document.getElementById('usersList')?.addEventListener('click', e => {
+        const card = e.target.closest('.user-card');
+        if (!card) return;
+        const user = allUsersData.find(u => u.username === card.dataset.username);
+        if (user) openUserModal(user);
+    });
+
+    function openUserModal(user) {
+        const isAdmin = user.role === 'admin';
+        const groups = scheduleData ? Object.keys(scheduleData).filter(k => k !== '_settings').sort() : [];
+        const initials = (user.displayName || user.username).slice(0, 2).toUpperCase();
+        const roleClass = user.role === 'admin' ? 'admin' : user.role === 'starosta' ? 'starosta' : 'user';
+        const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'starosta' ? 'Староста' : 'Користувач';
+        const date = user.createdAt ? new Date(user.createdAt).toLocaleDateString('uk') : '\u2014';
+        const envTag = user.envStarosta ? '<span class="env-badge">ENV</span>' : '';
+
+        let html = '<div class="user-detail-header">'
+            + '<div class="user-detail-avatar">' + escHtml(initials) + '</div>'
+            + '<div class="user-detail-info">'
+            + '<div class="user-detail-name">' + escHtml(user.displayName || user.username) + envTag + '</div>'
+            + '<div class="user-detail-sub">@' + escHtml(user.username)
+            + (user.group ? ' \u2022 ' + escHtml(user.group) : '')
+            + ' \u2022 ' + date + '</div>'
+            + '</div>'
+            + '<span class="user-badge ' + roleClass + '">' + roleLabel + '</span>'
+            + '</div>';
+
+        if (isAdmin) {
+            html += '<div style="padding:12px;background:rgba(168,85,247,.08);border-radius:8px;font-size:13px;color:#a855f7;text-align:center">'
+                + '\u0420\u043e\u043b\u044c \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430 \u043d\u0435\u043c\u043e\u0436\u043b\u0438\u0432\u043e \u0437\u043c\u0456\u043d\u0438\u0442\u0438</div>';
+        } else {
+            html += '<div class="user-form-group">'
+                + '<label>\u0420\u043e\u043b\u044c</label>'
+                + '<select id="userRoleSelect" class="select">'
+                + '<option value="user"' + (user.role !== 'starosta' ? ' selected' : '') + '>\u041a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447</option>'
+                + '<option value="starosta"' + (user.role === 'starosta' ? ' selected' : '') + '>\u0421\u0442\u0430\u0440\u043e\u0441\u0442\u0430</option>'
+                + '</select></div>';
+            html += '<div class="user-form-group" id="userGroupWrap"' + (user.role !== 'starosta' ? ' style="display:none"' : '') + '>'
+                + '<label>\u0413\u0440\u0443\u043f\u0430 \u0441\u0442\u0430\u0440\u043e\u0441\u0442\u0438</label>'
+                + '<select id="userGroupSelect" class="select">'
+                + '<option value="">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0433\u0440\u0443\u043f\u0443...</option>'
+                + groups.map(g => '<option value="' + escAttr(g) + '"' + (g === user.group ? ' selected' : '') + '>' + escHtml(g) + '</option>').join('')
+                + '</select></div>';
+        }
+
+        document.getElementById('userModalBody').innerHTML = html;
+
+        const actionsEl = document.getElementById('userModalActions');
+        if (isAdmin) {
+            actionsEl.innerHTML = '<button class="btn-secondary" data-close>\u0417\u0430\u043a\u0440\u0438\u0442\u0438</button>';
+        } else {
+            actionsEl.innerHTML = '<button class="btn-secondary" data-close>\u0417\u0430\u043a\u0440\u0438\u0442\u0438</button>'
+                + '<button class="btn-danger" id="userDeleteBtn">\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438</button>'
+                + '<button class="btn-primary" id="userSaveBtn">\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438</button>';
+        }
+
+        // Close
+        actionsEl.querySelector('[data-close]').addEventListener('click', () => userModal.classList.add('hidden'));
+
+        if (!isAdmin) {
+            // Toggle group visibility
+            document.getElementById('userRoleSelect').addEventListener('change', e => {
+                document.getElementById('userGroupWrap').style.display = e.target.value === 'starosta' ? '' : 'none';
+            });
+
+            // Save role
+            document.getElementById('userSaveBtn').addEventListener('click', async () => {
+                const role = document.getElementById('userRoleSelect').value;
+                const group = document.getElementById('userGroupSelect')?.value || '';
+                if (role === 'starosta' && !group) { showToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0433\u0440\u0443\u043f\u0443', 'error'); return; }
+                try {
+                    const r = await fetch('/api/admin-config?action=set-role', {
+                        method: 'POST', headers: adminHeaders(),
+                        body: JSON.stringify({ username: user.username, role, group })
+                    });
+                    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'HTTP ' + r.status); }
+                    userModal.classList.add('hidden');
+                    showToast('\u0420\u043e\u043b\u044c \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e: ' + (role === 'starosta' ? '\u0421\u0442\u0430\u0440\u043e\u0441\u0442\u0430' : '\u041a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447'), 'success');
+                    logAction('Role: @' + user.username + ' \u2192 ' + role);
+                    loadUsers();
+                } catch (e) { showToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + e.message, 'error'); }
+            });
+
+            // Delete user
+            document.getElementById('userDeleteBtn').addEventListener('click', () => {
+                openConfirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0430', '\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 @' + user.username + '? \u0426\u044e \u0434\u0456\u044e \u043d\u0435 \u043c\u043e\u0436\u043d\u0430 \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438.', async () => {
+                    try {
+                        const r = await fetch('/api/admin-config?action=delete-user', {
+                            method: 'POST', headers: adminHeaders(),
+                            body: JSON.stringify({ username: user.username })
+                        });
+                        if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'HTTP ' + r.status); }
+                        userModal.classList.add('hidden');
+                        showToast('\u041a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0430 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e', 'success');
+                        logAction('Delete: @' + user.username);
+                        loadUsers();
+                    } catch (e) { showToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + e.message, 'error'); }
+                });
+            });
+        }
+
+        userModal.classList.remove('hidden');
+    }
+
+    // Close modals on overlay click
+    [userModal, starostaModal].forEach(m => {
+        if (m) m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+    });
+
+    // -- Create Starosta Modal --
+    document.getElementById('createStarostaBtn')?.addEventListener('click', () => {
+        const groups = scheduleData ? Object.keys(scheduleData).filter(k => k !== '_settings').sort() : [];
+        const sel = document.getElementById('starostaGroup');
+        sel.innerHTML = '<option value="">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0433\u0440\u0443\u043f\u0443...</option>'
+            + groups.map(g => '<option value="' + escAttr(g) + '">' + escHtml(g) + '</option>').join('');
+        document.getElementById('starostaUsername').value = '';
+        document.getElementById('starostaPassword').value = '';
+        document.getElementById('starostaName').value = '';
+        starostaModal.classList.remove('hidden');
+    });
+
+    document.getElementById('starostaModalCancel')?.addEventListener('click', () => starostaModal.classList.add('hidden'));
+
+    document.getElementById('starostaModalOk')?.addEventListener('click', async () => {
+        const username = document.getElementById('starostaUsername').value.trim();
+        const password = document.getElementById('starostaPassword').value;
+        const displayName = document.getElementById('starostaName').value.trim();
+        const group = document.getElementById('starostaGroup').value;
+        if (!username || !password || !group) { showToast('\u0417\u0430\u043f\u043e\u0432\u043d\u0456\u0442\u044c \u043b\u043e\u0433\u0456\u043d, \u043f\u0430\u0440\u043e\u043b\u044c \u0456 \u0433\u0440\u0443\u043f\u0443', 'error'); return; }
+        try {
+            const r = await fetch('/api/admin-config?action=create-starosta', {
+                method: 'POST', headers: adminHeaders(),
+                body: JSON.stringify({ username, password, displayName, group })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
+            starostaModal.classList.add('hidden');
+            showToast('\u0421\u0442\u0430\u0440\u043e\u0441\u0442\u0443 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e: @' + username, 'success');
+            logAction('Create starosta: @' + username + ' / ' + group);
+            loadUsers();
+        } catch (e) { showToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + e.message, 'error'); }
+    });
 
 })();

@@ -137,8 +137,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .hw-input-wrap{display:flex;gap:8px;align-items:center}
 .hw-input-wrap .input{flex:1;font-size:16px;padding:10px 12px}
 .users-list{display:flex;flex-direction:column;gap:8px}
-.user-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;transition:border-color .2s}
-.user-card:hover{border-color:var(--text-muted)}
+.user-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;transition:border-color .2s;cursor:pointer}
+.user-card:hover{border-color:var(--text-muted);background:var(--surface-2)}
 .user-avatar{width:40px;height:40px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--text-muted);flex-shrink:0}
 .user-info{flex:1;min-width:0}
 .user-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -148,6 +148,18 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .user-badge.starosta{background:rgba(59,130,246,.15);color:#3b82f6}
 .user-badge.user{background:var(--surface-2);color:var(--text-muted)}
 .users-count{font-size:14px;color:var(--text-muted);font-weight:400}
+.role-tabs{display:flex;gap:4px;margin-bottom:12px}
+.role-tab{padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:transparent;color:var(--text-muted);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s}
+.role-tab:hover{background:var(--surface-2);color:var(--text)}
+.role-tab.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.user-detail-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.user-detail-avatar{width:48px;height:48px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--text-muted);flex-shrink:0}
+.user-detail-info{flex:1}
+.user-detail-name{font-weight:700;font-size:16px}
+.user-detail-sub{font-size:13px;color:var(--text-muted)}
+.user-form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.user-form-group label{font-size:13px;font-weight:600;color:var(--text-muted)}
+.env-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;background:rgba(234,179,8,.15);color:#eab308;font-weight:600;margin-left:6px}
 @media(max-width:768px){
 .sidebar{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;border-right:none;border-top:1px solid var(--border);background:rgba(17,17,17,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0));z-index:40}
 .sidebar-header{display:none}
@@ -486,6 +498,12 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <section id="sec-users" class="section">
                 <div class="section-header">
                     <h2>Користувачі <span id="usersCount" class="users-count"></span></h2>
+                    <button id="createStarostaBtn" class="btn-primary">+ Староста</button>
+                </div>
+                <div class="role-tabs">
+                    <button class="role-tab active" data-filter="all">Всі</button>
+                    <button class="role-tab" data-filter="starosta">Старости</button>
+                    <button class="role-tab" data-filter="user">Юзері</button>
                 </div>
                 <div class="search-box">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -592,10 +610,33 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         </div>
     </div>
 
+    <!-- Modal: User Detail -->
+    <div id="userModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-box" style="max-width:440px">
+            <div id="userModalBody"></div>
+            <div class="modal-actions" id="userModalActions"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Create Starosta -->
+    <div id="starostaModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h3>Створити старосту</h3>
+            <input type="text" id="starostaUsername" class="input" placeholder="Логін (латиниця, цифри, _)">
+            <input type="password" id="starostaPassword" class="input" placeholder="Пароль">
+            <input type="text" id="starostaName" class="input" placeholder="Ім'я (необов'язково)">
+            <select id="starostaGroup" class="select"></select>
+            <div class="modal-actions">
+                <button id="starostaModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="starostaModalOk" class="btn-primary">Створити</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/admin/panel.js?v=3"></script>
+    <script src="/admin/panel.js?v=4"></script>
 
 
 </body>
