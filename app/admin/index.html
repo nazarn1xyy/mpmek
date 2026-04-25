@@ -112,10 +112,28 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .toast.success{background:var(--success-bg);color:var(--success);border:1px solid var(--success)}
 .toast.error{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger)}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border)}
+.logout-btn{width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s ease;display:flex;align-items:center;justify-content:center;gap:6px}
+.logout-btn:hover{color:var(--danger);border-color:var(--danger)}
+.search-box{position:relative;margin-bottom:16px}
+.search-box input{width:100%;padding:10px 16px 10px 36px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;font-family:var(--font);outline:none}
+.search-box input:focus{border-color:var(--accent)}
+.search-box svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
+.lesson-row[draggable="true"]{cursor:grab}
+.lesson-row.dragging{opacity:.3}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:12px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.stat-box .stat-num{font-size:28px;font-weight:800;display:block}
+.stat-box .stat-label{font-size:12px;color:var(--text-muted);margin-top:4px;display:block}
+.undo-btn{padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-muted);font-size:12px;font-family:var(--font);cursor:pointer;display:flex;align-items:center;gap:4px}
+.undo-btn:hover{color:var(--text);background:var(--surface-2)}
+.undo-btn:disabled{opacity:.3;cursor:not-allowed}
+.csv-label{display:inline-flex;align-items:center;gap:6px;padding:14px 20px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:14px;font-family:var(--font);cursor:pointer;transition:all .15s ease}
+.csv-label:hover{border-color:var(--text-muted);color:var(--text)}
 @media(max-width:768px){
 .sidebar{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;border-right:none;border-top:1px solid var(--border);background:rgba(17,17,17,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0));z-index:40}
 .sidebar-header{display:none}
-.sidebar-nav{flex-direction:row;width:100%;justify-content:space-around;padding:0}
+.sidebar-nav{flex-direction:row;flex:1;justify-content:space-around;padding:0}
 .sidebar-item{flex:1;align-items:center;flex-direction:column;gap:4px;padding:8px 4px;font-size:11px;font-weight:500;background:transparent!important;color:var(--text-muted)!important;border-radius:0;-webkit-tap-highlight-color:transparent}
 .sidebar-item svg{width:24px;height:24px;stroke-width:2.2}
 .sidebar-item.active{color:var(--text)!important}
@@ -142,6 +160,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .pin-dot{width:20px;height:20px}
 .pin-keypad{grid-template-columns:repeat(3,90px);gap:24px}
 .pin-key{width:90px;height:90px;font-size:32px}
+.sidebar-footer{padding:0;border:none;margin:0}
+.logout-btn{padding:8px 4px;font-size:11px;font-weight:500;border:none;border-radius:0;width:auto;flex-direction:column;gap:4px;background:transparent!important;color:var(--text-muted)!important}
+.logout-btn svg{width:24px;height:24px}
+.search-box input{font-size:16px}
 }
     </style>
 </head>
@@ -343,6 +365,12 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     <span>Налашт.</span>
                 </button>
             </nav>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="logout-btn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Вийти
+                </button>
+            </div>
         </aside>
 
         <!-- Main Content Area -->
@@ -350,10 +378,13 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <!-- Status Bar -->
             <div class="status-bar">
                 <span id="statusText">Завантаження...</span>
-                <button id="publishBtn" class="publish-btn" disabled>
-                    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
-                    Опублікувати
-                </button>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button id="undoBtn" class="undo-btn" disabled>↩ Undo</button>
+                    <button id="publishBtn" class="publish-btn" disabled>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                        Опублікувати
+                    </button>
+                </div>
             </div>
 
             <!-- Section: Groups -->
@@ -361,6 +392,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 <div class="section-header">
                     <h2>Управління групами</h2>
                     <button id="addGroupBtn" class="btn-primary">+ Додати групу</button>
+                </div>
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="groupSearch" type="text" placeholder="Пошук групи...">
                 </div>
                 <div id="groupsList" class="groups-grid">
                     <!-- Rendered dynamically -->
@@ -380,6 +415,9 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                         <option value="">Тип тижня...</option>
                     </select>
                     <button id="addWeekTypeBtn" class="btn-secondary" title="Додати тип тижня">+ Тиждень</button>
+                    <button id="copyScheduleBtn" class="btn-secondary">📋 Копіювати з...</button>
+                    <button id="copyWeekBtn" class="btn-secondary">📄 Копія тижня</button>
+                    <label class="csv-label"><input type="file" id="csvImport" accept=".csv,.txt" hidden>📥 CSV</label>
                 </div>
                 <div id="schedEditor" class="sched-editor">
                     <p class="placeholder-text">Оберіть групу та тип тижня для редагування</p>
@@ -390,6 +428,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <section id="sec-subs" class="section">
                 <div class="section-header">
                     <h2>Заміни пар</h2>
+                    <button id="cleanOldSubsBtn" class="btn-secondary" style="font-size:13px">🗑 Очистити минулі</button>
                 </div>
                 <div class="subs-controls">
                     <select id="subsGroupSelect" class="select">
@@ -447,6 +486,16 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                         <label>Версія кешу Service Worker</label>
                         <p class="config-hint">Поточна версія: <strong id="currentCacheVersion">—</strong></p>
                     </div>
+                    <hr>
+                    <div class="config-group">
+                        <label>Статистика</label>
+                        <div id="statsGrid" class="stats-grid"></div>
+                    </div>
+                    <hr>
+                    <div class="config-group">
+                        <label>Журнал дій</label>
+                        <div id="actionLog" style="max-height:200px;overflow-y:auto;font-size:12px;color:var(--text-muted);font-family:monospace"></div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -459,7 +508,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <p id="confirmText">Ви впевнені?</p>
             <div class="modal-actions">
                 <button id="confirmCancel" class="btn-secondary">Скасувати</button>
-                <button id="confirmOk" class="btn-danger">Видалити</button>
+                <button id="confirmOk" class="btn-danger">Підтвердити</button>
             </div>
         </div>
     </div>
@@ -486,6 +535,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <input type="text" id="subTeacherInput" class="input" placeholder="Викладач">
             <div class="modal-actions">
                 <button id="subModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="subModalAddMore" class="btn-secondary">+ Ще одну</button>
                 <button id="subModalOk" class="btn-primary">Додати</button>
             </div>
         </div>
@@ -509,7 +559,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/admin/panel.js?v=1"></script>
+    <script src="/admin/panel.js?v=2"></script>
 
 
 </body>

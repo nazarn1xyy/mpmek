@@ -30,6 +30,10 @@
     let scheduleData = null;
     let originalJson = '';
     let hasChanges = false;
+    let undoStack = [];
+    let lastSavedJson = '';
+    let undoInProgress = false;
+    let actionLogs = [];
 
     // ===== DOM refs =====
     const loginScreen = document.getElementById('loginScreen');
@@ -314,6 +318,7 @@
             }
 
             originalJson = JSON.stringify(scheduleData);
+            lastSavedJson = originalJson;
             hasChanges = false;
             publishBtn.disabled = true;
             statusText.textContent = 'Дані завантажено • ' + countGroups() + ' груп';
@@ -329,8 +334,16 @@
     }
 
     function markChanged() {
-        hasChanges = JSON.stringify(scheduleData) !== originalJson;
+        const currentJson = JSON.stringify(scheduleData);
+        if (!undoInProgress && lastSavedJson && currentJson !== lastSavedJson) {
+            undoStack.push(lastSavedJson);
+            if (undoStack.length > 10) undoStack.shift();
+        }
+        lastSavedJson = currentJson;
+        hasChanges = currentJson !== originalJson;
         publishBtn.disabled = !hasChanges;
+        const ub = document.getElementById('undoBtn');
+        if (ub) ub.disabled = undoStack.length === 0;
         statusText.textContent = hasChanges
             ? '⚠️ Є незбережені зміни'
             : 'Дані завантажено • ' + countGroups() + ' груп';
@@ -497,7 +510,7 @@
 
     function lessonRowHtml(day, index, lesson) {
         return `
-            <div class="lesson-row" data-day="${escAttr(day)}" data-index="${index}">
+            <div class="lesson-row" draggable="true" data-day="${escAttr(day)}" data-index="${index}">
                 <input type="number" class="input lesson-num-input" value="${lesson.number}" min="1" max="8" placeholder="#"
                     data-action="updateLesson" data-day="${escAttr(day)}" data-index="${index}" data-field="number">
                 <input type="text" class="input" value="${escAttr(lesson.subject)}" placeholder="Предмет"
@@ -913,6 +926,8 @@
             }
 
             originalJson = JSON.stringify(scheduleData);
+            lastSavedJson = originalJson;
+            undoStack = [];
             hasChanges = false;
             publishBtn.disabled = true;
             statusText.textContent = '✅ Опубліковано! Vercel оновить сайт за ~30 сек.';
@@ -1055,6 +1070,7 @@
             if (!group || !scheduleData[group]['ПІДВІСКА']) return;
             const sub = scheduleData[group]['ПІДВІСКА'][idx];
             if (!sub) return;
+            openConfirm('Видалити заміну', sub.date + ' пара ' + sub.number + ' — ' + (sub.subject || ''), async () => {
 
             // Starosta: use API
             if (currentUser && currentUser.role === 'starosta') {
@@ -1088,6 +1104,7 @@
             markChanged();
             renderSubsEditor();
             showToast('Заміну видалено', 'success');
+            });
         },
 
         updateSub(idx, field, value) {
@@ -1181,6 +1198,309 @@
             weekModal.classList.add('hidden');
             subModal.classList.add('hidden');
         }
+    });
+
+    // ===== NEW FEATURES =====
+
+    // -- Action Log helper --
+    function logAction(msg) {
+        actionLogs.unshift({ t: new Date().toLocaleTimeString('uk'), u: currentUser?.username || '?', m: msg });
+        if (actionLogs.length > 50) actionLogs.pop();
+        const el = document.getElementById('actionLog');
+        if (!el) return;
+        el.innerHTML = actionLogs.map(e =>
+            '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' +
+            e.t + ' <b>' + escHtml(e.u) + '</b>: ' + escHtml(e.m) + '</div>'
+        ).join('');
+    }
+
+    // -- Undo Button --
+    const undoBtn = document.getElementById('undoBtn');
+    if (undoBtn) {
+        undoBtn.addEventListener('click', () => {
+            if (undoStack.length === 0) return;
+            undoInProgress = true;
+            scheduleData = JSON.parse(undoStack.pop());
+            lastSavedJson = JSON.stringify(scheduleData);
+            undoInProgress = false;
+            hasChanges = JSON.stringify(scheduleData) !== originalJson;
+            publishBtn.disabled = !hasChanges;
+            undoBtn.disabled = undoStack.length === 0;
+            statusText.textContent = hasChanges ? '⚠️ Є незбережені зміни' : 'Дані завантажено • ' + countGroups() + ' груп';
+            renderGroups();
+            renderScheduleSelects();
+            showToast('↩ Скасовано', 'success');
+            logAction('Undo');
+        });
+    }
+
+    // -- Group Search --
+    const groupSearchEl = document.getElementById('groupSearch');
+    if (groupSearchEl) {
+        groupSearchEl.addEventListener('input', () => {
+            const q = groupSearchEl.value.trim().toLowerCase();
+            document.querySelectorAll('#groupsList .group-card').forEach(c => {
+                c.style.display = (c.querySelector('.group-card-name')?.textContent.toLowerCase() || '').includes(q) ? '' : 'none';
+            });
+        });
+    }
+
+    // -- Drag & Drop for Lessons --
+    let dragDay = null, dragIdx = null;
+    schedEditor.addEventListener('dragstart', e => {
+        const r = e.target.closest('.lesson-row');
+        if (!r) return;
+        dragDay = r.dataset.day;
+        dragIdx = +r.dataset.index;
+        r.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    schedEditor.addEventListener('dragend', e => {
+        const r = e.target.closest('.lesson-row');
+        if (r) r.classList.remove('dragging');
+    });
+    schedEditor.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    });
+    schedEditor.addEventListener('drop', e => {
+        e.preventDefault();
+        const r = e.target.closest('.lesson-row');
+        if (!r || dragDay === null) return;
+        const tDay = r.dataset.day, tIdx = +r.dataset.index;
+        if (dragDay === tDay && dragIdx === tIdx) return;
+        const g = schedGroupSelect.value, wt = schedWeekSelect.value;
+        if (!g || !wt) return;
+        const src = scheduleData[g][wt][dragDay] || [];
+        const item = src.splice(dragIdx, 1)[0];
+        if (!item) return;
+        if (!scheduleData[g][wt][tDay]) scheduleData[g][wt][tDay] = [];
+        scheduleData[g][wt][tDay].splice(tIdx, 0, item);
+        markChanged();
+        renderScheduleEditor();
+        logAction('Drag: ' + dragDay + '[' + dragIdx + '] → ' + tDay + '[' + tIdx + ']');
+    });
+
+    // -- Autosave Homework (debounced 1.5s) --
+    let hwT = {};
+    document.addEventListener('input', e => {
+        const inp = e.target.closest('input[data-hw-group]');
+        if (!inp) return;
+        const k = inp.dataset.hwGroup + '|' + inp.dataset.hwDay + '|' + inp.dataset.hwNum;
+        clearTimeout(hwT[k]);
+        hwT[k] = setTimeout(async () => {
+            try {
+                const r = await fetch('/api/homework', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ group: inp.dataset.hwGroup, day: inp.dataset.hwDay, number: +inp.dataset.hwNum, text: inp.value.trim() })
+                });
+                if (r.ok) {
+                    const b = inp.parentElement?.querySelector('[data-action="saveHw"]');
+                    if (b) { b.style.color = '#4caf50'; setTimeout(() => b.style.color = '', 1500); }
+                }
+            } catch {}
+        }, 1500);
+    });
+
+    // -- Unsaved Changes Warning --
+    window.addEventListener('beforeunload', e => {
+        if (hasChanges) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // -- Session Timeout (30 min) --
+    let sessTimer = null;
+    function resetSess() {
+        clearTimeout(sessTimer);
+        sessTimer = setTimeout(() => {
+            showToast('Сесія закінчилась (30 хв неактивності)', 'error');
+            setTimeout(doLogout, 2000);
+        }, 30 * 60 * 1000);
+    }
+    ['click', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+        document.addEventListener(ev, resetSess, { passive: true })
+    );
+    resetSess();
+
+    // -- Logout --
+    function doLogout() {
+        localStorage.removeItem('authToken');
+        location.reload();
+    }
+    document.getElementById('logoutBtn')?.addEventListener('click', () => {
+        openConfirm('Вийти', 'Ви впевнені, що хочете вийти?', doLogout);
+    });
+
+    // -- Copy Schedule Between Groups --
+    document.getElementById('copyScheduleBtn')?.addEventListener('click', () => {
+        const tg = schedGroupSelect.value;
+        if (!tg) { showToast('Спочатку оберіть групу', 'error'); return; }
+        const gs = Object.keys(scheduleData).filter(k => k !== '_settings' && k !== tg).sort();
+        if (!gs.length) { showToast('Немає інших груп', 'error'); return; }
+        const src = prompt('Скопіювати розклад з групи:\n\n' + gs.join(', '));
+        if (!src || !scheduleData[src]) { if (src) showToast('Група не знайдена', 'error'); return; }
+        openConfirm('Копіювати розклад', 'Перезаписати ' + tg + ' даними з ' + src + '?', () => {
+            scheduleData[tg] = JSON.parse(JSON.stringify(scheduleData[src]));
+            markChanged();
+            updateWeekTypes();
+            renderScheduleEditor();
+            showToast('Скопійовано з ' + src, 'success');
+            logAction('Copy: ' + src + ' → ' + tg);
+        });
+    });
+
+    // -- Copy Week Type --
+    document.getElementById('copyWeekBtn')?.addEventListener('click', () => {
+        const g = schedGroupSelect.value, wt = schedWeekSelect.value;
+        if (!g || !wt) { showToast('Оберіть групу та тип', 'error'); return; }
+        const t = prompt('Копіювати "' + wt + '" в новий тип:\n(ЧИСЕЛЬНИК, ЗНАМЕННИК, або нова назва)');
+        if (!t) return;
+        const doCopy = () => {
+            scheduleData[g][t] = JSON.parse(JSON.stringify(scheduleData[g][wt]));
+            markChanged();
+            updateWeekTypes();
+            showToast('Скопійовано → ' + t, 'success');
+            logAction('Copy week: ' + wt + ' → ' + t);
+        };
+        if (scheduleData[g][t]) openConfirm('Перезаписати', '"' + t + '" вже існує. Перезаписати?', doCopy);
+        else doCopy();
+    });
+
+    // -- Auto-clean Old Substitutions --
+    document.getElementById('cleanOldSubsBtn')?.addEventListener('click', () => {
+        const g = subsGroupSelect.value;
+        if (!g || !scheduleData[g]?.['ПІДВІСКА']?.length) {
+            showToast('Немає замін для очищення', 'error');
+            return;
+        }
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const before = scheduleData[g]['ПІДВІСКА'].length;
+        scheduleData[g]['ПІДВІСКА'] = scheduleData[g]['ПІДВІСКА'].filter(s => {
+            const [d, m] = s.date.split('.').map(Number);
+            return new Date(now.getFullYear(), m - 1, d) >= now;
+        });
+        if (!scheduleData[g]['ПІДВІСКА'].length) delete scheduleData[g]['ПІДВІСКА'];
+        const rm = before - (scheduleData[g]['ПІДВІСКА']?.length || 0);
+        if (rm > 0) {
+            markChanged();
+            renderSubsEditor();
+            showToast('Видалено ' + rm + ' минулих замін', 'success');
+            logAction('Clean subs: -' + rm);
+        } else {
+            showToast('Минулих замін не знайдено', 'success');
+        }
+    });
+
+    // -- CSV Import --
+    document.getElementById('csvImport')?.addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const g = schedGroupSelect.value, wt = schedWeekSelect.value;
+        if (!g || !wt) { showToast('Оберіть групу та тип тижня', 'error'); e.target.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const lines = ev.target.result.split('\n').filter(l => l.trim());
+            let day = '', n = 0;
+            lines.forEach(line => {
+                const p = line.split(/[;,\t]/).map(s => s.trim());
+                if (p.length >= 3) {
+                    if (p.length >= 4) day = p[0];
+                    const off = p.length >= 4 ? 1 : 0;
+                    const num = +p[off], subj = p[off + 1], teacher = p[off + 2] || '';
+                    if (day && num && subj) {
+                        if (!scheduleData[g][wt][day]) scheduleData[g][wt][day] = [];
+                        scheduleData[g][wt][day].push({ number: num, subject: subj, teacher: teacher });
+                        n++;
+                    }
+                } else if (p.length === 1 && p[0]) {
+                    day = p[0];
+                }
+            });
+            markChanged();
+            renderScheduleEditor();
+            showToast('Імпортовано ' + n + ' пар', 'success');
+            logAction('CSV: ' + g + '/' + wt + ', +' + n);
+        };
+        reader.readAsText(f);
+        e.target.value = '';
+    });
+
+    // -- Stats --
+    async function loadStats() {
+        const el = document.getElementById('statsGrid');
+        if (!el) return;
+        el.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Завантаження...</p>';
+        try {
+            const gc = countGroups();
+            let lc = 0, sc = 0;
+            Object.keys(scheduleData).filter(k => k !== '_settings').forEach(g => {
+                Object.keys(scheduleData[g]).forEach(w => {
+                    if (w === 'ПІДВІСКА') sc += scheduleData[g][w]?.length || 0;
+                    else Object.values(scheduleData[g][w]).forEach(ls => lc += ls.length);
+                });
+            });
+            let pc = '—';
+            try {
+                const r = await fetch('/api/push?action=count', { headers: { 'Authorization': 'Bearer ' + authToken } });
+                if (r.ok) { pc = (await r.json()).count ?? '—'; }
+            } catch {}
+            el.innerHTML = [
+                ['' + gc, 'Груп'], ['' + lc, 'Пар'], ['' + sc, 'Замін'], ['' + pc, 'Push']
+            ].map(([n, l]) => '<div class="stat-box"><span class="stat-num">' + n + '</span><span class="stat-label">' + l + '</span></div>').join('');
+        } catch {
+            el.innerHTML = '<p style="color:var(--danger);font-size:13px">Помилка</p>';
+        }
+    }
+
+    // Load stats when navigating to config
+    document.querySelectorAll('.sidebar-item').forEach(i => {
+        i.addEventListener('click', () => {
+            if (i.dataset.section === 'config') loadStats();
+        });
+    });
+
+    // -- Bulk Sub Add (+ Ще одну) --
+    document.getElementById('subModalAddMore')?.addEventListener('click', async () => {
+        const g = subsGroupSelect.value;
+        if (!g) return;
+        const dateRaw = document.getElementById('subDateInput').value;
+        const num = +document.getElementById('subNumberInput').value;
+        const subj = document.getElementById('subSubjectInput').value.trim();
+        const teacher = document.getElementById('subTeacherInput').value.trim();
+        if (!dateRaw) { showToast('Оберіть дату', 'error'); return; }
+        if (!num || num < 1) { showToast('Введіть номер пари', 'error'); return; }
+        if (!subj) { showToast('Введіть предмет', 'error'); return; }
+        const pd = new Date(dateRaw);
+        if (pd.getDay() === 0 || pd.getDay() === 6) { showToast('Не можна на вихідний', 'error'); return; }
+        const parts = dateRaw.split('-');
+        const date = parts[2] + '.' + parts[1];
+        const newSub = { date, number: num, subject: subj, teacher };
+        if (currentUser?.role === 'starosta') {
+            try {
+                const r = await fetch('/api/pidveska', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ group: g, entries: [newSub] })
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+                await loadSchedule();
+                renderSubsEditor();
+            } catch (e) { showToast('Помилка: ' + e.message, 'error'); return; }
+        } else {
+            if (!scheduleData[g]['ПІДВІСКА']) scheduleData[g]['ПІДВІСКА'] = [];
+            scheduleData[g]['ПІДВІСКА'].push(newSub);
+            newSubsAdded.push({ group: g, ...newSub });
+            markChanged();
+            renderSubsEditor();
+        }
+        showToast('Додано пару #' + num, 'success');
+        logAction('Sub: ' + g + ' ' + date + ' #' + num);
+        // Keep modal open, clear fields except date
+        document.getElementById('subNumberInput').value = '';
+        document.getElementById('subSubjectInput').value = '';
+        document.getElementById('subTeacherInput').value = '';
+        document.getElementById('subNumberInput').focus();
     });
 
 })();
