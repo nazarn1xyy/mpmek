@@ -276,7 +276,29 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     var v=b.getAttribute('data-val');
                     if(!v||pinCode.length>=4)return;
                     pinCode+=v;upd();
-                    if(pinCode.length===4&&window._onPinComplete){setTimeout(function(){window._onPinComplete(pinCode);},200);}
+                    if(pinCode.length===4){setTimeout(function(){
+                        if(window._onPinComplete){window._onPinComplete(pinCode);}
+                        else{
+                            var tk=localStorage.getItem('authToken');
+                            if(!tk){document.getElementById('pinHint').textContent='Сесія не знайдена';return;}
+                            fetch('/api/admin-config',{headers:{'Authorization':'Bearer '+tk,'X-Admin-Pin':pinCode}})
+                            .then(function(r){
+                                if(r.ok){
+                                    document.getElementById('pinScreen').classList.add('hidden');
+                                    document.getElementById('adminPanel').classList.remove('hidden');
+                                    window._verifiedPin=pinCode;
+                                }else{
+                                    return r.json().then(function(d){
+                                        var ph=document.getElementById('pinHint');
+                                        ph.textContent=d.error||'Невірний PIN';ph.style.color='#ff4444';
+                                        pinCode='';upd();
+                                        pinScreen.classList.add('error');
+                                        setTimeout(function(){pinScreen.classList.remove('error');ph.style.color='';},1500);
+                                    });
+                                }
+                            }).catch(function(){pinCode='';upd();document.getElementById('pinHint').textContent='Помилка з\'єднання';});
+                        }
+                    },200);}
                 }
                 var btns=document.querySelectorAll('.pin-key[data-val], #pinDelete');
                 for(var i=0;i<btns.length;i++){btns[i].addEventListener('touchstart',tap,{passive:false});btns[i].addEventListener('click',tap);}
