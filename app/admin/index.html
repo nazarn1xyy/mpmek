@@ -157,7 +157,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             </div>
             <h1 id="loginTitle">Вхід</h1>
             <p id="loginHint" style="min-height:20px">Введіть логін і пароль</p>
-            <form id="loginForm" style="display:flex;flex-direction:column;gap:12px;width:100%">
+            <iframe name="_sink" style="display:none" aria-hidden="true"></iframe>
+            <form id="loginForm" target="_sink" style="display:flex;flex-direction:column;gap:12px;width:100%">
                 <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" name="username" required style="padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;-webkit-appearance:none;appearance:none">
                 <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" name="password" required style="padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;-webkit-appearance:none;appearance:none">
                 <button id="loginSubmit" type="submit" style="padding:14px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer;-webkit-appearance:none;appearance:none">Увійти</button>
@@ -406,8 +407,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="admin-early.js?v=3"></script>
-    <script src="admin-boot-v5.js?v=13"></script>
+    <script src="admin-early.js?v=4"></script>
+    <script src="admin-boot-v5.js?v=14"></script>
 
 
 </body>
