@@ -157,12 +157,43 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             </div>
             <h1 id="loginTitle">Вхід</h1>
             <p id="loginHint" style="min-height:20px">Введіть логін і пароль</p>
-            <iframe name="_sink" style="display:none" aria-hidden="true"></iframe>
-            <form id="loginForm" target="_sink" style="display:flex;flex-direction:column;gap:12px;width:100%">
+            <form id="loginForm" style="display:flex;flex-direction:column;gap:12px;width:100%">
                 <input id="loginUsername" type="text" placeholder="Логін" autocomplete="username" name="username" required style="padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;-webkit-appearance:none;appearance:none">
                 <input id="loginPassword" type="password" placeholder="Пароль" autocomplete="current-password" name="password" required style="padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;-webkit-appearance:none;appearance:none">
                 <button id="loginSubmit" type="submit" style="padding:14px;border-radius:10px;border:none;background:var(--accent);color:#000;font-size:16px;font-weight:600;cursor:pointer;-webkit-appearance:none;appearance:none">Увійти</button>
             </form>
+            <script>
+            (function(){
+                var form=document.getElementById('loginForm');
+                if(!form)return;
+                var busy=false;
+                form.addEventListener('submit',function(e){
+                    e.preventDefault();
+                    if(busy)return;
+                    var hint=document.getElementById('loginHint');
+                    var btn=document.getElementById('loginSubmit');
+                    var u=document.getElementById('loginUsername').value.trim().toLowerCase();
+                    var p=document.getElementById('loginPassword').value;
+                    if(!u||!p){hint.textContent='Введіть логін і пароль';hint.style.color='#ff4444';return;}
+                    busy=true;
+                    if(btn){btn.disabled=true;btn.textContent='Вхід...';}
+                    hint.textContent='Вхід...';hint.style.color='';
+                    fetch('/api/auth?action=login',{
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({username:u,password:p})
+                    }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});})
+                    .then(function(res){
+                        if(!res.ok){hint.textContent=res.data.error||'Помилка';hint.style.color='#ff4444';if(btn){btn.disabled=false;btn.textContent='Увійти';}busy=false;return;}
+                        localStorage.setItem('authToken',res.data.token);
+                        window._loginUser=res.data.user;
+                        if(window._onLoginSuccess){window._onLoginSuccess(res.data);}
+                        else{location.reload();}
+                    }).catch(function(err){hint.textContent='Помилка: '+err.message;hint.style.color='#ff4444';if(btn){btn.disabled=false;btn.textContent='Увійти';}busy=false;});
+                });
+                window._doLogin=true;
+            })();
+            </script>
             <a href="../" style="margin-top:16px;color:var(--text-muted);font-size:13px;text-decoration:none">← На головний сайт</a>
         </div>
     </div>
@@ -407,7 +438,6 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="admin-early.js?v=4"></script>
     <script src="admin-boot-v5.js?v=14"></script>
 
 
