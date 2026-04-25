@@ -167,6 +167,25 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 var form=document.getElementById('loginForm');
                 if(!form)return;
                 var busy=false;
+
+                function afterLogin(user){
+                    var ls=document.getElementById('loginScreen');
+                    var ps=document.getElementById('pinScreen');
+                    if(ls)ls.classList.add('hidden');
+                    if(user.role==='admin'&&ps){ps.classList.remove('hidden');}
+                    else if(user.role==='starosta'){
+                        if(window._onLoginSuccess){window._onLoginSuccess({token:localStorage.getItem('authToken'),user:user});}
+                        else{location.reload();}
+                        return;
+                    }
+                    else{
+                        var h=document.getElementById('loginHint');
+                        if(h){h.textContent='У вас немає доступу до адмін-панелі';h.style.color='#ff4444';}
+                        if(ls)ls.classList.remove('hidden');
+                    }
+                    if(window._onLoginSuccess){window._onLoginSuccess({token:localStorage.getItem('authToken'),user:user});}
+                }
+
                 form.addEventListener('submit',function(e){
                     e.preventDefault();
                     if(busy)return;
@@ -187,10 +206,19 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                         if(!res.ok){hint.textContent=res.data.error||'Помилка';hint.style.color='#ff4444';if(btn){btn.disabled=false;btn.textContent='Увійти';}busy=false;return;}
                         localStorage.setItem('authToken',res.data.token);
                         window._loginUser=res.data.user;
-                        if(window._onLoginSuccess){window._onLoginSuccess(res.data);}
-                        else{location.reload();}
+                        afterLogin(res.data.user);
                     }).catch(function(err){hint.textContent='Помилка: '+err.message;hint.style.color='#ff4444';if(btn){btn.disabled=false;btn.textContent='Увійти';}busy=false;});
                 });
+
+                // Auto-login if token exists (session check)
+                var t=localStorage.getItem('authToken');
+                if(t){
+                    fetch('/api/auth?action=me',{headers:{'Authorization':'Bearer '+t}})
+                    .then(function(r){if(r.ok)return r.json();throw new Error();})
+                    .then(function(d){window._loginUser=d.user;afterLogin(d.user);})
+                    .catch(function(){});
+                }
+
                 window._doLogin=true;
             })();
             </script>
@@ -235,6 +263,27 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     </svg>
                 </button>
             </div>
+            <script>
+            (function(){
+                var pinCode='';
+                var dots=document.querySelectorAll('.pin-dot');
+                var pinScreen=document.getElementById('pinScreen');
+                function upd(){for(var i=0;i<dots.length;i++){dots[i].setAttribute('data-filled',i<pinCode.length?'true':'false');}}
+                function tap(e){
+                    e.preventDefault();e.stopPropagation();
+                    var b=e.currentTarget;
+                    if(b.id==='pinDelete'){pinCode=pinCode.slice(0,-1);if(pinScreen)pinScreen.classList.remove('error');upd();return;}
+                    var v=b.getAttribute('data-val');
+                    if(!v||pinCode.length>=4)return;
+                    pinCode+=v;upd();
+                    if(pinCode.length===4&&window._onPinComplete){setTimeout(function(){window._onPinComplete(pinCode);},200);}
+                }
+                var btns=document.querySelectorAll('.pin-key[data-val], #pinDelete');
+                for(var i=0;i<btns.length;i++){btns[i].addEventListener('touchstart',tap,{passive:false});btns[i].addEventListener('click',tap);}
+                window._pinReset=function(){pinCode='';upd();};
+                window._getPinCode=function(){return pinCode;};
+            })();
+            </script>
         </div>
     </div>
 
