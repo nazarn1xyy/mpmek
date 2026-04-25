@@ -1,19 +1,20 @@
 // Login handler — runs before admin-boot-v5.js
+// Uses form 'submit' event (most reliable on iOS Safari)
 (function(){
     var busy = false;
-    var hint = document.getElementById('loginHint');
-    var btn = document.getElementById('loginSubmit');
     var form = document.getElementById('loginForm');
+    if (!form) return;
 
-    function doLogin(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
         if (busy) return;
+        var hint = document.getElementById('loginHint');
+        var btn = document.getElementById('loginSubmit');
         var u = document.getElementById('loginUsername').value.trim().toLowerCase();
         var p = document.getElementById('loginPassword').value;
         if (!u || !p) { hint.textContent = 'Введіть логін і пароль'; hint.style.color = '#ff4444'; return; }
         busy = true;
-        btn.disabled = true;
-        btn.textContent = 'Вхід...';
+        if (btn) { btn.disabled = true; btn.textContent = 'Вхід...'; }
         hint.textContent = 'Вхід...';
         hint.style.color = '';
         fetch('/api/auth?action=login', {
@@ -22,22 +23,15 @@
             body: JSON.stringify({username: u, password: p})
         }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
         .then(function(res){
-            if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; btn.disabled=false; btn.textContent='Увійти'; busy=false; return; }
+            if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; if(btn){btn.disabled=false; btn.textContent='Увійти';} busy=false; return; }
             localStorage.setItem('authToken', res.data.token);
             window._loginUser = res.data.user;
             if (window._onLoginSuccess) { window._onLoginSuccess(res.data); }
             else { location.reload(); }
-        }).catch(function(e){ hint.textContent = 'Помилка: ' + e.message; hint.style.color='#ff4444'; btn.disabled=false; btn.textContent='Увійти'; busy=false; });
-    }
+        }).catch(function(err){ hint.textContent = 'Помилка: ' + err.message; hint.style.color='#ff4444'; if(btn){btn.disabled=false; btn.textContent='Увійти';} busy=false; });
+    });
 
-    window._doLogin = doLogin;
-    // Form submit is the most reliable event on iOS Safari
-    if (form) { form.addEventListener('submit', doLogin); }
-    // Fallback: direct button listeners
-    if (btn) {
-        btn.addEventListener('click', doLogin);
-        btn.addEventListener('touchend', function(e){ e.preventDefault(); doLogin(); });
-    }
+    window._doLogin = true;
 })();
 
 // PIN handler

@@ -101,9 +101,9 @@
         });
     }
 
-    // If admin-early.js loaded first, use its input handling + our callback
+    // If admin-early.js loaded first, use its form submit handler + our callback
     // Otherwise attach our own listeners as fallback
-    if (typeof window._doLogin === 'function') {
+    if (window._doLogin) {
         window._onLoginSuccess = function(data) {
             authToken = data.token;
             currentUser = data.user;
@@ -111,9 +111,9 @@
         };
     } else {
         const loginForm = document.getElementById('loginForm');
-        if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
-        loginSubmitBtn.addEventListener('click', doLogin);
-        loginSubmitBtn.addEventListener('touchend', (e) => { e.preventDefault(); doLogin(); });
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
+        }
     }
 
     // Check if user already has a valid session
