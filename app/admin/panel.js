@@ -52,6 +52,7 @@
         subs: document.getElementById('sec-subs'),
         homework: document.getElementById('sec-homework'),
         bells: document.getElementById('sec-bells'),
+        users: document.getElementById('sec-users'),
         config: document.getElementById('sec-config')
     };
 
@@ -271,7 +272,7 @@
         // Hide admin-only sidebar items
         document.querySelectorAll('.sidebar-item').forEach(item => {
             const sec = item.dataset.section;
-            if (['groups', 'schedule', 'bells', 'config'].includes(sec)) {
+            if (['groups', 'schedule', 'bells', 'users', 'config'].includes(sec)) {
                 item.style.display = 'none';
             }
         });
@@ -766,14 +767,18 @@
                 const key = `${group}|${day}|${l.number}`;
                 const existing = hwData[key] || '';
                 html += `
-                    <div class="sub-row" style="flex-wrap:wrap;gap:8px">
-                        <span style="min-width:24px;font-weight:600;color:var(--accent)">${l.number}</span>
-                        <span style="flex:1;min-width:120px;color:var(--text-muted)">${escHtml(l.subject)}</span>
-                        <input type="text" class="input" style="flex:2;min-width:200px" placeholder="Домашнє завдання..."
-                            value="${escAttr(existing)}" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}">
-                        <button class="btn-icon" data-action="saveHw" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}" title="Зберегти">
-                            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
-                        </button>
+                    <div class="hw-row">
+                        <div class="hw-label">
+                            <span class="hw-num">${l.number}</span>
+                            <span class="hw-subject">${escHtml(l.subject)}${l.teacher ? ' <span style="opacity:.5">(' + escHtml(l.teacher) + ')</span>' : ''}</span>
+                        </div>
+                        <div class="hw-input-wrap">
+                            <input type="text" class="input" placeholder="Домашнє завдання..."
+                                value="${escAttr(existing)}" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}">
+                            <button class="btn-icon" data-action="saveHw" data-hw-group="${escAttr(group)}" data-hw-day="${escAttr(day)}" data-hw-num="${l.number}" title="Зберегти">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                            </button>
+                        </div>
                     </div>`;
             });
             html += `</div></div>`;
@@ -1453,10 +1458,11 @@
         }
     }
 
-    // Load stats when navigating to config
+    // Load stats/users when navigating to their tabs
     document.querySelectorAll('.sidebar-item').forEach(i => {
         i.addEventListener('click', () => {
             if (i.dataset.section === 'config') loadStats();
+            if (i.dataset.section === 'users') loadUsers();
         });
     });
 
@@ -1502,5 +1508,67 @@
         document.getElementById('subTeacherInput').value = '';
         document.getElementById('subNumberInput').focus();
     });
+
+    // -- Users Section --
+    let usersLoaded = false;
+    async function loadUsers() {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        container.innerHTML = '<p class="placeholder-text">Завантаження...</p>';
+        try {
+            const resp = await fetch('/api/admin-config?action=users', {
+                headers: {
+                    'Authorization': 'Bearer ' + authToken,
+                    'X-Admin-Pin': verifiedPin
+                }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            renderUsers(data.users || []);
+            usersLoaded = true;
+        } catch (e) {
+            container.innerHTML = '<p class="placeholder-text" style="color:var(--danger)">Помилка: ' + escHtml(e.message) + '</p>';
+        }
+    }
+
+    function renderUsers(users) {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        const countEl = document.getElementById('usersCount');
+        if (countEl) countEl.textContent = '(' + users.length + ')';
+        if (users.length === 0) {
+            container.innerHTML = '<p class="placeholder-text">Немає зареєстрованих користувачів</p>';
+            return;
+        }
+        container.innerHTML = users.map(u => {
+            const initials = (u.displayName || u.username).slice(0, 2).toUpperCase();
+            const roleClass = u.role === 'admin' ? 'admin' : u.role === 'starosta' ? 'starosta' : 'user';
+            const roleLabel = u.role === 'admin' ? 'Admin' : u.role === 'starosta' ? 'Староста' : 'User';
+            const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('uk') : '';
+            return '<div class="user-card" data-username="' + escAttr(u.username) + '">'
+                + '<div class="user-avatar">' + escHtml(initials) + '</div>'
+                + '<div class="user-info">'
+                + '<div class="user-name">' + escHtml(u.displayName || u.username) + '</div>'
+                + '<div class="user-meta">'
+                + '<span>@' + escHtml(u.username) + '</span>'
+                + (u.group ? ' <span>\uD83D\uDCDA ' + escHtml(u.group) + '</span>' : '')
+                + (date ? ' <span>\uD83D\uDCC5 ' + date + '</span>' : '')
+                + '</div></div>'
+                + '<span class="user-badge ' + roleClass + '">' + roleLabel + '</span>'
+                + '</div>';
+        }).join('');
+    }
+
+    // -- User Search Filter --
+    const userSearchEl = document.getElementById('userSearch');
+    if (userSearchEl) {
+        userSearchEl.addEventListener('input', () => {
+            const q = userSearchEl.value.trim().toLowerCase();
+            document.querySelectorAll('#usersList .user-card').forEach(c => {
+                const text = (c.querySelector('.user-name')?.textContent + ' ' + c.querySelector('.user-meta')?.textContent).toLowerCase();
+                c.style.display = text.includes(q) ? '' : 'none';
+            });
+        });
+    }
 
 })();

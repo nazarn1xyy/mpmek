@@ -167,6 +167,33 @@ async function handlePublish(req, res) {
   return res.json({ ok: true });
 }
 
+async function handleUsers(res) {
+  const keys = await redis('KEYS', 'auth:user:*');
+  if (!keys || !keys.length) return res.json({ users: [], total: 0 });
+  const values = await redis('MGET', ...keys);
+  const users = [];
+  keys.forEach((key, i) => {
+    const username = key.replace('auth:user:', '');
+    try {
+      const d = JSON.parse(values[i]);
+      users.push({
+        username,
+        displayName: d.displayName || username,
+        group: d.group || '',
+        role: ADMIN_USERNAMES.includes(username) ? 'admin' : (d.role || 'user'),
+        createdAt: d.createdAt || null
+      });
+    } catch {
+      users.push({ username, displayName: username, group: '', role: 'user', createdAt: null });
+    }
+  });
+  users.sort((a, b) => {
+    const ro = { admin: 0, starosta: 1, user: 2 };
+    return (ro[a.role] ?? 3) - (ro[b.role] ?? 3) || a.username.localeCompare(b.username);
+  });
+  return res.json({ users, total: users.length });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -233,8 +260,13 @@ module.exports = async function handler(req, res) {
       return await handlePublish(req, res);
     }
 
+    // GET with action=users → list all registered users
+    if (req.method === 'GET' && action === 'users') {
+      return await handleUsers(res);
+    }
+
     // GET → auth probe (returns ok if credentials are valid)
-    if (req.method === 'GET') {
+    if (req.method === 'GET' && !action) {
       return res.status(200).json({ ok: true });
     }
 

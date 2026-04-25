@@ -130,6 +130,24 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .undo-btn:disabled{opacity:.3;cursor:not-allowed}
 .csv-label{display:inline-flex;align-items:center;gap:6px;padding:14px 20px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:14px;font-family:var(--font);cursor:pointer;transition:all .15s ease}
 .csv-label:hover{border-color:var(--text-muted);color:var(--text)}
+.hw-row{padding:10px 0;border-bottom:1px solid var(--border)}.hw-row:last-child{border-bottom:none}
+.hw-label{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.hw-num{font-weight:700;color:var(--accent);min-width:20px;font-size:14px}
+.hw-subject{color:var(--text-muted);font-size:13px}
+.hw-input-wrap{display:flex;gap:8px;align-items:center}
+.hw-input-wrap .input{flex:1;font-size:16px;padding:10px 12px}
+.users-list{display:flex;flex-direction:column;gap:8px}
+.user-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;transition:border-color .2s}
+.user-card:hover{border-color:var(--text-muted)}
+.user-avatar{width:40px;height:40px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--text-muted);flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta{font-size:12px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.user-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.user-badge.admin{background:rgba(168,85,247,.15);color:#a855f7}
+.user-badge.starosta{background:rgba(59,130,246,.15);color:#3b82f6}
+.user-badge.user{background:var(--surface-2);color:var(--text-muted)}
+.users-count{font-size:14px;color:var(--text-muted);font-weight:400}
 @media(max-width:768px){
 .sidebar{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;border-right:none;border-top:1px solid var(--border);background:rgba(17,17,17,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0));z-index:40}
 .sidebar-header{display:none}
@@ -360,6 +378,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Дзвінки</span>
                 </button>
+                <button class="sidebar-item" data-section="users">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Юзері</span>
+                </button>
                 <button class="sidebar-item" data-section="config">
                     <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     <span>Налашт.</span>
@@ -457,6 +479,20 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 </div>
                 <div id="bellsEditor" class="bells-editor">
                     <!-- 6 lesson time inputs -->
+                </div>
+            </section>
+
+            <!-- Section: Users -->
+            <section id="sec-users" class="section">
+                <div class="section-header">
+                    <h2>Користувачі <span id="usersCount" class="users-count"></span></h2>
+                </div>
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="userSearch" type="text" placeholder="Пошук користувача...">
+                </div>
+                <div id="usersList" class="users-list">
+                    <p class="placeholder-text">Завантаження...</p>
                 </div>
             </section>
 
@@ -559,7 +595,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
 
-    <script src="/admin/panel.js?v=2"></script>
+    <script src="/admin/panel.js?v=3"></script>
 
 
 </body>
