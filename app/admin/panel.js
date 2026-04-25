@@ -1565,15 +1565,74 @@
     }
 
     // -- Role Filter Tabs --
+    let currentFilter = 'all';
+    let botUsersCache = null;
+
     document.querySelectorAll('.role-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            const f = tab.dataset.filter;
-            if (f === 'all') { renderUsers(allUsersData); return; }
-            renderUsers(allUsersData.filter(u => u.role === f));
+            currentFilter = tab.dataset.filter;
+            if (currentFilter === 'bot') { loadBotUsers(); return; }
+            if (currentFilter === 'all') { renderUsers(allUsersData); return; }
+            renderUsers(allUsersData.filter(u => u.role === currentFilter));
         });
     });
+
+    async function loadBotUsers() {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        container.innerHTML = '<p class="placeholder-text">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u0431\u043e\u0442-\u044e\u0437\u0435\u0440\u0456\u0432...</p>';
+        try {
+            const resp = await fetch('/api/admin-config?action=bot-users', {
+                headers: { 'Authorization': 'Bearer ' + authToken, 'X-Admin-Pin': verifiedPin }
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            botUsersCache = data;
+            renderBotUsers(data);
+        } catch (e) {
+            container.innerHTML = '<p class="placeholder-text" style="color:var(--danger)">\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + escHtml(e.message) + '</p>';
+        }
+    }
+
+    function renderBotUsers(data) {
+        const container = document.getElementById('usersList');
+        if (!container) return;
+        const users = data.users || [];
+        const countEl = document.getElementById('usersCount');
+        if (countEl) countEl.textContent = '(' + users.length + ')';
+        let html = '';
+        if (data.syncedAt) {
+            const ago = Math.round((Date.now() - new Date(data.syncedAt).getTime()) / 60000);
+            const agoText = ago < 1 ? '\u0449\u043e\u0439\u043d\u043e' : ago < 60 ? ago + ' \u0445\u0432 \u0442\u043e\u043c\u0443' : Math.round(ago / 60) + ' \u0433\u043e\u0434 \u0442\u043e\u043c\u0443';
+            html += '<div class="bot-sync-info">\ud83d\udd04 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u043e\u0432\u0430\u043d\u043e: ' + agoText + ' \u2022 ' + users.length + ' \u044e\u0437\u0435\u0440\u0456\u0432 \u0443 \u0431\u043e\u0442\u0456</div>';
+        } else {
+            html += '<div class="bot-sync-info">\u26a0\ufe0f \u0411\u043e\u0442 \u0449\u0435 \u043d\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0432\u0430\u0432 \u0434\u0430\u043d\u0456. \u041f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c \u0431\u043e\u0442\u0430.</div>';
+        }
+        if (users.length === 0) {
+            container.innerHTML = html + '<p class="placeholder-text">\u041d\u0435\u043c\u0430\u0454 \u043a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0456\u0432</p>';
+            return;
+        }
+        html += users.map(u => {
+            const name = u.name || '\u041d\u0435\u0432\u0456\u0434\u043e\u043c\u0438\u0439';
+            const initials = name.slice(0, 2).toUpperCase();
+            const statusClass = u.active ? 'active' : 'paused';
+            const statusLabel = u.active ? '\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0439' : '\u041f\u0430\u0443\u0437\u0430';
+            return '<div class="user-card" data-bot-user="1">'
+                + '<div class="user-avatar" style="background:rgba(59,130,246,.15);color:#3b82f6">' + escHtml(initials) + '</div>'
+                + '<div class="user-info">'
+                + '<div class="user-name">' + escHtml(name) + '</div>'
+                + '<div class="user-meta">'
+                + '<span>\ud83c\udd94 ' + escHtml(u.chatId) + '</span>'
+                + (u.group ? ' <span>\ud83d\udcda ' + escHtml(u.group) + '</span>' : ' <span style="color:var(--danger)">\u043d\u0435\u043c\u0430\u0454 \u0433\u0440\u0443\u043f\u0438</span>')
+                + ' <span>\u23f0 ' + escHtml(u.notifyTime) + '</span>'
+                + '</div></div>'
+                + '<span class="bot-status ' + statusClass + '">' + statusLabel + '</span>'
+                + '</div>';
+        }).join('');
+        container.innerHTML = html;
+    }
 
     // -- User Search Filter --
     const userSearchEl = document.getElementById('userSearch');
@@ -1587,10 +1646,10 @@
         });
     }
 
-    // -- User Card Click → Detail Modal --
+    // -- User Card Click → Detail Modal (skip bot users) --
     document.getElementById('usersList')?.addEventListener('click', e => {
         const card = e.target.closest('.user-card');
-        if (!card) return;
+        if (!card || card.dataset.botUser) return;
         const user = allUsersData.find(u => u.username === card.dataset.username);
         if (user) openUserModal(user);
     });

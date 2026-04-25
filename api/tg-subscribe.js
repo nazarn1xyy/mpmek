@@ -11,12 +11,25 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { chat_id, group, old_group, bot_token } = req.body || {};
+    const { chat_id, group, old_group, bot_token, action, users } = req.body || {};
 
     // Simple auth: require bot token
     const expectedToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!safeCompare(bot_token, expectedToken)) {
       return res.status(403).json({ error: 'unauthorized' });
+    }
+
+    // Sync bot users to Redis
+    if (action === 'sync-users') {
+      if (!users || typeof users !== 'object') {
+        return res.status(400).json({ error: 'invalid users data' });
+      }
+      const payload = JSON.stringify({ users, syncedAt: new Date().toISOString() });
+      if (payload.length > 500000) {
+        return res.status(413).json({ error: 'payload too large' });
+      }
+      await redis('SET', 'bot:users', payload);
+      return res.json({ ok: true, count: Object.keys(users).length });
     }
 
     // Validate chat_id (must be numeric, Telegram IDs are int64)

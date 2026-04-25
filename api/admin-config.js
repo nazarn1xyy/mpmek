@@ -335,6 +335,19 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST' && action === 'publish') return await handlePublish(req, res);
     if (req.method === 'GET' && action === 'users') return await handleUsers(res);
+    if (req.method === 'GET' && action === 'bot-users') {
+      const raw = await redis('GET', 'bot:users');
+      if (!raw) return res.json({ users: [], syncedAt: null });
+      try {
+        const d = JSON.parse(raw);
+        const users = [];
+        for (const [chatId, u] of Object.entries(d.users || {})) {
+          users.push({ chatId, name: u.name || '', group: u.group || '', notifyTime: u.notify_time || '07:30', active: u.active !== false });
+        }
+        users.sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.name || '').localeCompare(b.name || ''));
+        return res.json({ users, total: users.length, syncedAt: d.syncedAt || null });
+      } catch { return res.json({ users: [], syncedAt: null }); }
+    }
     if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
     if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
