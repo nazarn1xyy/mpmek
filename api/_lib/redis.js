@@ -77,6 +77,19 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
+// Safe key iteration using SCAN (O(1) per call, no blocking unlike KEYS)
+async function scanKeys(pattern, maxKeys = 5000) {
+  const keys = [];
+  let cursor = '0';
+  do {
+    const res = await redis('SCAN', cursor, 'MATCH', pattern, 'COUNT', 100);
+    cursor = String(res[0]);
+    if (res[1] && res[1].length) keys.push(...res[1]);
+    if (keys.length >= maxKeys) break;
+  } while (cursor !== '0');
+  return keys.slice(0, maxKeys);
+}
+
 // Extract username from Bearer token (handles both "username" legacy and "username:sessionVer" formats)
 // Returns null if token invalid, session not found, or sessionVer mismatch.
 async function getSessionUsername(req) {
@@ -96,4 +109,4 @@ async function getSessionUsername(req) {
   return uname;
 }
 
-module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare, getSessionUsername };
+module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare, getSessionUsername, scanKeys };

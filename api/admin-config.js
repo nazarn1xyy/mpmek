@@ -8,7 +8,7 @@
  * Auth (for every route): X-Admin-Pin header + Authorization: Bearer <admin session token>
  */
 const crypto = require('crypto');
-const { redis, rateLimit, safeCompare, getSessionUsername } = require('./_lib/redis');
+const { redis, rateLimit, safeCompare, getSessionUsername, scanKeys } = require('./_lib/redis');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const GH_TOKEN = process.env.GITHUB_TOKEN;
@@ -188,7 +188,7 @@ async function handlePublish(req, res) {
 }
 
 async function handleUsers(res) {
-  const keys = await redis('KEYS', 'auth:user:*');
+  const keys = await scanKeys('auth:user:*');
   const values = keys && keys.length ? await redis('MGET', ...keys) : [];
   const usersMap = {};
   (keys || []).forEach((key, i) => {
@@ -269,6 +269,8 @@ async function handleDeleteUser(req, res) {
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot delete admin' });
   await redis('DEL', `auth:user:${uname}`);
   await redis('DEL', `auth:sver:${uname}`);
+  await redis('DEL', `webauthn:creds:${uname}`);
+  await redis('DEL', `webauthn:challenge:${uname}`);
   return res.json({ ok: true });
 }
 

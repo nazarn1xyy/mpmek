@@ -334,6 +334,8 @@ module.exports = async (req, res) => {
     if (req.method === 'GET' && action === 'webauthn-check') {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const raw = await redis('GET', `webauthn:creds:${session.username}`);
       const creds = raw ? JSON.parse(raw) : [];
       return res.json({ registered: creds.length > 0 });
@@ -343,9 +345,12 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && action === 'webauthn-register-options') {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
       const raw = await redis('GET', `webauthn:creds:${session.username}`);
       const existing = raw ? JSON.parse(raw) : [];
+      if (existing.length >= 5) return res.status(400).json({ error: 'Max 5 credentials' });
       const options = await wa.generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
@@ -367,6 +372,8 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && action === 'webauthn-register') {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
       const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
@@ -384,6 +391,7 @@ module.exports = async (req, res) => {
         const { credential } = verification.registrationInfo;
         const raw = await redis('GET', `webauthn:creds:${session.username}`);
         const creds = raw ? JSON.parse(raw) : [];
+        if (creds.length >= 5) return res.status(400).json({ error: 'Max 5 credentials' });
         creds.push({
           credentialID: credential.id,
           publicKey: Buffer.from(credential.publicKey).toString('base64'),
@@ -402,6 +410,8 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && action === 'webauthn-auth-options') {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
       const raw = await redis('GET', `webauthn:creds:${session.username}`);
       const creds = raw ? JSON.parse(raw) : [];
@@ -419,6 +429,8 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && action === 'webauthn-auth') {
       const session = await getSession(req);
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
       const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
