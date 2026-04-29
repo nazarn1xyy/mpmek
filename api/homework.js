@@ -26,8 +26,10 @@ async function authenticate(req) {
   if (!raw) return null;
   try {
     const user = JSON.parse(raw);
-    const isAdmin = ADMIN_USERNAMES.includes(uname) || user.role === 'starosta';
-    return { username: uname, group: user.group || '', isAdmin };
+    const isAdmin = ADMIN_USERNAMES.includes(uname);
+    const isStarosta = !isAdmin && (user.role === 'starosta');
+    const role = isAdmin ? 'admin' : isStarosta ? 'starosta' : 'user';
+    return { username: uname, group: user.group || '', role, canEdit: isAdmin || isStarosta };
   } catch { return null; }
 }
 
@@ -97,6 +99,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'upload') {
       const user = await authenticate(req);
       if (!user) return res.status(401).json({ error: 'Авторизуйтесь' });
+      if (!user.canEdit) return res.status(403).json({ error: 'Тільки староста або адмін може додавати завдання' });
       if (await rateLimit(`hw:upload:${user.username}`, 15, 60)) {
         return res.status(429).json({ error: 'Too many uploads' });
       }
@@ -105,7 +108,7 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !fileData || !fileName) {
         return res.status(400).json({ error: 'group, day, number, fileName, fileData required' });
       }
-      if (!user.isAdmin && !sameGroup(user.group, group)) {
+      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const mimeType = typeof fileType === 'string' ? fileType : 'application/octet-stream';
@@ -159,6 +162,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'delete-attachment') {
       const user = await authenticate(req);
       if (!user) return res.status(401).json({ error: 'Авторизуйтесь' });
+      if (!user.canEdit) return res.status(403).json({ error: 'Тільки староста або адмін може видаляти завдання' });
       if (await rateLimit(`hw:del:${user.username}`, 30, 60)) {
         return res.status(429).json({ error: 'Too many requests' });
       }
@@ -167,7 +171,7 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !url) {
         return res.status(400).json({ error: 'group, day, number, url required' });
       }
-      if (!user.isAdmin && !sameGroup(user.group, group)) {
+      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const num = Number(number);
@@ -197,11 +201,14 @@ module.exports = async function handler(req, res) {
       return res.json({ ok: true, remaining: existing.length });
     }
 
-    // Write operations (text) require authentication
+    // Write operations (text) require authentication + starosta/admin role
     if ((req.method === 'POST' && !action) || req.method === 'DELETE') {
       const user = await authenticate(req);
       if (!user) {
         return res.status(401).json({ error: 'Авторизуйтесь, щоб редагувати завдання' });
+      }
+      if (!user.canEdit) {
+        return res.status(403).json({ error: 'Тільки староста або адмін може редагувати завдання' });
       }
 
       if (await rateLimit(`hw:${user.username}`, 30, 60)) {
@@ -220,8 +227,8 @@ module.exports = async function handler(req, res) {
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
       if (typeof day !== 'string' || day.length > 20) return res.status(400).json({ error: 'invalid day' });
 
-      // Users can only modify homework for their own group; admins can modify any
-      if (!user.isAdmin && !sameGroup(user.group, group)) {
+      // Starosta can only modify homework for their own group; admins can modify any
+      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
 

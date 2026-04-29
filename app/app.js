@@ -282,8 +282,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let modalCurrentKey = null;
     let authToken = localStorage.getItem('authToken') || null;
-    let currentUser = null; // { username, displayName, group }
+    let currentUser = null; // { username, displayName, group, role }
     let isLoginMode = false;
+
+    function canEditHw() {
+        return currentUser && (currentUser.role === 'starosta' || currentUser.role === 'admin');
+    }
 
     // ===== Auth helpers =====
     async function authFetch(action, method, body) {
@@ -1089,7 +1093,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }).join('') + '</div>';
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}${attachHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>` : '';
+        const deleteHtml = canEditHw() ? savedHtml : savedText ? `<div class="hw-saved"><span>${escHtml(savedText)}</span></div>` : '';
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${deleteHtml}${attachHtml}${hwBtnHtml}`;
         return div;
     }
 
@@ -1201,8 +1207,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentWeekType = availableTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : availableTypes[0];
             weekData = scheduleData[selectedGroup][currentWeekType];
             if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
-            weekTypeToggle.textContent = currentWeekType.split(' ')[0] || 'РОЗКЛАД';
         }
+
+        weekTypeToggle.textContent = (currentWeekType || 'РОЗКЛАД').split(' ')[0];
 
         if (!weekData || (Array.isArray(weekData) && weekData.length === 0)) {
             diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Розклад відсутній</p><p class="empty-state-desc">Для вибраного тижня немає пар.</p></div>`;
@@ -1646,7 +1653,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
                     }).join('') + '</div>';
                 }
-                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
+                const actionsHtml = canEditHw() ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>` : '';
+                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
                 frag.appendChild(card);
             }
         }
