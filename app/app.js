@@ -1196,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasZnam = groupTypes.includes('ЗНАМЕННИК');
         if (hasChis && hasZnam && (currentWeekType === 'ОСНОВНИЙ РОЗКЛАД' || currentWeekType === 'ЧИСЕЛЬНИК' || currentWeekType === 'ЗНАМЕННИК')) {
             const isoWeek = getISOWeek(weekOffset);
-            currentWeekType = isoWeek % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+            currentWeekType = isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
         }
 
         let weekData = scheduleData[selectedGroup][currentWeekType];
@@ -1373,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasZnam = groupTypes.includes('ЗНАМЕННИК');
         if (hasChis && hasZnam && (currentWeekType === 'ОСНОВНИЙ РОЗКЛАД' || currentWeekType === 'ЧИСЕЛЬНИК' || currentWeekType === 'ЗНАМЕННИК')) {
             const isoWeek = getISOWeek(weekOffset);
-            currentWeekType = isoWeek % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+            currentWeekType = isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
         }
         let weekData = groupData[currentWeekType];
         const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);

@@ -70,17 +70,31 @@ function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
   if (!groupData) return null;
   const dayName = UK_DAYS[dayIdx];
 
-  let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
-  if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
-    const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-    if (types.length === 0) return null;
-    weekData = groupData[types[0]];
-  }
+  const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+  if (types.length === 0) return null;
 
   const today = new Date();
   const currentDow = today.getDay() || 7;
   const targetDow = dayIdx || 7;
   const offset = targetDow - currentDow + (weekOffset * 7);
+
+  // Auto-detect week type (even ISO week = ЧИСЕЛЬНИК, odd = ЗНАМЕННИК)
+  const hasChis = types.includes('ЧИСЕЛЬНИК');
+  const hasZnam = types.includes('ЗНАМЕННИК');
+  let weekKey = 'ОСНОВНИЙ РОЗКЛАД';
+  if (hasChis && hasZnam) {
+    const target = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    target.setUTCDate(target.getUTCDate() + (weekOffset || 0) * 7);
+    target.setUTCDate(target.getUTCDate() + 4 - (target.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+    const isoWeek = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
+    weekKey = isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
+  }
+
+  let weekData = groupData[weekKey];
+  if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+    weekData = groupData[types[0]];
+  }
   const d = new Date(today);
   d.setDate(today.getDate() + offset);
   const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
