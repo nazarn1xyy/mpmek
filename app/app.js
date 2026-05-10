@@ -56,6 +56,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.documentElement.classList.add('in-tg-webapp');
         tgApp.ready();
         tgApp.expand();
+        function applyTgInset() {
+            const top = (tgApp.safeAreaInset?.top ?? 0) + (tgApp.contentSafeAreaInset?.top ?? 0);
+            document.documentElement.style.setProperty('--tg-inset-top', Math.max(top, 52) + 'px');
+        }
+        applyTgInset();
+        tgApp.onEvent?.('safeAreaChanged', applyTgInset);
+        tgApp.onEvent?.('contentSafeAreaChanged', applyTgInset);
     }
 
     // ===== State =====
