@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tgApp.expand();
         function applyTgInset() {
             const top = (tgApp.safeAreaInset?.top ?? 0) + (tgApp.contentSafeAreaInset?.top ?? 0);
-            document.documentElement.style.setProperty('--tg-inset-top', Math.max(top, 52) + 'px');
+            document.documentElement.style.setProperty('--tg-inset-top', Math.max(top, 96) + 'px');
         }
         applyTgInset();
         tgApp.onEvent?.('safeAreaChanged', applyTgInset);

@@ -1784,14 +1784,14 @@ input:checked + .slider:before {
 }
 
 /* ── Telegram Mini App safe-area offsets ── */
-/* --tg-inset-top is set via JS (Math.max(apiValue, 52px)) — works on all Telegram versions */
-.in-tg-webapp .top-nav {
-    padding-top: calc(1rem + var(--tg-inset-top, 52px));
+/* --tg-inset-top is set via JS (Math.max(apiValue, 96px)) — works on all Telegram versions */
+html.in-tg-webapp .top-nav {
+    padding-top: calc(1rem + var(--tg-inset-top, 96px)) !important;
 }
-.in-tg-webapp .ob-intro,
-.in-tg-webapp .ob-auth,
-.in-tg-webapp .onboarding-content {
-    padding-top: calc(var(--tg-inset-top, 52px) + 1rem);
+html.in-tg-webapp .ob-intro,
+html.in-tg-webapp .ob-auth,
+html.in-tg-webapp .onboarding-content {
+    padding-top: calc(var(--tg-inset-top, 96px) + 1rem) !important;
 }
 
 /* Respect reduced motion preference (a11y) */
