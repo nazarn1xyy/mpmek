@@ -25,7 +25,17 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
+    <script>
+        // Telegram Mini App detection — runs before body renders, immune to JS cache
+        if (window.Telegram && window.Telegram.WebApp) {
+            document.documentElement.classList.add('in-tg-webapp');
+            try { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); } catch(e) {}
+        }
+    </script>
     <style>
+        /* Telegram Mini App safe-area — inlined so it applies even if external CSS is cached */
+        html.in-tg-webapp .top-nav{padding-top:110px!important}
+        html.in-tg-webapp .ob-intro,html.in-tg-webapp .ob-auth,html.in-tg-webapp .onboarding-content{padding-top:110px!important}
         /* Critical CSS — inlined for instant first paint */
         :root{--bg-color:#fff;--text-color:#1a1a1a;--surface-color:#f5f5f5;--border-color:#e0e0e0;--accent-color:#000;--nav-bg:rgba(255,255,255,.9);--nav-border:#eee;--font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
         [data-theme="dark"]{--bg-color:#000;--text-color:#f5f5f5;--surface-color:#111;--border-color:#222;--accent-color:#fff;--nav-bg:rgba(0,0,0,.9);--nav-border:#1a1a1a}
