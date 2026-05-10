@@ -1784,14 +1784,14 @@ input:checked + .slider:before {
 }
 
 /* ── Telegram Mini App safe-area offsets ── */
-/* --tg-inset-top is set via JS (Math.max(apiValue, 96px)) — works on all Telegram versions */
+/* Hardcoded 110px = iPhone safe area (~50px) + Telegram header (~60px). */
 html.in-tg-webapp .top-nav {
-    padding-top: calc(1rem + var(--tg-inset-top, 96px)) !important;
+    padding-top: 110px !important;
 }
 html.in-tg-webapp .ob-intro,
 html.in-tg-webapp .ob-auth,
 html.in-tg-webapp .onboarding-content {
-    padding-top: calc(var(--tg-inset-top, 96px) + 1rem) !important;
+    padding-top: 110px !important;
 }
 
 /* Respect reduced motion preference (a11y) */
