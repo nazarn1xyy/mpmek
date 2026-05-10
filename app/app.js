@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let gridView = localStorage.getItem('gridView') === '1';
 
     let modalCurrentKey = null;
-    let authToken = localStorage.getItem('authToken') || null;
+    let authToken = null; // in-memory only — actual auth via httpOnly cookie
     let currentUser = null; // { username, displayName, group, role }
     let isLoginMode = false;
 
@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 data = await authFetch('register', 'POST', { username, password, displayName });
             }
             authToken = data.token;
-            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('hasSession', '1');
             applyUserInfo(data.user);
 
             if (data.user.group) {
@@ -414,7 +414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { await authFetch('logout', 'POST'); } catch (e) { console.warn('Logout request failed:', e); }
         authToken = null;
         currentUser = null;
-        localStorage.removeItem('authToken');
+        localStorage.removeItem('hasSession');
         localStorage.removeItem('selectedGroup');
         selectedGroup = null;
         applyUserInfo(null);
@@ -2005,9 +2005,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== Init =====
-    // Try to restore session
+    // Try to restore session via httpOnly cookie (hasSession is a non-sensitive hint)
     let sessionValid = false;
-    if (authToken) {
+    if (localStorage.getItem('hasSession')) {
         try {
             const data = await authFetch('me', 'GET');
             applyUserInfo(data.user);
@@ -2018,9 +2018,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 localStorage.setItem('selectedGroup', selectedGroup);
             }
         } catch {
-            // Token expired or invalid
-            authToken = null;
-            localStorage.removeItem('authToken');
+            // Cookie expired or invalid — clear the hint
+            localStorage.removeItem('hasSession');
         }
     }
 

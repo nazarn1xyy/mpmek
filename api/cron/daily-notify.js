@@ -9,11 +9,11 @@ module.exports = async function handler(req, res) {
   // Verify cron secret — Vercel sends Authorization: Bearer <CRON_SECRET>
   const CRON_SECRET = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
-  console.log('[cron] invoked, method:', req.method, 'has auth header:', !!auth, 'CRON_SECRET configured:', !!CRON_SECRET, 'user-agent:', req.headers['user-agent']);
+  console.log('[cron] invoked, method:', req.method, 'has auth header:', !!auth, 'CRON_SECRET configured:', !!CRON_SECRET);
   if (CRON_SECRET) {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (!safeCompare(token, CRON_SECRET)) {
-      console.warn('[cron] auth FAILED — token length:', token.length, 'secret length:', CRON_SECRET.length);
+      console.warn('[cron] auth FAILED');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     console.log('[cron] auth OK');

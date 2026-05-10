@@ -3,6 +3,14 @@ const { redis, rateLimit, safeKey, safeCompare } = require('./_lib/redis');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
+const COOKIE_NAME = 'auth_token';
+function buildSetCookie(token) {
+  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL}`;
+}
+function clearSetCookie() {
+  return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
+}
+
 // WebAuthn (Face ID / Touch ID)
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'mpmek.site';
 const RP_NAME = 'МПМЕК Адмін';
@@ -53,9 +61,19 @@ function sanitize(str, maxLen) {
 }
 
 async function getSession(req) {
+  let token = null;
+  // 1. Authorization header (in-memory Bearer — sent by client during active session)
   const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
+  if (auth && auth.startsWith('Bearer ')) {
+    const t = auth.slice(7).trim();
+    if (t) token = t;
+  }
+  // 2. Fallback: httpOnly cookie (sent automatically by browser on every request)
+  if (!token) {
+    const cookieStr = req.headers.cookie || '';
+    const match = cookieStr.match(/(?:^|;\s*)auth_token=([^;]+)/);
+    if (match) token = decodeURIComponent(match[1]);
+  }
   if (!token || token.length > 128) return null;
   const raw = await redis('GET', `auth:session:${token}`);
   if (!raw) return null;
@@ -150,6 +168,7 @@ module.exports = async (req, res) => {
       await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
+      res.setHeader('Set-Cookie', buildSetCookie(token));
       return res.status(201).json({
         token,
         user: { username, displayName, group: '', role: getUserRole(username) }
@@ -197,6 +216,7 @@ module.exports = async (req, res) => {
         await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
+        res.setHeader('Set-Cookie', buildSetCookie(token));
         return res.json({
           token,
           user: { username, displayName: user.displayName, group: user.group || '', role: 'admin' }
@@ -226,6 +246,7 @@ module.exports = async (req, res) => {
         await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
+        res.setHeader('Set-Cookie', buildSetCookie(token));
         return res.json({
           token,
           user: { username, displayName: user.displayName, group: starostaGroup, role: 'starosta' }
@@ -250,6 +271,7 @@ module.exports = async (req, res) => {
       await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
+      res.setHeader('Set-Cookie', buildSetCookie(token));
       return res.json({
         token,
         user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username, user) }
@@ -327,6 +349,7 @@ module.exports = async (req, res) => {
       if (session) {
         await redis('DEL', `auth:session:${session.token}`);
       }
+      res.setHeader('Set-Cookie', clearSetCookie());
       return res.json({ ok: true });
     }
 

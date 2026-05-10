@@ -1,5 +1,6 @@
 {
   "outputDirectory": "app",
+  "buildCommand": "npm run build",
   "functions": {
     "api/schedule-image.js": {
       "includeFiles": "api/_fonts/**"
