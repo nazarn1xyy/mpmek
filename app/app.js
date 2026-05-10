@@ -50,6 +50,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Legacy localStorage cleanup (adminDeviceId was used pre-Bearer-auth)
     localStorage.removeItem('adminDeviceId');
 
+    // ===== Telegram Mini App init =====
+    const tgApp = window.Telegram?.WebApp;
+    if (tgApp) {
+        document.documentElement.classList.add('in-tg-webapp');
+        tgApp.ready();
+        tgApp.expand();
+    }
+
     // ===== State =====
     let scheduleData = null;
     let selectedGroup = localStorage.getItem('selectedGroup');

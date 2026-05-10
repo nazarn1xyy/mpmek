@@ -1783,6 +1783,18 @@ input:checked + .slider:before {
     outline-offset: 2px;
 }
 
+/* ── Telegram Mini App safe-area offsets ── */
+/* Telegram injects --tg-safe-area-inset-top (system) and --tg-content-safe-area-inset-top (its own header buttons).
+   We combine both to push content below the floating Close / expand buttons. */
+.in-tg-webapp .top-nav {
+    padding-top: calc(1rem + var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px));
+}
+.in-tg-webapp .ob-intro,
+.in-tg-webapp .ob-auth,
+.in-tg-webapp .onboarding-content {
+    padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px) + 1rem);
+}
+
 /* Respect reduced motion preference (a11y) */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
