@@ -3,4 +3,25 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 
+# AI Crawlers — explicitly allowed
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 Sitemap: https://mpmek.site/sitemap.xml

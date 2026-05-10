@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Розклад Студента</title>
-    <meta name="description" content="Зручний PWA додаток для перегляду розкладу пар студента">
-    <meta property="og:title" content="Розклад Студента">
-    <meta property="og:description" content="Зручний додаток для перегляду розкладу пар">
+    <title>Розклад Студента МПМЕК — Могилів-Подільський</title>
+    <meta name="description" content="Розклад пар, заміни та домашні завдання студентів Могилів-Подільського Монтажно-Економічного Коледжу (МПМЕК). Безкоштовний PWA додаток з push-сповіщеннями та Telegram-ботом.">
+    <meta property="og:title" content="Розклад Студента МПМЕК — Могилів-Подільський">
+    <meta property="og:description" content="Розклад пар, заміни та домашні завдання студентів МПМЕК. PWA з push-сповіщеннями.">
     <meta property="og:image" content="https://mpmek.site/icon.png">
     <meta property="og:url" content="https://mpmek.site">
     <link rel="canonical" href="https://mpmek.site/">
     <meta property="og:type" content="website">
+    <meta property="og:locale" content="uk_UA">
+    <meta property="og:site_name" content="МПМЕК Розклад">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Розклад Студента">
-    <meta name="twitter:description" content="Зручний додаток для перегляду розкладу пар">
+    <meta name="twitter:title" content="Розклад Студента МПМЕК">
+    <meta name="twitter:description" content="Розклад пар, заміни та ДЗ для студентів МПМЕК. Могилів-Подільський.">
     <meta name="twitter:image" content="https://mpmek.site/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -63,18 +65,94 @@
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
     <link rel="stylesheet" href="style.css?v=39">
+    <meta name="geo.region" content="UA-21">
+    <meta name="geo.placename" content="Могилів-Подільський">
+    <meta name="geo.position" content="48.4482;27.7998">
+    <meta name="ICBM" content="48.4482, 27.7998">
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Розклад Студента",
-      "description": "Зручний PWA додаток для перегляду розкладу пар студента МПМЕК",
-      "url": "https://mpmek.site",
-      "applicationCategory": "EducationalApplication",
-      "operatingSystem": "All",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UAH" },
-      "inLanguage": "uk"
-    }
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Розклад Студента МПМЕК",
+        "alternateName": "MPMEK Schedule",
+        "description": "PWA додаток для перегляду розкладу пар, замін, домашніх завдань та сповіщень студентів Могилів-Подільського Монтажно-Економічного Коледжу",
+        "url": "https://mpmek.site",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript. Requires HTML5.",
+        "softwareVersion": "2.0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UAH" },
+        "inLanguage": "uk",
+        "availableLanguage": { "@type": "Language", "name": "Ukrainian", "alternateName": "uk" },
+        "featureList": "Розклад пар, Заміни, Домашні завдання, Push-сповіщення, Telegram-бот, Офлайн-доступ, Віджет поточної пари",
+        "screenshot": "https://mpmek.site/icon.png",
+        "sourceOrganization": {
+          "@id": "https://mpmek.site/#college"
+        },
+        "provider": {
+          "@id": "https://mpmek.site/#college"
+        }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "EducationalOrganization",
+        "@id": "https://mpmek.site/#college",
+        "name": "Могилів-Подільський Монтажно-Економічний Коледж",
+        "alternateName": "МПМЕК",
+        "url": "https://mpmek.site",
+        "sameAs": [
+          "https://t.me/mpmek_bot"
+        ],
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "вул. Стрілецька, 15",
+          "addressLocality": "Могилів-Подільський",
+          "addressRegion": "Вінницька область",
+          "postalCode": "24000",
+          "addressCountry": "UA"
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": 48.4482,
+          "longitude": 27.7998
+        },
+        "areaServed": {
+          "@type": "City",
+          "name": "Могилів-Подільський",
+          "containedInPlace": {
+            "@type": "AdministrativeArea",
+            "name": "Вінницька область, Україна"
+          }
+        },
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Спеціальності коледжу",
+          "itemListElement": [
+            { "@type": "EducationalOccupationalProgram", "name": "Комп'ютерні системи та мережі (КСМ)" },
+            { "@type": "EducationalOccupationalProgram", "name": "Монтаж та експлуатація (МЕП)" },
+            { "@type": "EducationalOccupationalProgram", "name": "Бухгалтерський облік (БО)" },
+            { "@type": "EducationalOccupationalProgram", "name": "Бухгалтерський облік сільського господарства (БС)" },
+            { "@type": "EducationalOccupationalProgram", "name": "Фінанси (Ф)" }
+          ]
+        }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "МПМЕК Розклад",
+        "url": "https://mpmek.site",
+        "inLanguage": "uk",
+        "about": {
+          "@id": "https://mpmek.site/#college"
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://mpmek.site/?group={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
     </script>
 </head>
 <body>
