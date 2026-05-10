@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // ===== Notifications =====
-    notifToggle.checked = notificationsEnabled && ('Notification' in window) && Notification.permission === 'granted';
+    notifToggle.checked = notificationsEnabled && ('Notification' in window) && window.Notification?.permission === 'granted';
 
     // Notification time preference
     const savedNotifTime = localStorage.getItem('notifTime') || '08:00';
@@ -514,14 +514,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     notifTimeSelect.addEventListener('change', () => {
         localStorage.setItem('notifTime', notifTimeSelect.value);
-        if (notificationsEnabled && Notification.permission === 'granted') {
+        if (notificationsEnabled && window.Notification?.permission === 'granted') {
             subscribeToPush();
         }
     });
 
     function showNotifPrompt() {
         if (!('Notification' in window)) return;
-        if (Notification.permission === 'granted') return;
+        if (window.Notification?.permission === 'granted') return;
         if (localStorage.getItem('notifPromptDismissed')) return;
         notifPrompt.classList.remove('hidden');
     }
@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     notifPromptBtn.addEventListener('click', async () => {
-        const perm = await Notification.requestPermission();
+        const perm = await window.Notification?.requestPermission();
         hideNotifPrompt();
         if (perm === 'granted') {
             localStorage.setItem('notifications', 'true');
@@ -556,13 +556,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showToast('Сповіщення недоступні в цьому браузері', 'error');
                 return;
             }
-            if (Notification.permission === 'denied') {
+            if (window.Notification?.permission === 'denied') {
                 showToast('Сповіщення заблоковані. Розблокуйте їх в налаштуваннях браузера', 'error');
                 e.target.checked = false;
                 return;
             }
-            if (Notification.permission !== 'granted') {
-                const perm = await Notification.requestPermission();
+            if (window.Notification?.permission !== 'granted') {
+                const perm = await window.Notification?.requestPermission();
                 if (perm !== 'granted') {
                     e.target.checked = false;
                     return;
@@ -1908,7 +1908,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function showDailyNotification(force) {
         if (!notificationsEnabled) return;
         if (!('Notification' in window)) return;
-        if (Notification.permission !== 'granted') return;
+        if (window.Notification?.permission !== 'granted') return;
         if (!scheduleData || !selectedGroup) return;
 
         const today = new Date().toDateString();
@@ -2043,7 +2043,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Store config for SW background notifications
         storeNotifConfig();
         // Subscribe to server push if notifications already enabled
-        if (notificationsEnabled && Notification.permission === 'granted') {
+        if (notificationsEnabled && window.Notification?.permission === 'granted') {
             subscribeToPush();
         }
         // Show daily notification
@@ -2080,7 +2080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const DEPLOY_VERSION = 'rozklad-v42';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
-            if (notificationsEnabled && Notification.permission === 'granted') {
+            if (notificationsEnabled && window.Notification?.permission === 'granted') {
                 setTimeout(() => showDailyNotification(true), 2 * 60 * 1000);
             }
         }
