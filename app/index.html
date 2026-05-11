@@ -64,7 +64,7 @@
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
-    <link rel="stylesheet" href="style.css?v=39">
+    <link rel="stylesheet" href="style.css?v=40">
     <meta name="geo.region" content="UA-21">
     <meta name="geo.placename" content="Могилів-Подільський">
     <meta name="geo.position" content="48.4482;27.7998">
@@ -374,6 +374,10 @@
             <div class="modal-handle"></div>
             <h2 id="hwModalTitle">Додати завдання</h2>
             <p id="hwModalSubject" class="modal-subject"></p>
+            <div id="hwDueDateRow" class="hw-duedate-row hidden">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Здати: </span><strong id="hwDueDateLabel"></strong>
+            </div>
             <textarea id="hwModalInput" placeholder="Введіть домашнє завдання..." rows="4"></textarea>
             <div id="hwAttachPreview" class="hw-attach-preview"></div>
             <div class="hw-attach-row">
@@ -446,6 +450,6 @@
         </a>
     </nav>
 
-    <script src="app.js?v=44" defer></script>
+    <script src="app.js?v=45" defer></script>
 </body>
 </html>

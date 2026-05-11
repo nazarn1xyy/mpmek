@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let _hwCache = null; // cached homework object
     let _hwFiles = {};   // cached homework attachments { key: [{url,name,type,size}] }
+    let _hwDueISO = null; // due date ISO for homework modal (YYYY-MM-DD)
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
     let VAPID_PUBLIC_KEY = 'BMOzNTERkpWZfX4i5P5E1wcd1zXOUlv-fbT1fw-cjWjZPG3xBeattWCIFUfWfHCN-7EGzqGWLnwEGgCEFW8tPpc';
@@ -183,6 +184,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function hwKey(group, day, number) {
         return `${group}|${day}|${number}`;
+    }
+    // Returns today's date as YYYY-MM-DD in Kyiv timezone
+    function getTodayISO() {
+        const k = getKyivNow();
+        return `${k.year}-${String(k.month).padStart(2,'0')}-${String(k.day).padStart(2,'0')}`;
+    }
+    // Formats YYYY-MM-DD to a readable Ukrainian short form: "Чт, 15.05"
+    function dateISOtoDisplay(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        const short = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+        return `${short[dt.getDay()]}, ${d}.${m}.${y}`;
+    }
+    // Converts YYYY-MM-DD to Ukrainian full day name
+    function isoToUkDay(iso) {
+        if (!iso) return '';
+        const full = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
+        const d = new Date(iso);
+        return full[d.getDay()];
+    }
+    // Finds the next date (YYYY-MM-DD) when subject+lessonNum appears in schedule after fromDateISO
+    function findNextSubjectDateISO(subject, lessonNum, fromDateISO) {
+        const fallback = () => { const fb = new Date(fromDateISO); fb.setDate(fb.getDate() + 7); return fb.toISOString().split('T')[0]; };
+        if (!scheduleData || !selectedGroup || !scheduleData[selectedGroup]) return fallback();
+        const ukFull = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
+        const groupData = scheduleData[selectedGroup];
+        const subLower = (subject || '').toLowerCase().replace(/\s+/g,'').slice(0, 6);
+        const from = new Date(fromDateISO);
+        for (let offset = 1; offset <= 21; offset++) {
+            const d = new Date(from); d.setDate(from.getDate() + offset);
+            const dow = d.getDay();
+            if (dow === 0 || dow === 6) continue;
+            const dayName = ukFull[dow];
+            const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+            for (const wt of weekTypes) {
+                const wd = groupData[wt];
+                if (!wd || !wd[dayName]) continue;
+                const found = wd[dayName].find(p =>
+                    parseInt(p.number) === parseInt(lessonNum) &&
+                    p.subject && subLower &&
+                    p.subject.toLowerCase().replace(/\s+/g,'').slice(0,6).startsWith(subLower.slice(0,4))
+                );
+                if (found) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            }
+        }
+        return fallback();
     }
 
     // Homework server sync
@@ -946,13 +994,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderAttachPreview();
     });
 
-    function openHomeworkModal(key, subject, dayLabel, existingText) {
-        modalCurrentKey = key;
+    function openHomeworkModal(key, subject, dayLabel, existingText, dueISO) {
+        // Determine actual save key: if dueISO differs from key's date, rebuild key
+        _hwDueISO = dueISO || null;
+        const parts = key.split('|');
+        if (dueISO && parts.length === 3 && parts[1] !== dueISO) {
+            modalCurrentKey = hwKey(parts[0], dueISO, parts[2]);
+        } else {
+            modalCurrentKey = key;
+        }
         _pendingFiles = [];
         hwModalSubject.textContent = `${subject} — ${dayLabel}`;
         hwModalInput.value = existingText || '';
         hwModalTitle.textContent = existingText ? 'Редагувати завдання' : 'Додати завдання';
         hwUploadStatus.textContent = '';
+        // Show due date row
+        const dueDateRow = document.getElementById('hwDueDateRow');
+        const dueDateLabel = document.getElementById('hwDueDateLabel');
+        if (dueDateRow && dueISO) {
+            dueDateRow.classList.remove('hidden');
+            if (dueDateLabel) dueDateLabel.textContent = dateISOtoDisplay(dueISO);
+        } else if (dueDateRow) {
+            dueDateRow.classList.add('hidden');
+        }
         hwModal.classList.remove('hidden');
         renderAttachPreview();
         // Focus input after modal animates in
@@ -1053,12 +1117,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Build lesson card (optimized: single innerHTML, cached hw) =====
-    function buildLessonCard(pair, dayLabel, hw, lessonStatus) {
-        const key = hwKey(selectedGroup, dayLabel, pair.number);
-        const savedText = hw[key] || '';
+    function buildLessonCard(pair, dayLabel, hw, lessonStatus, dateISO) {
+        const todayISO = getTodayISO();
+        const legacyKey = hwKey(selectedGroup, dayLabel, pair.number);
+
+        // Date-based key for display: lookup HW stored for this exact date
+        const displayDateKey = dateISO ? hwKey(selectedGroup, dateISO, pair.number) : null;
+        const savedText = (displayDateKey && hw[displayDateKey]) ? hw[displayDateKey] : hw[legacyKey] || '';
+        const displayKey = (displayDateKey && hw[displayDateKey]) ? displayDateKey : legacyKey;
+
+        // Suggested due date for NEW homework: this lesson's date if future, else next occurrence
+        let suggestedDueISO = dateISO;
+        if (!dateISO || dateISO < todayISO) {
+            suggestedDueISO = dateISO ? findNextSubjectDateISO(pair.subject, pair.number, dateISO) : null;
+        }
+        // Button key: edit existing under displayKey, add new under suggestedDueISO key
+        const buttonKey = savedText ? displayKey : (suggestedDueISO ? hwKey(selectedGroup, suggestedDueISO, pair.number) : legacyKey);
 
         const savedHtml = savedText
-            ? `<div class="hw-saved"><span>${escHtml(savedText)}</span><button class="hw-delete-btn" data-key="${key}" aria-label="Видалити завдання">${SVG_X}</button></div>`
+            ? `<div class="hw-saved"><span>${escHtml(savedText)}</span><button class="hw-delete-btn" data-key="${displayKey}" aria-label="Видалити завдання">${SVG_X}</button></div>`
             : '';
 
         const btnLabel = savedText ? 'Редагувати' : 'Додати завдання';
@@ -1104,8 +1181,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${escapedSubject}</div>`;
         }
 
-        // Attachment thumbnails
-        const keyFiles = _hwFiles[key] || [];
+        // Attachment thumbnails (use displayKey for files)
+        const keyFiles = _hwFiles[displayKey] || [];
         let attachHtml = '';
         if (keyFiles.length > 0) {
             attachHtml = '<div class="hw-attachments">' + keyFiles.map(a => {
@@ -1116,7 +1193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }).join('') + '</div>';
         }
 
-        const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>` : '';
+        // Due-date badge shown on the lesson card when HW is stored for this date
+        const dueBadgeHtml = savedText && dateISO ? `<span class="hw-due-badge">⏰ ${dateISOtoDisplay(dateISO)}</span>` : '';
+
+        const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${buttonKey}" data-subject="${escapedSubject}" data-day="${dayLabel}" data-dueiso="${suggestedDueISO || ''}">${btnIcon} ${btnLabel}</button>` : '';
         const deleteHtml = canEditHw() ? savedHtml : savedText ? `<div class="hw-saved"><span>${escHtml(savedText)}</span></div>` : '';
         div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${deleteHtml}${attachHtml}${hwBtnHtml}`;
         return div;
@@ -1153,8 +1233,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hwBtn = e.target.closest('.homework-btn');
         if (hwBtn) {
-            const { key, subject, day } = hwBtn.dataset;
-            openHomeworkModal(key, subject, day, getHomework()[key] || '');
+            const { key, subject, day, dueiso } = hwBtn.dataset;
+            const hw = getHomework();
+            // Look up existing text: check both the button key and any dueiso-based key
+            const existingText = hw[key] || '';
+            openHomeworkModal(key, subject, day, existingText, dueiso || null);
             return;
         }
 
@@ -1247,8 +1330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const todayLabel = ukDays[kyivNow.dayOfWeek];
         const today = new Date(kyivNow.year, kyivNow.month - 1, kyivNow.day);
 
-        // Compute DD.MM dates for Mon-Fri of the target week (with weekOffset)
+        // Compute DD.MM dates AND ISO dates for Mon-Fri of the target week (with weekOffset)
         const weekDates = {};
+        const weekDatesISO = {};
         const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
         for (let i = 0; i < daysOrder.length; i++) {
             const offset = (i + 1) - currentDayOfWeek + (weekOffset * 7);
@@ -1257,6 +1341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dayStr = String(d.getDate()).padStart(2, '0');
             const monthStr = String(d.getMonth() + 1).padStart(2, '0');
             weekDates[daysOrder[i]] = `${dayStr}.${monthStr}`;
+            weekDatesISO[daysOrder[i]] = `${d.getFullYear()}-${monthStr}-${dayStr}`;
         }
 
         const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
@@ -1323,7 +1408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             for (let p = 0; p < pairs.length; p++) {
-                dayEl.appendChild(buildLessonCard(pairs[p], day, hw, lessonStatuses[pairs[p].number] || null));
+                dayEl.appendChild(buildLessonCard(pairs[p], day, hw, lessonStatuses[pairs[p].number] || null, weekDatesISO[day]));
             }
             frag.appendChild(dayEl);
         }
@@ -1585,101 +1670,101 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderHomeworkTab() {
         const hw = getHomework();
         const prefix = selectedGroup + '|';
-        const entries = [];
+        const todayISO = getTodayISO();
+        const activeEntries = [];  // date >= today OR legacy (day name)
+        const historyEntries = []; // date < today
+
+        // Detect whether a key segment is an ISO date
+        function isISODate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+
+        function collectEntry(key, text) {
+            const parts = key.split('|');
+            if (parts.length !== 3) return;
+            const dayOrDate = parts[1];
+            if (isISODate(dayOrDate)) {
+                (dayOrDate < todayISO ? historyEntries : activeEntries).push({ key, date: dayOrDate, number: parts[2], text });
+            } else {
+                activeEntries.push({ key, day: dayOrDate, number: parts[2], text });
+            }
+        }
 
         for (const key in hw) {
-            if (key.startsWith(prefix)) {
-                const parts = key.split('|');
-                entries.push({ key, day: parts[1], number: parts[2], text: hw[key] });
-            }
+            if (key.startsWith(prefix)) collectEntry(key, hw[key]);
         }
-        // Also include keys that only have files but no text
         for (const key in _hwFiles) {
-            if (key.startsWith(prefix) && !hw[key] && _hwFiles[key].length > 0) {
-                const parts = key.split('|');
-                entries.push({ key, day: parts[1], number: parts[2], text: '' });
-            }
+            if (key.startsWith(prefix) && !hw[key] && _hwFiles[key].length > 0) collectEntry(key, '');
         }
 
-        if (entries.length === 0) {
+        if (activeEntries.length === 0 && historyEntries.length === 0) {
             homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">Ура! Ви ще не додали жодного домашнього завдання.</p></div>`;
             return;
         }
 
-        // Group by day
-        const grouped = {};
-        for (let i = 0; i < entries.length; i++) {
-            const e = entries[i];
-            if (!grouped[e.day]) grouped[e.day] = [];
-            grouped[e.day].push(e);
+        // Sort: active by date ASC, history by date DESC
+        activeEntries.sort((a, b) => (a.date || a.day || '').localeCompare(b.date || b.day || '') || a.number - b.number);
+        historyEntries.sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.number - b.number);
+
+        function lookupSubject(entry) {
+            const dayName = entry.date ? isoToUkDay(entry.date) : entry.day;
+            let subjectName = `Пара ${entry.number}`;
+            if (scheduleData && scheduleData[selectedGroup]) {
+                const groupData = scheduleData[selectedGroup];
+                const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+                for (const wt of weekTypes) {
+                    const wd = groupData[wt];
+                    if (wd && wd[dayName]) {
+                        const found = wd[dayName].find(p => parseInt(p.number) === parseInt(entry.number));
+                        if (found) { subjectName = found.subject; break; }
+                    }
+                }
+            }
+            return subjectName;
+        }
+
+        function buildCard(entry, isHistory) {
+            const subjectName = lookupSubject(entry);
+            const escapedSub = escHtml(subjectName);
+            const card = document.createElement('div');
+            card.className = 'hw-card' + (isHistory ? ' hw-card-history' : '');
+            const metaDate = entry.date ? `📅 ${dateISOtoDisplay(entry.date)}` : escHtml(entry.day || '');
+            const cardFiles = _hwFiles[entry.key] || [];
+            let cardAttHtml = '';
+            if (cardFiles.length > 0) {
+                cardAttHtml = '<div class="hw-attachments">' + cardFiles.map(a => {
+                    if (a.type && a.type.startsWith('image/')) {
+                        return `<img src="${safeUrl(a.url)}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${safeUrl(a.url)}" loading="lazy" crossorigin="anonymous">`;
+                    }
+                    return `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
+                }).join('') + '</div>';
+            }
+            const actionsHtml = !isHistory && canEditHw()
+                ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(entry.day || isoToUkDay(entry.date || ''))}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`
+                : '';
+            card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${metaDate}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
+            return card;
         }
 
         const frag = document.createDocumentFragment();
 
-        for (const day in grouped) {
-            const dayTitle = document.createElement('h2');
-            dayTitle.className = 'diary-day';
-            dayTitle.style.cssText = 'font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem;margin-top:1rem;';
-            dayTitle.textContent = day;
-            frag.appendChild(dayTitle);
+        // Active section
+        if (activeEntries.length > 0) {
+            const hdr = document.createElement('h2');
+            hdr.className = 'hw-section-title';
+            hdr.textContent = '📚 Активні завдання';
+            frag.appendChild(hdr);
+            activeEntries.forEach(e => frag.appendChild(buildCard(e, false)));
+        }
 
-            grouped[day].sort((a, b) => a.number - b.number);
-
-            for (let i = 0; i < grouped[day].length; i++) {
-                const entry = grouped[day][i];
-                let subjectName = `Пара ${entry.number}`;
-
-                // Lookup subject from schedule data
-                if (scheduleData && scheduleData[selectedGroup]) {
-                    const groupData = scheduleData[selectedGroup];
-                    // 1. Check ПІДВІСКА first: find substitution whose date falls on `day`
-                    const subs = groupData['ПІДВІСКА'] || [];
-                    let subFound = null;
-                    for (const sub of subs) {
-                        if (parseInt(sub.number) !== parseInt(entry.number)) continue;
-                        if (!sub.date) continue;
-                        // Parse date like "17.04" or "17.04.2025" to get day of week
-                        const parts = sub.date.split('.');
-                        if (parts.length < 2) continue;
-                        const d = new Date();
-                        d.setDate(parseInt(parts[0]));
-                        d.setMonth(parseInt(parts[1]) - 1);
-                        if (parts[2]) d.setFullYear(parseInt(parts[2]));
-                        const subDayName = ukDays[d.getDay()];
-                        if (subDayName === day) { subFound = sub; break; }
-                    }
-                    if (subFound) {
-                        subjectName = subFound.subject;
-                    } else {
-                        // 2. Fallback: ОСНОВНИЙ РОЗКЛАД / ЧИСЕЛЬНИК / ЗНАМЕННИК
-                        const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-                        for (const wt of weekTypes) {
-                            const wd = groupData[wt];
-                            if (wd && wd[day]) {
-                                const found = wd[day].find(p => parseInt(p.number) === parseInt(entry.number));
-                                if (found) { subjectName = found.subject; break; }
-                            }
-                        }
-                    }
-                }
-
-                const escapedSub = escHtml(subjectName);
-                const card = document.createElement('div');
-                card.className = 'hw-card';
-                const cardFiles = _hwFiles[entry.key] || [];
-                let cardAttHtml = '';
-                if (cardFiles.length > 0) {
-                    cardAttHtml = '<div class="hw-attachments">' + cardFiles.map(a => {
-                        if (a.type && a.type.startsWith('image/')) {
-                            return `<img src="${safeUrl(a.url)}" alt="${escHtml(a.name)}" class="hw-att-thumb" data-full="${safeUrl(a.url)}" loading="lazy" crossorigin="anonymous">`;
-                        }
-                        return `<a href="${safeUrl(a.url)}" target="_blank" rel="noopener" class="hw-att-file-link">📄 ${escHtml(a.name)}</a>`;
-                    }).join('') + '</div>';
-                }
-                const actionsHtml = canEditHw() ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>` : '';
-                card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
-                frag.appendChild(card);
-            }
+        // History section (collapsible)
+        if (historyEntries.length > 0) {
+            const details = document.createElement('details');
+            details.className = 'hw-history-details';
+            const summary = document.createElement('summary');
+            summary.className = 'hw-history-summary';
+            summary.textContent = `🕘 Минулі завдання (${historyEntries.length})`;
+            details.appendChild(summary);
+            historyEntries.forEach(e => details.appendChild(buildCard(e, true)));
+            frag.appendChild(details);
         }
 
         homeworkContainer.innerHTML = '';

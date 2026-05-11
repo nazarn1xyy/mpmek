@@ -755,7 +755,24 @@ input:checked + .slider:before {
 .modal-subject {
     font-size: 0.85rem;
     color: var(--text-secondary);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.hw-duedate-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 0.35rem 0.6rem;
+    margin-bottom: 0.75rem;
+    width: fit-content;
+}
+.hw-duedate-row strong {
+    color: var(--text-color);
+    font-weight: 600;
 }
 
 .modal-sheet textarea {
@@ -1229,6 +1246,45 @@ input:checked + .slider:before {
 .hw-card-actions .hw-delete {
     color: #cc0000;
     border-color: #cc000040;
+}
+
+/* Homework section title */
+.hw-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    margin: 1rem 0 0.5rem;
+    padding: 0 0.25rem;
+}
+
+/* History card: slightly muted */
+.hw-card-history {
+    opacity: 0.65;
+}
+
+/* Collapsible history section */
+.hw-history-details {
+    margin-top: 1rem;
+}
+.hw-history-summary {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem 0.25rem;
+    user-select: none;
+    list-style: none;
+}
+.hw-history-summary::-webkit-details-marker { display: none; }
+.hw-history-summary::before {
+    content: '▶ ';
+    font-size: 0.7em;
+    transition: transform 0.2s;
+}
+.hw-history-details[open] .hw-history-summary::before {
+    content: '▼ ';
 }
 
 /* Notification Prompt Banner */
