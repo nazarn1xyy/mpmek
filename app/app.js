@@ -1,4 +1,4 @@
-// Global error handlers — show visible fallback instead of white screen
+// Global error handlers — show visible fallback ONLY for OUR script errors (filter out third-party / extensions)
 (function() {
     var shown = false;
     function showCrash(detail) {
@@ -12,13 +12,21 @@
             '<button onclick="location.reload()" style="padding:10px 24px;border:none;border-radius:10px;background:#000;color:#fff;font-size:15px;cursor:pointer">Перезавантажити</button>' +
             '</div>';
     }
+    // Only treat as crash if error originates from OUR script files.
+    // Extensions/injects often report src as the page URL or empty — ignore those.
+    function isOurScript(src) {
+        if (!src || typeof src !== 'string') return false;
+        return /\/(app|inline-boot)\.js(\?|$)/.test(src);
+    }
     window.addEventListener('unhandledrejection', function(e) {
         console.error('Unhandled promise rejection:', e.reason);
-        showCrash(e.reason && e.reason.message ? e.reason.message : String(e.reason));
+        // Rejection has no src — be conservative: log only, let safety net catch real crashes
     });
     window.onerror = function(msg, src, line) {
         console.error('Global error:', msg, src, line);
-        showCrash(msg + ' (line ' + line + ')');
+        if (isOurScript(src)) {
+            showCrash(msg + ' (line ' + line + ')');
+        }
     };
     // Safety net: if after 6s nothing visible, show fallback
     setTimeout(function() {
