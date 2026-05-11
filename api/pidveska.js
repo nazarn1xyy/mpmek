@@ -81,7 +81,16 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error('pidveska API error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    // TEMP DEBUG: expose error details to diagnose 500
+    return res.status(500).json({
+      error: 'Internal server error',
+      _debug: {
+        message: err && err.message ? err.message : String(err),
+        status: err && err.status,
+        name: err && err.name,
+        stack: err && err.stack ? String(err.stack).split('\n').slice(0, 5) : null,
+      },
+    });
   }
 };
 
