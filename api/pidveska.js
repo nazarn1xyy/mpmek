@@ -81,16 +81,18 @@ module.exports = async function handler(req, res) {
     }
   } catch (err) {
     console.error('pidveska API error:', err);
-    // TEMP DEBUG: expose error details to diagnose 500
-    return res.status(500).json({
-      error: 'Internal server error',
-      _debug: {
-        message: err && err.message ? err.message : String(err),
-        status: err && err.status,
-        name: err && err.name,
-        stack: err && err.stack ? String(err.stack).split('\n').slice(0, 5) : null,
-      },
-    });
+    // Map known error statuses to clearer client responses (no stack/secret leakage)
+    const status = err && err.status;
+    if (status === 401 || status === 403) {
+      return res.status(503).json({ error: 'Сервіс тимчасово недоступний (помилка авторизації GitHub). Зверніться до адміна.' });
+    }
+    if (status === 404) {
+      return res.status(404).json({ error: err.message || 'Not found' });
+    }
+    if (status === 400) {
+      return res.status(400).json({ error: err.message || 'Bad request' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
