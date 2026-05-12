@@ -208,10 +208,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Finds the next date (YYYY-MM-DD) when subject+lessonNum appears in schedule after fromDateISO
     function findNextSubjectDateISO(subject, lessonNum, fromDateISO) {
         const fallback = () => { const fb = new Date(fromDateISO); fb.setDate(fb.getDate() + 7); return fb.toISOString().split('T')[0]; };
+        if (!subject || typeof subject !== 'string') return fallback();
         if (!scheduleData || !selectedGroup || !scheduleData[selectedGroup]) return fallback();
         const ukFull = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
         const groupData = scheduleData[selectedGroup];
-        const subLower = (subject || '').toLowerCase().replace(/\s+/g,'').slice(0, 6);
+        const subLower = subject.toLowerCase().replace(/\s+/g,'').slice(0, 6);
+        if (!subLower) return fallback();
         const from = new Date(fromDateISO);
         for (let offset = 1; offset <= 21; offset++) {
             const d = new Date(from); d.setDate(from.getDate() + offset);
@@ -221,10 +223,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
             for (const wt of weekTypes) {
                 const wd = groupData[wt];
-                if (!wd || !wd[dayName]) continue;
+                if (!wd || typeof wd !== 'object' || !wd[dayName] || !Array.isArray(wd[dayName])) continue;
                 const found = wd[dayName].find(p =>
-                    parseInt(p.number) === parseInt(lessonNum) &&
-                    p.subject && subLower &&
+                    p && parseInt(p.number) === parseInt(lessonNum) &&
+                    typeof p.subject === 'string' &&
                     p.subject.toLowerCase().replace(/\s+/g,'').slice(0,6).startsWith(subLower.slice(0,4))
                 );
                 if (found) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
