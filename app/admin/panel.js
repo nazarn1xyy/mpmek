@@ -26,6 +26,26 @@
         6: "17:40 - 19:15"
     };
 
+    // ===== SVG Icons =====
+    const _si = (d, w = 14) => `<svg aria-hidden="true" viewBox="0 0 24 24" width="${w}" height="${w}" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const IC = {
+        clipboard: _si('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
+        file:      _si('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
+        download:  _si('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+        trash:     _si('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+        bot:       _si('<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/>'),
+        zap:       _si('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/>'),
+        check:     _si('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+        xCircle:   _si('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'),
+        loader:    _si('<circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10"/>'),
+        book:      _si('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+        calendar:  _si('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+        sync:      _si('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>'),
+        warn:      _si('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+        id:        _si('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="6" y1="9" x2="6.01" y2="9"/><line x1="10" y1="9" x2="18" y2="9"/><line x1="6" y1="13" x2="6.01" y2="13"/><line x1="10" y1="13" x2="18" y2="13"/>'),
+        clock:     _si('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+    };
+
     // ===== State =====
     let scheduleData = null;
     let originalJson = '';
@@ -449,7 +469,7 @@
         // Hide publish button
         publishBtn.style.display = 'none';
         // Set header
-        document.querySelector('.sidebar-header h2').textContent = '📋 ' + (currentUser.group || 'Староста');
+        document.querySelector('.sidebar-header h2').innerHTML = IC.clipboard + ' ' + escHtml(currentUser.group || 'Староста');
         // Activate substitutions section by default
         document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
         Object.values(sections).forEach(s => { if (s) s.classList.remove('active'); });
@@ -496,7 +516,7 @@
             renderGroups();
             renderScheduleSelects();
         } catch (e) {
-            statusText.textContent = '❌ Помилка завантаження: ' + e.message;
+            statusText.innerHTML = IC.xCircle + ' Помилка завантаження: ' + escHtml(e.message);
         }
     }
 
@@ -787,7 +807,7 @@
                 return `
                 <div class="sub-date-group${pastClass}">
                     <div class="sub-date-header">
-                        <span>⚡ ${escHtml(date)} (${info.name})${pastLabel}</span>
+                        <span>${IC.zap} ${escHtml(date)} (${info.name})${pastLabel}</span>
                         <button class="btn-icon danger" data-action="deleteSubDate" data-date="${escAttr(date)}" title="Видалити всі заміни за цю дату" aria-label="Видалити всі заміни за ${escAttr(date)}">
                             <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -871,7 +891,7 @@
                 renderSubsEditor();
             } catch (e) {
                 showToast('Помилка: ' + e.message, 'error');
-                statusText.textContent = '❌ ' + e.message;
+                statusText.innerHTML = IC.xCircle + ' ' + escHtml(e.message);
             }
             return;
         }
@@ -1061,7 +1081,7 @@
         }
 
         publishBtn.disabled = true;
-        statusText.textContent = '⏳ Публікація...';
+        statusText.innerHTML = IC.loader + ' Публікація...';
 
         try {
             const resp = await fetch('/api/admin-config?action=publish', {
@@ -1078,7 +1098,7 @@
 
             // Send push + Telegram notifications about new substitutions
             if (newSubsAdded.length > 0) {
-                statusText.textContent = '⏳ Надсилаємо сповіщення про заміни...';
+                statusText.innerHTML = IC.loader + ' Надсилаємо сповіщення про заміни...';
                 const notifyBody = JSON.stringify({ substitutions: newSubsAdded });
                 const notifyHeaders = {
                     'Content-Type': 'application/json',
@@ -1105,9 +1125,9 @@
             undoStack = [];
             hasChanges = false;
             publishBtn.disabled = true;
-            statusText.textContent = '✅ Опубліковано! Vercel оновить сайт за ~30 сек.';
+            statusText.innerHTML = IC.check + ' Опубліковано! Vercel оновить сайт за ~30 сек.';
         } catch (e) {
-            statusText.textContent = '❌ Помилка: ' + e.message;
+            statusText.innerHTML = IC.xCircle + ' ' + escHtml(e.message);
             showToast('Помилка публікації: ' + e.message, 'error');
             publishBtn.disabled = false;
         }
@@ -1266,7 +1286,7 @@
                     renderSubsEditor();
                 } catch (e) {
                     showToast('Помилка: ' + e.message, 'error');
-                    statusText.textContent = '❌ ' + e.message;
+                    statusText.innerHTML = IC.xCircle + ' ' + escHtml(e.message);
                 }
                 return;
             }
@@ -1726,8 +1746,8 @@
                 + '<div class="user-name">' + escHtml(u.displayName || u.username) + envTag + '</div>'
                 + '<div class="user-meta">'
                 + '<span>@' + escHtml(u.username) + '</span>'
-                + (u.group ? ' <span>\uD83D\uDCDA ' + escHtml(u.group) + '</span>' : '')
-                + (date ? ' <span>\uD83D\uDCC5 ' + date + '</span>' : '')
+                + (u.group ? ' <span>' + IC.book + ' ' + escHtml(u.group) + '</span>' : '')
+                + (date ? ' <span>' + IC.calendar + ' ' + date + '</span>' : '')
                 + '</div></div>'
                 + '<span class="user-badge ' + roleClass + '">' + roleLabel + '</span>'
                 + '</div>';
@@ -1776,9 +1796,9 @@
         if (data.syncedAt) {
             const ago = Math.round((Date.now() - new Date(data.syncedAt).getTime()) / 60000);
             const agoText = ago < 1 ? '\u0449\u043e\u0439\u043d\u043e' : ago < 60 ? ago + ' \u0445\u0432 \u0442\u043e\u043c\u0443' : Math.round(ago / 60) + ' \u0433\u043e\u0434 \u0442\u043e\u043c\u0443';
-            html += '<div class="bot-sync-info">\ud83d\udd04 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u043e\u0432\u0430\u043d\u043e: ' + agoText + ' \u2022 ' + users.length + ' \u044e\u0437\u0435\u0440\u0456\u0432 \u0443 \u0431\u043e\u0442\u0456</div>';
+            html += '<div class="bot-sync-info">' + IC.sync + ' \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u043e\u0432\u0430\u043d\u043e: ' + agoText + ' \u2022 ' + users.length + ' \u044e\u0437\u0435\u0440\u0456\u0432 \u0443 \u0431\u043e\u0442\u0456</div>';
         } else {
-            html += '<div class="bot-sync-info">\u26a0\ufe0f \u0411\u043e\u0442 \u0449\u0435 \u043d\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0432\u0430\u0432 \u0434\u0430\u043d\u0456. \u041f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c \u0431\u043e\u0442\u0430.</div>';
+            html += '<div class="bot-sync-info">' + IC.warn + ' \u0411\u043e\u0442 \u0449\u0435 \u043d\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0432\u0430\u0432 \u0434\u0430\u043d\u0456. \u041f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c \u0431\u043e\u0442\u0430.</div>';
         }
         if (users.length === 0) {
             container.innerHTML = html + '<p class="placeholder-text">\u041d\u0435\u043c\u0430\u0454 \u043a\u043e\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0456\u0432</p>';
@@ -1794,9 +1814,9 @@
                 + '<div class="user-info">'
                 + '<div class="user-name">' + escHtml(name) + '</div>'
                 + '<div class="user-meta">'
-                + '<span>\ud83c\udd94 ' + escHtml(u.chatId) + '</span>'
-                + (u.group ? ' <span>\ud83d\udcda ' + escHtml(u.group) + '</span>' : ' <span style="color:var(--danger)">\u043d\u0435\u043c\u0430\u0454 \u0433\u0440\u0443\u043f\u0438</span>')
-                + ' <span>\u23f0 ' + escHtml(u.notifyTime) + '</span>'
+                + '<span>' + IC.id + ' ' + escHtml(u.chatId) + '</span>'
+                + (u.group ? ' <span>' + IC.book + ' ' + escHtml(u.group) + '</span>' : ' <span style="color:var(--danger)">\u043d\u0435\u043c\u0430\u0454 \u0433\u0440\u0443\u043f\u0438</span>')
+                + ' <span>' + IC.clock + ' ' + escHtml(u.notifyTime) + '</span>'
                 + '</div></div>'
                 + '<span class="bot-status ' + statusClass + '">' + statusLabel + '</span>'
                 + '</div>';

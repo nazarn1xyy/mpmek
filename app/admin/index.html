@@ -485,9 +485,9 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                         <option value="">Тип тижня...</option>
                     </select>
                     <button id="addWeekTypeBtn" class="btn-secondary" title="Додати тип тижня">+ Тиждень</button>
-                    <button id="copyScheduleBtn" class="btn-secondary">📋 Копіювати з...</button>
-                    <button id="copyWeekBtn" class="btn-secondary">📄 Копія тижня</button>
-                    <label class="csv-label"><input type="file" id="csvImport" accept=".csv,.txt" hidden>📥 CSV</label>
+                    <button id="copyScheduleBtn" class="btn-secondary"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg> Копіювати з...</button>
+                    <button id="copyWeekBtn" class="btn-secondary"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Копія тижня</button>
+                    <label class="csv-label"><input type="file" id="csvImport" accept=".csv,.txt" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV</label>
                 </div>
                 <div id="schedEditor" class="sched-editor">
                     <p class="placeholder-text">Оберіть групу та тип тижня для редагування</p>
@@ -498,7 +498,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <section id="sec-subs" class="section">
                 <div class="section-header">
                     <h2>Заміни пар</h2>
-                    <button id="cleanOldSubsBtn" class="btn-secondary" style="font-size:13px">🗑 Очистити минулі</button>
+                    <button id="cleanOldSubsBtn" class="btn-secondary" style="font-size:13px"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Очистити минулі</button>
                 </div>
                 <div class="subs-controls">
                     <select id="subsGroupSelect" class="select">
@@ -540,7 +540,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     <button class="role-tab active" data-filter="all">Всі</button>
                     <button class="role-tab" data-filter="starosta">Старости</button>
                     <button class="role-tab" data-filter="user">Юзері</button>
-                    <button class="role-tab" data-filter="bot">🤖 Бот</button>
+                    <button class="role-tab" data-filter="bot"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/></svg> Бот</button>
                 </div>
                 <div class="search-box">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -557,27 +557,10 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                     <h2>Налаштування</h2>
                 </div>
                 <div class="config-form">
-                    <div class="config-group">
-                        <label>GitHub Personal Access Token</label>
-                        <p class="config-hint">Потрібен для збереження змін. Створіть на <a href="https://github.com/settings/tokens/new?scopes=repo&description=mpmek-admin" target="_blank" rel="noopener">github.com/settings/tokens</a> з правом <code>repo</code>.</p>
-                        <input type="password" id="ghTokenInput" class="input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
-                        <button id="saveTokenBtn" class="btn-secondary">Зберегти токен</button>
-                    </div>
-                    <hr>
-                    <div class="config-group">
-                        <label>Репозиторій</label>
-                        <div class="config-row">
-                            <input type="text" id="ghOwnerInput" class="input" placeholder="owner" value="nazarn1xyy">
-                            <span>/</span>
-                            <input type="text" id="ghRepoInput" class="input" placeholder="repo" value="mpmek">
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="config-group">
-                        <label>Версія кешу Service Worker</label>
-                        <p class="config-hint">Поточна версія: <strong id="currentCacheVersion">—</strong></p>
-                    </div>
-                    <hr>
+                    <input type="hidden" id="ghTokenInput">
+                    <input type="hidden" id="ghOwnerInput" value="nazarn1xyy">
+                    <input type="hidden" id="ghRepoInput" value="mpmek">
+                    <button id="saveTokenBtn" style="display:none"></button>
                     <div class="config-group">
                         <label>Статистика</label>
                         <div id="statsGrid" class="stats-grid"></div>

@@ -733,6 +733,14 @@ body {
     outline-offset: 2px;
 }
 
+/* SVG icon alignment */
+.btn-secondary svg, .btn-primary svg, .role-tab svg, .csv-label svg { vertical-align: -3px; }
+.user-meta svg { vertical-align: -3px; margin-right: 1px; }
+.sub-date-header svg { vertical-align: -3px; }
+.bot-sync-info svg { vertical-align: -3px; }
+#statusText svg { vertical-align: -3px; }
+.sidebar-header h2 svg { vertical-align: -3px; }
+
 /* Respect reduced motion preference (a11y) */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
