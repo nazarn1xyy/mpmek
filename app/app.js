@@ -23,6 +23,8 @@
         // Rejection has no src — be conservative: log only, let safety net catch real crashes
     });
     window.onerror = function(msg, src, line) {
+        // Safari JSON-LD @context quirk — not our bug, suppress noise
+        if (typeof msg === 'string' && msg.indexOf('@context') !== -1) return;
         console.error('Global error:', msg, src, line);
         if (isOurScript(src)) {
             showCrash(msg + ' (line ' + line + ')');
@@ -237,9 +239,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Homework server sync
     async function syncHomeworkToServer(group, day, number, text) {
+        if (!authToken) return; // skip if not authenticated
         try {
-            const headers = { 'Content-Type': 'application/json' };
-            if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+            const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken };
             const resp = await fetch('/api/homework', {
                 method: 'POST',
                 headers,
