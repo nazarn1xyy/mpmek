@@ -24,6 +24,11 @@
     touch-action: manipulation;
 }
 
+html {
+    overflow-x: hidden;
+    overscroll-behavior: none;
+}
+
 body {
     background-color: var(--bg);
     color: var(--text);
@@ -31,6 +36,9 @@ body {
     line-height: 1.5;
     min-height: 100vh;
     min-height: 100dvh;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 .hidden { display: none !important; }
@@ -615,8 +623,9 @@ body {
 
 .modal-actions {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     justify-content: flex-end;
+    flex-wrap: wrap;
 }
 
 /* ===== Toast ===== */
@@ -665,7 +674,9 @@ body {
         border-top: 1px solid var(--border);
         background: rgba(17, 17, 17, 0.95);
         backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         padding-bottom: env(safe-area-inset-bottom, 0);
+        z-index: 100;
     }
 
     .sidebar-header {
@@ -677,13 +688,20 @@ body {
         width: 100%;
         justify-content: space-around;
         padding: 4px 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
     }
+    .sidebar-nav::-webkit-scrollbar { display: none; }
 
     .sidebar-item {
         flex-direction: column;
         gap: 2px;
-        padding: 8px 12px;
-        font-size: 11px;
+        padding: 8px 6px;
+        font-size: 10px;
+        white-space: nowrap;
+        min-width: 0;
+        flex-shrink: 0;
     }
 
     .sidebar-item svg {
@@ -694,15 +712,22 @@ body {
     .admin-main {
         margin-left: 0;
         padding-bottom: calc(70px + env(safe-area-inset-bottom, 0));
+        overflow-x: hidden;
     }
 
     .section {
-        padding: 16px;
+        padding: 16px 12px;
+        overflow-x: hidden;
     }
 
     .section-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 8px;
+    }
+
+    .section-header h2 {
+        font-size: 20px;
     }
 
     .groups-grid {
@@ -717,13 +742,131 @@ body {
         max-width: 100%;
     }
 
+    .schedule-controls .btn-secondary {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
     .lesson-row {
-        grid-template-columns: 50px 1fr 1fr 32px;
-        gap: 6px;
+        grid-template-columns: 44px 1fr 1fr 32px;
+        gap: 4px;
+    }
+
+    .lesson-row .input {
+        padding: 8px 6px;
+        font-size: 12px;
     }
 
     .status-bar {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+
+    #statusText {
+        font-size: 11px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .publish-btn {
+        padding: 8px 14px;
+        font-size: 13px;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    /* Buttons: prevent overflow */
+    .btn-primary, .btn-secondary, .btn-danger {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+
+    /* Modal: bottom sheet on mobile */
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .modal-box {
+        border-radius: var(--radius) var(--radius) 0 0;
+        max-width: 100%;
+        padding: 20px 16px calc(16px + env(safe-area-inset-bottom, 0));
+        max-height: 85vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-actions {
+        flex-wrap: wrap;
+    }
+
+    .modal-actions button {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 8px;
+        font-size: 14px;
+        text-align: center;
+        justify-content: center;
+    }
+
+    /* Sub rows */
+    .sub-row {
+        flex-wrap: wrap;
+    }
+
+    .sub-row .input {
+        min-width: 0;
+    }
+
+    /* User cards */
+    .user-card {
+        padding: 12px;
+    }
+
+    .user-meta {
+        font-size: 11px;
+    }
+
+    /* Role tabs scroll */
+    .role-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        flex-wrap: nowrap;
+    }
+    .role-tabs::-webkit-scrollbar { display: none; }
+
+    .role-tab {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* Bell schedule */
+    .bell-row {
+        grid-template-columns: 60px 1fr 16px 1fr;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    /* Toast above bottom bar */
+    .toast {
+        bottom: calc(80px + env(safe-area-inset-bottom, 0));
+        max-width: calc(100% - 32px);
+        font-size: 13px;
         padding: 10px 16px;
+    }
+
+    /* Config */
+    .config-form {
+        max-width: 100%;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
     }
 }
 
