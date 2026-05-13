@@ -107,6 +107,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const SVG_X = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     const SVG_EDIT_SM = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
     const SVG_TRASH = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    const SVG_BOOK = '<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
+    const SVG_CALENDAR = '<svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+    const SVG_CLOCK = '<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
 
     const ukDays = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 
@@ -1198,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Due-date badge shown on the lesson card when HW is stored for this date
-        const dueBadgeHtml = savedText && dateISO ? `<span class="hw-due-badge">⏰ ${dateISOtoDisplay(dateISO)}</span>` : '';
+        const dueBadgeHtml = savedText && dateISO ? `<span class="hw-due-badge">${SVG_CALENDAR} ${dateISOtoDisplay(dateISO)}</span>` : '';
 
         const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${buttonKey}" data-subject="${escapedSubject}" data-day="${dayLabel}" data-dueiso="${suggestedDueISO || ''}">${btnIcon} ${btnLabel}</button>` : '';
         const deleteHtml = canEditHw() ? savedHtml : savedText ? `<div class="hw-saved"><span>${escHtml(savedText)}</span></div>` : '';
@@ -1730,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const escapedSub = escHtml(subjectName);
             const card = document.createElement('div');
             card.className = 'hw-card' + (isHistory ? ' hw-card-history' : '');
-            const metaDate = entry.date ? `📅 ${dateISOtoDisplay(entry.date)}` : escHtml(entry.day || '');
+            const metaDate = entry.date ? `${SVG_CALENDAR} ${dateISOtoDisplay(entry.date)}` : escHtml(entry.day || '');
             const cardFiles = _hwFiles[entry.key] || [];
             let cardAttHtml = '';
             if (cardFiles.length > 0) {
@@ -1754,7 +1757,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activeEntries.length > 0) {
             const hdr = document.createElement('h2');
             hdr.className = 'hw-section-title';
-            hdr.textContent = '📚 Активні завдання';
+            hdr.innerHTML = SVG_BOOK + ' Активні завдання';
             frag.appendChild(hdr);
             activeEntries.forEach(e => frag.appendChild(buildCard(e, false)));
         }
@@ -1765,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             details.className = 'hw-history-details';
             const summary = document.createElement('summary');
             summary.className = 'hw-history-summary';
-            summary.textContent = `🕘 Минулі завдання (${historyEntries.length})`;
+            summary.innerHTML = SVG_CLOCK + ` Минулі завдання (${historyEntries.length})`;
             details.appendChild(summary);
             historyEntries.forEach(e => details.appendChild(buildCard(e, true)));
             frag.appendChild(details);
