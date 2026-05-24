@@ -421,8 +421,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             userUsernameEl.textContent = '@' + user.username;
             userAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
             logoutRow.style.display = '';
-            const exportRow = document.getElementById('exportDataRow');
-            if (exportRow) exportRow.style.display = '';
             const chPwdRow = document.getElementById('changePasswordRow');
             if (chPwdRow) chPwdRow.style.display = '';
             const delRow = document.getElementById('deleteAccountRow');
@@ -430,8 +428,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             userInfoCard.classList.add('hidden');
             logoutRow.style.display = 'none';
-            const exportRow = document.getElementById('exportDataRow');
-            if (exportRow) exportRow.style.display = 'none';
             const chPwdRow = document.getElementById('changePasswordRow');
             if (chPwdRow) chPwdRow.style.display = 'none';
             const delRow = document.getElementById('deleteAccountRow');
