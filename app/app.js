@@ -421,9 +421,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             userUsernameEl.textContent = '@' + user.username;
             userAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
             logoutRow.style.display = '';
+            const exportRow = document.getElementById('exportDataRow');
+            if (exportRow) exportRow.style.display = '';
         } else {
             userInfoCard.classList.add('hidden');
             logoutRow.style.display = 'none';
+            const exportRow = document.getElementById('exportDataRow');
+            if (exportRow) exportRow.style.display = 'none';
         }
     }
 
@@ -490,8 +494,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.addEventListener('keydown', e => { if (e.key === 'Enter') handleAuthSubmit(); });
     });
 
-    // Logout
+    // Logout with confirmation
     logoutBtn.addEventListener('click', async () => {
+        if (!confirm('Ви впевнені, що хочете вийти? Локальні дані будуть видалені.')) return;
         try { await authFetch('logout', 'POST'); } catch (e) { console.warn('Logout request failed:', e); }
         authToken = null;
         currentUser = null;
@@ -1097,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 delete hw[key];
             }
             setHomework(hw);
-            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
+            if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).then(() => showToast('Збережено')).catch(() => showToast('Помилка синхронізації', 'error'));
 
             // Upload pending files
             if (_pendingFiles.length > 0 && parts.length === 3) {

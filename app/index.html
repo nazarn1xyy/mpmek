@@ -157,10 +157,10 @@
     </script>
 </head>
 <body>
-    <noscript><div style="padding:2rem;text-align:center;font-family:-apple-system,sans-serif;max-width:500px;margin:0 auto"><h2>Розклад Студента МПМЕК</h2><p style="margin:1rem 0;color:#555">Безкоштовний додаток для студентів Могилів-Подільського Монтажно-Економічного Коледжу.</p><p style="margin:1rem 0">Для повноцінної роботи додатку необхідно увімкнути JavaScript у налаштуваннях браузера.</p><p style="margin-top:2rem"><a href="https://t.me/mpmek_bot" style="padding:.75rem 1.5rem;background:#000;color:#fff;border-radius:8px;text-decoration:none">Telegram-бот (без JS)</a></p></div></noscript>
+    <noscript><style>#app,#bottomNav,#hwModal,#installOverlay{display:none!important}</style><div style="padding:2rem;text-align:center;font-family:-apple-system,sans-serif;max-width:500px;margin:0 auto"><h2>Розклад Студента МПМЕК</h2><p style="margin:1rem 0;color:#555">Безкоштовний додаток для студентів Могилів-Подільського Монтажно-Економічного Коледжу. Розклад пар, заміни та домашні завдання — все в одному місці.</p><p style="margin:1rem 0">Для повноцінної роботи додатку необхідно увімкнути JavaScript у налаштуваннях браузера.</p><h3 style="margin-top:2rem">Альтернативи без JavaScript:</h3><p style="margin-top:1rem"><a href="https://t.me/mpmek_bot" style="padding:.75rem 1.5rem;background:#0088cc;color:#fff;border-radius:8px;text-decoration:none;display:inline-block">Telegram-бот @mpmek_bot</a></p><p style="margin-top:.75rem;font-size:14px;color:#888">Бот надсилає розклад, заміни та домашні завдання прямо в Telegram.</p></div></noscript>
     <div id="app">
         <!-- Onboarding Screen -->
-        <div id="onboarding" class="screen hidden">
+        <div id="onboarding" class="screen hidden" data-nosnippet>
             <!-- Intro Slides (first-time only) -->
             <div id="onboardingIntro" class="ob-intro hidden">
                 <div class="ob-slider-wrap">
@@ -288,7 +288,7 @@
             <div id="notifPrompt" class="notif-prompt hidden">
                 <div class="notif-prompt-text">
                     <span class="notif-prompt-icon"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
-                    <span>Отримуйте розклад щоранку</span>
+                    <span>Щоранку — розклад на день та заміни. Можна вимкнути в налаштуваннях.</span>
                 </div>
                 <div class="notif-prompt-actions">
                     <button id="notifPromptBtn" class="notif-prompt-enable">Увімкнути</button>
@@ -366,20 +366,29 @@
                     <span>Змінити групу</span>
                     <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
                 </div>
+                <div class="setting-item" id="exportDataRow" style="display:none">
+                    <span>Експорт моїх даних</span>
+                    <a id="exportDataBtn" href="/api/auth?action=export" class="btn" style="text-decoration:none">Завантажити</a>
+                </div>
                 <div class="setting-item" id="logoutRow" style="display:none">
                     <span>Вийти з акаунту</span>
                     <button id="logoutBtn" class="btn" style="background-color: #ff453a; color: #fff">Вийти</button>
                 </div>
-                <div class="setting-legal" style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border-color);text-align:center;font-size:13px;opacity:.6">
+                <div class="setting-security" style="margin-top:1.5rem;padding:1rem;background:var(--surface-color,#f5f5f5);border-radius:12px;font-size:13px;color:var(--secondary-text,#888);line-height:1.6">
+                    <strong style="color:var(--text-color)">Безпека ваших даних</strong><br>
+                    Паролі зберігаються у вигляді хешів (PBKDF2). Файли — у захищеному сховищі. З'єднання шифрується через HTTPS. Ми не збираємо аналітику та не передаємо дані третім сторонам. <a href="/privacy.html" style="color:var(--accent-color,#000)">Детальніше</a>
+                </div>
+                <div class="setting-legal" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-color);text-align:center;font-size:13px;opacity:.6">
                     <a href="/privacy.html" style="color:var(--text-color);margin-right:1rem">Конфіденційність</a>
-                    <a href="/terms.html" style="color:var(--text-color)">Умови використання</a>
+                    <a href="/terms.html" style="color:var(--text-color);margin-right:1rem">Умови використання</a>
+                    <a href="/bot.html" style="color:var(--text-color)">Telegram-бот</a>
                 </div>
             </main>
         </div>
     </div>
 
     <!-- Homework Modal (Bottom Sheet) -->
-    <div id="hwModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="hwModalTitle">
+    <div id="hwModal" class="modal-overlay hidden" data-nosnippet role="dialog" aria-modal="true" aria-labelledby="hwModalTitle">
         <div class="modal-sheet">
             <div class="modal-handle"></div>
             <h2 id="hwModalTitle">Додати завдання</h2>
