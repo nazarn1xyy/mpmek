@@ -1,11 +1,30 @@
 {
-  "name": "Розклад Студента",
+  "name": "Розклад Студента МПМЕК",
   "short_name": "Розклад",
   "start_url": "./?source=pwa",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "description": "Студентський розклад",
+  "description": "Розклад пар, заміни та домашні завдання студентів МПМЕК. Push-сповіщення щоранку.",
+  "categories": ["education", "productivity"],
+  "lang": "uk",
+  "dir": "ltr",
+  "screenshots": [
+    {
+      "src": "/api/schedule-image?group=КСМ-2024-1&theme=light",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Розклад на тиждень"
+    },
+    {
+      "src": "/api/schedule-image?group=КСМ-2024-1&theme=dark",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Розклад (темна тема)"
+    }
+  ],
   "icons": [
     {
       "src": "icon.png",

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { redis, rateLimit, safeKey, safeCompare } = require('./_lib/redis');
+const { redis, rateLimit, safeKey, safeCompare, scanKeys } = require('./_lib/redis');
 const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, getUserRole } = require('./_lib/config');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -492,6 +492,106 @@ module.exports = async (req, res) => {
         console.error('WebAuthn auth error:', e);
         return res.status(400).json({ error: 'Verification failed' });
       }
+    }
+
+    // ── Change password ──
+    if (req.method === 'POST' && action === 'change-password') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`chpwd:${ip}`, 5, 60)) {
+        return res.status(429).json({ error: 'Забагато спроб. Зачекайте хвилину' });
+      }
+
+      // Admins use env password — no self-change
+      if (ADMIN_USERNAMES.includes(session.username)) {
+        return res.status(403).json({ error: 'Адміністратор не може змінити пароль тут' });
+      }
+
+      const { currentPassword, newPassword } = req.body || {};
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Введіть поточний та новий пароль' });
+      }
+      if (newPassword.length < 8 || newPassword.length > 128) {
+        return res.status(400).json({ error: 'Новий пароль: від 8 до 128 символів' });
+      }
+      if (!/[a-zA-Zа-яА-ЯіІїЇєЄґҐ]/.test(newPassword) || !/\d/.test(newPassword)) {
+        return res.status(400).json({ error: 'Пароль повинен містити літеру та цифру' });
+      }
+
+      const user = await getUser(session.username);
+      if (!user || !user.passwordHash) {
+        return res.status(400).json({ error: 'Акаунт не підтримує зміну пароля' });
+      }
+
+      // Verify current password
+      const currentHash = await pbkdf2(currentPassword, user.salt);
+      if (currentHash !== user.passwordHash) {
+        return res.status(401).json({ error: 'Поточний пароль невірний' });
+      }
+
+      // Set new password
+      const newSalt = crypto.randomBytes(32).toString('hex');
+      const newHash = await pbkdf2(newPassword, newSalt);
+      user.salt = newSalt;
+      user.passwordHash = newHash;
+      await redis('SET', `auth:user:${session.username}`, JSON.stringify(user));
+
+      // Invalidate all sessions (force re-login on other devices)
+      const sessionVer = crypto.randomBytes(4).toString('hex');
+      await redis('SET', `auth:sver:${session.username}`, sessionVer, 'EX', SESSION_TTL);
+      // Create new session for current device
+      const token = crypto.randomBytes(32).toString('hex');
+      await redis('SET', `auth:session:${token}`, `${session.username}:${sessionVer}`);
+      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+      // Delete old session
+      await redis('DEL', `auth:session:${session.token}`);
+
+      res.setHeader('Set-Cookie', buildSetCookie(token));
+      return res.json({ ok: true, token });
+    }
+
+    // ── Delete account (self-service) ──
+    if (req.method === 'POST' && action === 'delete-account') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+
+      // Admins/starostas cannot self-delete (protect key accounts)
+      if (ADMIN_USERNAMES.includes(session.username)) {
+        return res.status(403).json({ error: 'Адміністратор не може видалити акаунт' });
+      }
+
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ error: 'Введіть пароль для підтвердження' });
+      }
+
+      const user = await getUser(session.username);
+      if (!user || !user.passwordHash) {
+        return res.status(400).json({ error: 'Неможливо видалити акаунт' });
+      }
+
+      // Verify password
+      const hash = await pbkdf2(password, user.salt);
+      if (hash !== user.passwordHash) {
+        return res.status(401).json({ error: 'Невірний пароль' });
+      }
+
+      // Delete all user data
+      const uname = session.username;
+      await redis('DEL', `auth:user:${uname}`);
+      await redis('DEL', `auth:sver:${uname}`);
+      await redis('DEL', `auth:session:${session.token}`);
+      await redis('DEL', `webauthn:creds:${uname}`);
+      await redis('DEL', `webauthn:challenge:${uname}`);
+      await redis('HDEL', 'push-subs', uname).catch(() => {});
+      // Cleanup homework
+      const hwKeys = await scanKeys(`hw:*:${uname}`, 50).catch(() => []);
+      for (const k of hwKeys) { await redis('DEL', k).catch(() => {}); }
+
+      res.setHeader('Set-Cookie', clearSetCookie());
+      return res.json({ ok: true, deleted: true });
     }
 
     // ── CSP violation report sink ──

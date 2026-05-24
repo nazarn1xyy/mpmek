@@ -423,11 +423,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             logoutRow.style.display = '';
             const exportRow = document.getElementById('exportDataRow');
             if (exportRow) exportRow.style.display = '';
+            const chPwdRow = document.getElementById('changePasswordRow');
+            if (chPwdRow) chPwdRow.style.display = '';
+            const delRow = document.getElementById('deleteAccountRow');
+            if (delRow) delRow.style.display = '';
         } else {
             userInfoCard.classList.add('hidden');
             logoutRow.style.display = 'none';
             const exportRow = document.getElementById('exportDataRow');
             if (exportRow) exportRow.style.display = 'none';
+            const chPwdRow = document.getElementById('changePasswordRow');
+            if (chPwdRow) chPwdRow.style.display = 'none';
+            const delRow = document.getElementById('deleteAccountRow');
+            if (delRow) delRow.style.display = 'none';
         }
     }
 
@@ -506,6 +514,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyUserInfo(null);
         showScreen('onboarding');
         showAuthScreen();
+    });
+
+    // Change password
+    document.getElementById('changePasswordBtn')?.addEventListener('click', async () => {
+        const currentPassword = prompt('Поточний пароль:');
+        if (!currentPassword) return;
+        const newPassword = prompt('Новий пароль (мін. 8 символів, літера + цифра):');
+        if (!newPassword) return;
+        if (newPassword.length < 8) { showToast('Пароль занадто короткий', 'error'); return; }
+        try {
+            const data = await authFetch('change-password', 'POST', { currentPassword, newPassword });
+            if (data.token) authToken = data.token;
+            showToast('Пароль змінено');
+        } catch (e) {
+            showToast(e.message || 'Помилка зміни пароля', 'error');
+        }
+    });
+
+    // Delete account
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', async () => {
+        if (!confirm('Ви впевнені? Ваш акаунт та всі дані будуть видалені назавжди.')) return;
+        const password = prompt('Введіть пароль для підтвердження видалення:');
+        if (!password) return;
+        try {
+            await authFetch('delete-account', 'POST', { password });
+            authToken = null;
+            currentUser = null;
+            localStorage.clear();
+            showToast('Акаунт видалено');
+            setTimeout(() => { location.reload(); }, 1000);
+        } catch (e) {
+            showToast(e.message || 'Помилка видалення', 'error');
+        }
     });
 
     // ===== Onboarding Intro Slider =====
@@ -703,7 +744,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (screenId === 'schedule' && selectedGroup) {
             refreshSchedule(true);
         } else if (screenId === 'homework') {
-            renderHomeworkTab();
+            // Show skeleton while syncing
+            if (selectedGroup && !Object.keys(getHomework()).some(k => k.startsWith(selectedGroup + '|'))) {
+                homeworkContainer.innerHTML = '<div class="hw-skeleton">' +
+                    '<div class="hw-skeleton-item"><div class="skeleton hw-skeleton-circle"></div><div class="hw-skeleton-lines"><div class="skeleton hw-skeleton-line1"></div><div class="skeleton hw-skeleton-line2"></div></div></div>'.repeat(4) + '</div>';
+            } else {
+                renderHomeworkTab();
+            }
             // Fetch latest from server in background (will re-render when done)
             if (selectedGroup) syncHomeworkFromServer().catch(() => {});
         }
@@ -2223,7 +2270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// PWA Service Worker Registration + Periodic Sync
+// PWA Service Worker Registration + Periodic Sync + Update Prompt
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then(async reg => {
@@ -2235,6 +2282,40 @@ if ('serviceWorker' in navigator) {
                     });
                 } catch (e) { console.warn('Periodic sync registration failed:', e); }
             }
+            // SW update detection
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // New version available
+                        const banner = document.createElement('div');
+                        banner.className = 'sw-update-banner';
+                        banner.innerHTML = '<span>Доступна нова версія</span><button id="swUpdateBtn">Оновити</button>';
+                        document.body.appendChild(banner);
+                        document.getElementById('swUpdateBtn').addEventListener('click', () => {
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                            banner.remove();
+                        });
+                    }
+                });
+            });
         }).catch((e) => console.warn('SW registration failed:', e));
     });
+    // Reload page when new SW takes control
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+    });
 }
+
+// Keyboard shortcuts: ← → for week navigation on schedule screen
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    const scheduleEl = document.getElementById('schedule');
+    if (!scheduleEl || scheduleEl.classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') {
+        document.querySelector('.week-nav-btn[data-dir="-1"]')?.click();
+    } else if (e.key === 'ArrowRight') {
+        document.querySelector('.week-nav-btn[data-dir="1"]')?.click();
+    }
+});

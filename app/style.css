@@ -1449,6 +1449,63 @@ input:checked + .slider:before {
     transition: opacity 0.3s;
 }
 
+/* ===== SW Update Banner ===== */
+.sw-update-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-color, #1a1a1a);
+    color: var(--bg-color, #fff);
+    font-size: 0.8rem;
+    padding: 10px 16px;
+    border-radius: 12px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    font-weight: 500;
+}
+.sw-update-banner button {
+    background: #34c759;
+    color: #fff;
+    border: none;
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ===== Homework Skeleton ===== */
+.hw-skeleton {
+    padding: 1rem;
+}
+.hw-skeleton-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.hw-skeleton-item .skeleton {
+    border-radius: 8px;
+}
+.hw-skeleton-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+}
+.hw-skeleton-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.hw-skeleton-line1 { width: 60%; height: 12px; }
+.hw-skeleton-line2 { width: 40%; height: 10px; }
+
 /* ===== Lesson Status Indicators ===== */
 .diary-item.is-now {
     border-color: #34c759;
