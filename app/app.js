@@ -47,9 +47,10 @@
 (function() {
     const bar = document.createElement('div');
     bar.id = 'offlineBar';
-    bar.textContent = 'Немає з\'єднання — дані можуть бути застарілими';
-    bar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:6px 16px;text-align:center;font-size:13px;font-weight:600;background:#ff3b30;color:#fff;font-family:-apple-system,sans-serif';
-    document.body.prepend(bar);
+    bar.className = 'offline-banner';
+    bar.textContent = 'Офлайн — розклад з кешу';
+    bar.style.display = 'none';
+    document.body.appendChild(bar);
     function update() { bar.style.display = navigator.onLine ? 'none' : 'block'; }
     window.addEventListener('online', update);
     window.addEventListener('offline', update);
@@ -395,6 +396,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         authTitle.textContent = login ? 'Увійти' : 'Створити акаунт';
         authSubtitle.textContent = login ? 'Раді бачити знову' : 'Щоб зберегти свій розклад';
         authRegisterFields.style.display = login ? 'none' : '';
+        const benefitsList = document.getElementById('authBenefits');
+        if (benefitsList) benefitsList.style.display = login ? 'none' : '';
         authSubmit.textContent = login ? 'Увійти' : 'Зареєструватися';
         authToggleText.textContent = login ? 'Немає акаунту?' : 'Вже є акаунт?';
         authToggleBtn.textContent = login ? 'Зареєструватися' : 'Увійти';
@@ -723,6 +726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Fetch schedule data =====
     let _lastFetchTime = 0;
+    let _scheduleUpdatedAt = null;
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     async function refreshSchedule(silent) {
@@ -747,6 +751,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 delete data._settings;
             }
             scheduleData = data;
+            _scheduleUpdatedAt = resp.headers.get('last-modified') || new Date().toISOString();
             // Auto-migrate short-year group names to full-year (e.g. КСМ-24-1 → КСМ-2024-1)
             if (selectedGroup && !data[selectedGroup]) {
                 var migrated = selectedGroup.split('-').map(function(p) {
@@ -1459,6 +1464,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         frag.appendChild(weekNav);
+
+        // "Updated at" footer for data freshness
+        if (_scheduleUpdatedAt) {
+            const updEl = document.createElement('div');
+            updEl.className = 'schedule-updated';
+            try {
+                const d = new Date(_scheduleUpdatedAt);
+                updEl.textContent = `Оновлено: ${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            } catch { updEl.textContent = ''; }
+            frag.appendChild(updEl);
+        }
 
         diaryContainer.innerHTML = '';
         diaryContainer.appendChild(frag);
