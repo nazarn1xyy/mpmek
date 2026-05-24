@@ -1,5 +1,6 @@
 const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername } = require('./_lib/redis');
 const { put, del } = require('@vercel/blob');
+const { ADMIN_USERNAMES } = require('./_lib/config');
 
 // Normalize group name to full-year format for comparison (КСМ-24-1 → КСМ-2024-1)
 function normalizeGroup(g) {
@@ -14,9 +15,6 @@ function sameGroup(a, b) { return normalizeGroup(a) === normalizeGroup(b); }
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 const MAX_ATTACHMENTS = 5;
 const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 // Authenticate via Bearer token, return { username, group, isAdmin } or null
 async function authenticate(req) {

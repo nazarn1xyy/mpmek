@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { redis, rateLimit, safeKey, safeCompare } = require('./_lib/redis');
+const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, getUserRole } = require('./_lib/config');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
@@ -20,30 +21,6 @@ let _webauthn = null;
 async function webauthn() {
   if (!_webauthn) _webauthn = await import('@simplewebauthn/server');
   return _webauthn;
-}
-
-// Admin usernames from env (comma-separated), e.g. "nazar,admin2"
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean);
-
-// Starosta accounts from env (format: "username:group,username:group,...")
-const STAROSTA_ACCOUNTS = {};
-(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
-  const sep = entry.indexOf(':');
-  if (sep > 0) {
-    const username = entry.slice(0, sep).trim().toLowerCase();
-    const group = entry.slice(sep + 1).trim();
-    if (username && group) STAROSTA_ACCOUNTS[username] = group;
-  }
-});
-
-function getUserRole(username, userData) {
-  if (ADMIN_USERNAMES.includes(username)) return 'admin';
-  if (STAROSTA_ACCOUNTS[username]) return 'starosta';
-  if (userData && userData.role === 'starosta') return 'starosta';
-  return 'user';
 }
 
 function pbkdf2(password, salt) {
@@ -223,18 +200,18 @@ module.exports = async (req, res) => {
         });
       }
 
-      // Starosta login: password = username + "123"
+      // Starosta login: uses stored password hash (same as normal users)
       if (STAROSTA_ACCOUNTS[username]) {
-        const expectedPwd = username + '123';
-        if (!safeCompare(password, expectedPwd)) {
+        if (!user || !user.passwordHash) {
+          return res.status(401).json({ error: 'Акаунт не активовано. Зверніться до адміністратора' });
+        }
+        const hash = await pbkdf2(password, user.salt);
+        if (hash !== user.passwordHash) {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
         const starostaGroup = STAROSTA_ACCOUNTS[username];
-        if (!user) {
-          user = { displayName: username, group: starostaGroup, role: 'starosta', createdAt: new Date().toISOString() };
-          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
-        } else if (user.group !== starostaGroup || user.role !== 'starosta') {
+        if (user.group !== starostaGroup || user.role !== 'starosta') {
           user.group = starostaGroup;
           user.role = 'starosta';
           await redis('SET', `auth:user:${username}`, JSON.stringify(user));

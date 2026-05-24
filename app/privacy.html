@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Політика конфіденційності — Розклад Студента МПМЕК</title>
+    <meta name="description" content="Політика конфіденційності додатку Розклад Студента МПМЕК (mpmek.site).">
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=8">
+    <meta name="color-scheme" content="light dark">
+    <style>
+        :root{--bg:#fff;--text:#1a1a1a;--surface:#f5f5f5;--border:#e0e0e0;--accent:#000;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+        @media(prefers-color-scheme:dark){:root{--bg:#000;--text:#f5f5f5;--surface:#111;--border:#222;--accent:#fff}}
+        *{box-sizing:border-box;margin:0;padding:0}
+        html{background:var(--bg)}
+        body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;max-width:720px;margin:0 auto;padding:2rem 1.25rem 4rem}
+        h1{font-size:1.5rem;margin-bottom:.5rem}
+        h2{font-size:1.15rem;margin-top:2rem;margin-bottom:.5rem}
+        p,ul{margin-bottom:1rem}
+        ul{padding-left:1.5rem}
+        li{margin-bottom:.4rem}
+        a{color:var(--accent)}
+        .back{display:inline-flex;align-items:center;gap:6px;margin-bottom:1.5rem;text-decoration:none;color:var(--text);font-size:14px;opacity:.7}
+        .back:hover{opacity:1}
+        .updated{font-size:13px;color:#888;margin-bottom:2rem}
+    </style>
+</head>
+<body>
+    <a href="/" class="back">← Назад до додатку</a>
+    <h1>Політика конфіденційності</h1>
+    <p class="updated">Останнє оновлення: 24 травня 2025 року</p>
+
+    <p>Ця Політика конфіденційності описує, як додаток «Розклад Студента МПМЕК» (далі — «Додаток», «ми»), доступний за адресою <strong>mpmek.site</strong>, збирає, використовує та захищає ваші персональні дані.</p>
+
+    <h2>1. Які дані ми збираємо</h2>
+    <p>Ми збираємо мінімум даних, необхідних для роботи Додатку:</p>
+    <ul>
+        <li><strong>Дані облікового запису:</strong> логін, відображуване ім'я та група — при реєстрації.</li>
+        <li><strong>Хеш пароля:</strong> пароль зберігається виключно у вигляді хеша (PBKDF2-SHA512, 600 000 ітерацій). Ми не зберігаємо та не маємо доступу до вашого пароля у відкритому вигляді.</li>
+        <li><strong>Push-підписка:</strong> якщо ви увімкнули сповіщення — технічний ідентифікатор пристрою для доставки повідомлень. Він зберігається у зашифрованому вигляді (AES-256-GCM).</li>
+        <li><strong>Домашні завдання:</strong> текст та файли завдань, які ви самостійно додаєте.</li>
+        <li><strong>Технічні дані:</strong> IP-адреса (тимчасово, для захисту від зловживань — rate limiting), User-Agent (не зберігається).</li>
+    </ul>
+
+    <h2>2. Як ми використовуємо дані</h2>
+    <ul>
+        <li>Для відображення розкладу та домашніх завдань вашої групи.</li>
+        <li>Для доставки push-сповіщень (за вашою згодою).</li>
+        <li>Для захисту від несанкціонованого доступу (rate limiting, сесії).</li>
+        <li>Для синхронізації даних між пристроями.</li>
+    </ul>
+
+    <h2>3. Зберігання даних</h2>
+    <ul>
+        <li><strong>На пристрої:</strong> обрана група, тема, налаштування та домашні завдання зберігаються в localStorage вашого браузера.</li>
+        <li><strong>На сервері:</strong> облікові дані та домашні завдання зберігаються в Upstash Redis (хмарна база даних з шифруванням at-rest). Сервери розташовані в ЄС.</li>
+        <li><strong>Файли:</strong> прикріплені файли завдань зберігаються у Vercel Blob Storage.</li>
+    </ul>
+
+    <h2>4. Передача даних третім сторонам</h2>
+    <p>Ми <strong>не продаємо, не передаємо та не розкриваємо</strong> ваші персональні дані третім сторонам, окрім:</p>
+    <ul>
+        <li><strong>Хостинг-провайдери:</strong> Vercel (хостинг додатку), Upstash (база даних) — для технічного забезпечення роботи сервісу.</li>
+        <li><strong>За вимогою закону:</strong> якщо це передбачено чинним законодавством України.</li>
+    </ul>
+
+    <h2>5. Безпека</h2>
+    <p>Ми застосовуємо наступні заходи захисту:</p>
+    <ul>
+        <li>HTTPS (TLS 1.3) для всіх з'єднань.</li>
+        <li>HttpOnly + Secure + SameSite=Strict cookies для сесій.</li>
+        <li>PBKDF2-SHA512 (600 000 ітерацій) для хешування паролів.</li>
+        <li>AES-256-GCM шифрування push-підписок.</li>
+        <li>Rate limiting для захисту від brute-force атак.</li>
+        <li>Content Security Policy (CSP) та інші security headers.</li>
+    </ul>
+
+    <h2>6. Ваші права</h2>
+    <p>Відповідно до Закону України «Про захист персональних даних», ви маєте право:</p>
+    <ul>
+        <li>Знати, які ваші дані обробляються.</li>
+        <li>Вимагати виправлення неточних даних.</li>
+        <li>Вимагати видалення вашого облікового запису та всіх пов'язаних даних.</li>
+        <li>Відкликати згоду на push-сповіщення у будь-який момент через налаштування.</li>
+    </ul>
+    <p>Для реалізації цих прав зверніться через Telegram-бот <a href="https://t.me/mpmek_bot" target="_blank" rel="noopener">@mpmek_bot</a>.</p>
+
+    <h2>7. Cookies та localStorage</h2>
+    <ul>
+        <li><strong>auth_token</strong> (cookie): сесійний токен авторизації. HttpOnly, не доступний з JavaScript.</li>
+        <li><strong>localStorage:</strong> обрана група, тема, налаштування сповіщень, кеш домашніх завдань. Зберігається тільки на вашому пристрої.</li>
+    </ul>
+    <p>Ми <strong>не використовуємо</strong> сторонні cookies, аналітику чи рекламні трекери.</p>
+
+    <h2>8. Діти</h2>
+    <p>Додаток призначений для студентів коледжу. Ми свідомо не збираємо дані дітей молодше 16 років. Якщо ви вважаєте, що ми помилково зібрали такі дані — зв'яжіться з нами для їх видалення.</p>
+
+    <h2>9. Зміни до цієї Політики</h2>
+    <p>Ми можемо оновлювати цю Політику. Про суттєві зміни ми повідомимо через Додаток. Дата останнього оновлення вказана вгорі документа.</p>
+
+    <h2>10. Контакти</h2>
+    <p>З питань конфіденційності зверніться через Telegram-бот <a href="https://t.me/mpmek_bot" target="_blank" rel="noopener">@mpmek_bot</a>.</p>
+</body>
+</html>

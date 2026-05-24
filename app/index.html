@@ -27,24 +27,7 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <script>
-        // Telegram Mini App detection — runs before body renders, immune to JS cache
-        if (window.Telegram && window.Telegram.WebApp) {
-            document.documentElement.classList.add('in-tg-webapp');
-            try { window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); } catch(e) {}
-            // Brute-force inline styles after DOM ready (bypasses any CSS cache)
-            function _tgForceStyle() {
-                document.querySelectorAll('.top-nav,.ob-intro,.ob-auth,.onboarding-content').forEach(function(el){
-                    el.style.setProperty('padding-top', '110px', 'important');
-                });
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', _tgForceStyle);
-            } else { _tgForceStyle(); }
-            // Re-apply when new top-nav added dynamically
-            new MutationObserver(_tgForceStyle).observe(document.documentElement, {childList:true, subtree:true});
-        }
-    </script>
+    <script src="tg-detect.js?v=1"></script>
     <style>
         /* Telegram Mini App safe-area — inlined so it applies even if external CSS is cached */
         html.in-tg-webapp .top-nav{padding-top:110px!important}
@@ -363,6 +346,10 @@
                 <div class="setting-item" id="logoutRow" style="display:none">
                     <span>Вийти з акаунту</span>
                     <button id="logoutBtn" class="btn" style="background-color: #ff453a; color: #fff">Вийти</button>
+                </div>
+                <div class="setting-legal" style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border-color);text-align:center;font-size:13px;opacity:.6">
+                    <a href="/privacy.html" style="color:var(--text-color);margin-right:1rem">Конфіденційність</a>
+                    <a href="/terms.html" style="color:var(--text-color)">Умови використання</a>
                 </div>
             </main>
         </div>

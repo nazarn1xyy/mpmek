@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis, parseRedisEntries, safeCompare } = require('../_lib/redis');
+const { redis, parseRedisEntries, parseRedisHash, safeCompare, scanKeys } = require('../_lib/redis');
 const { decryptSubscription } = require('../_lib/push-crypto');
 
 const UK_DAYS = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
@@ -137,7 +137,36 @@ module.exports = async function handler(req, res) {
     }
 
     console.log('[cron] done — sent:', sent, 'failed:', failed, 'cleaned:', toDelete.length, 'totalSubs:', entries.length);
-    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, totalSubs: entries.length });
+
+    // ── Homework TTL cleanup: remove entries with ISO dates older than 30 days ──
+    let hwCleaned = 0;
+    try {
+      const hwKeys = await scanKeys('hw:*', 500);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoffISO = cutoff.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      for (const hk of hwKeys) {
+        const fields = parseRedisHash(await redis('HGETALL', hk));
+        const staleFields = [];
+        for (const field of Object.keys(fields)) {
+          // Field format: "group|YYYY-MM-DD|num" or "group|dayName|num"
+          const parts = field.split('|');
+          if (parts.length >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(parts[1])) {
+            if (parts[1] < cutoffISO) staleFields.push(field);
+          }
+        }
+        if (staleFields.length > 0) {
+          await redis('HDEL', hk, ...staleFields);
+          hwCleaned += staleFields.length;
+        }
+      }
+      if (hwCleaned > 0) console.log('[cron] homework cleanup: removed', hwCleaned, 'stale entries');
+    } catch (e) {
+      console.warn('[cron] homework cleanup error:', e.message);
+    }
+
+    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, totalSubs: entries.length, hwCleaned });
   } catch (error) {
     console.error('Cron error:', error);
     return res.status(500).json({ error: 'Internal server error' });

@@ -9,23 +9,12 @@
  */
 const crypto = require('crypto');
 const { redis, rateLimit, safeCompare, getSessionUsername, scanKeys } = require('./_lib/redis');
+const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS } = require('./_lib/config');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_OWNER = process.env.GITHUB_OWNER || 'nazarn1xyy';
 const GH_REPO = process.env.GITHUB_REPO || 'mpmek';
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-
-const STAROSTA_ACCOUNTS = {};
-(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
-  const sep = entry.indexOf(':');
-  if (sep > 0) {
-    const u = entry.slice(0, sep).trim().toLowerCase();
-    const g = entry.slice(sep + 1).trim();
-    if (u && g) STAROSTA_ACCOUNTS[u] = g;
-  }
-});
 
 function pbkdf2(password, salt) {
   return new Promise((resolve, reject) => {
@@ -184,7 +173,28 @@ async function handlePublish(req, res) {
     console.warn('SW bump skipped:', e.message);
   }
 
+  // Audit log
+  auditLog(req, 'publish', 'Schedule published').catch(() => {});
   return res.json({ ok: true });
+}
+
+// Audit log — writes admin actions to Redis list with auto-trim
+async function auditLog(req, action, detail) {
+  try {
+    const uname = await getSessionUsername(req);
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    const entry = JSON.stringify({
+      ts: new Date().toISOString(),
+      user: uname || 'unknown',
+      ip,
+      action,
+      detail: (detail || '').slice(0, 500)
+    });
+    await redis('LPUSH', 'audit:log', entry);
+    await redis('LTRIM', 'audit:log', 0, 999); // keep last 1000 entries
+  } catch (e) {
+    console.warn('Audit log write failed:', e.message);
+  }
 }
 
 async function handleUsers(res) {
@@ -240,6 +250,7 @@ async function handleSetRole(req, res) {
     delete userData.role;
   }
   await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  auditLog(req, 'set-role', `${uname} → ${role}${group ? ' (' + group + ')' : ''}`).catch(() => {});
   return res.json({ ok: true });
 }
 
@@ -251,7 +262,7 @@ async function handleCreateStarosta(req, res) {
   const grp = (group || '').trim();
   if (!uname || !pwd || !grp) return res.status(400).json({ error: 'Логін, пароль і група обов\'язкові' });
   if (uname.length < 3 || !/^[a-z0-9_]+$/.test(uname)) return res.status(400).json({ error: 'Логін: від 3 символів, латиниця/цифри/_' });
-  if (pwd.length < 4) return res.status(400).json({ error: 'Пароль: мінімум 4 символи' });
+  if (pwd.length < 8) return res.status(400).json({ error: 'Пароль: мінімум 8 символів' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Логін зарезервовано' });
   const existing = await redis('GET', `auth:user:${uname}`);
   if (existing) return res.status(409).json({ error: 'Користувач вже існує' });
@@ -259,6 +270,7 @@ async function handleCreateStarosta(req, res) {
   const hash = await pbkdf2(pwd, salt);
   const userData = { displayName: name || uname, passwordHash: hash, salt, group: grp, role: 'starosta', createdAt: new Date().toISOString() };
   await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  auditLog(req, 'create-starosta', `${uname} (${grp})`).catch(() => {});
   return res.json({ ok: true, username: uname });
 }
 
@@ -271,6 +283,7 @@ async function handleDeleteUser(req, res) {
   await redis('DEL', `auth:sver:${uname}`);
   await redis('DEL', `webauthn:creds:${uname}`);
   await redis('DEL', `webauthn:challenge:${uname}`);
+  auditLog(req, 'delete-user', uname).catch(() => {});
   return res.json({ ok: true });
 }
 
@@ -353,6 +366,11 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
     if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
+    if (req.method === 'GET' && action === 'audit-log') {
+      const raw = await redis('LRANGE', 'audit:log', 0, 99);
+      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      return res.json({ entries, total: entries.length });
+    }
     if (req.method === 'GET' && !action) return res.status(200).json({ ok: true });
 
     return res.status(405).json({ error: 'Method not allowed' });

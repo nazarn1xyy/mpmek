@@ -1,9 +1,7 @@
 const webpush = require('web-push');
 const { redis, parseRedisEntries, safeCompare, getSessionUsername } = require('./_lib/redis');
 const { decryptSubscription } = require('./_lib/push-crypto');
-
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const { ADMIN_USERNAMES } = require('./_lib/config');
 
 async function hasAdminSession(req) {
   const uname = await getSessionUsername(req);

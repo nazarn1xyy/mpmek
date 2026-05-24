@@ -1,7 +1,5 @@
 const { redis, safeCompare, getSessionUsername } = require('./_lib/redis');
-
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const { ADMIN_USERNAMES } = require('./_lib/config');
 
 async function hasAdminSession(req) {
   const uname = await getSessionUsername(req);

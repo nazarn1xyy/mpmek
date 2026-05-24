@@ -5,21 +5,9 @@
  * Auth: bot_token must match TELEGRAM_BOT_TOKEN env var
  */
 const { safeCompare, getSessionUsername, redis } = require('./_lib/redis');
+const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS } = require('./_lib/config');
 
 const DATE_RE = /^\d{2}\.\d{2}$/;
-
-const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-
-const STAROSTA_ACCOUNTS = {};
-(process.env.STAROSTA_ACCOUNTS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
-  const sep = entry.indexOf(':');
-  if (sep > 0) {
-    const username = entry.slice(0, sep).trim().toLowerCase();
-    const group = entry.slice(sep + 1).trim();
-    if (username && group) STAROSTA_ACCOUNTS[username] = group;
-  }
-});
 
 // Authenticate via Bearer token — returns { username, group, role } or null
 async function authenticateBearer(req) {

@@ -8,7 +8,8 @@ const STATIC_ASSETS = [
   './app.js',
   './manifest.json',
   './icon.png',
-  './inline-boot.js'
+  './inline-boot.js',
+  './tg-detect.js'
 ];
 
 // Pre-cache on install — skipWaiting forces immediate activation
