@@ -718,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Show skeleton while loading =====
     if (selectedGroup) {
         diaryContainer.innerHTML = '<div class="skeleton skeleton-header"></div>' +
-            '<div class="skeleton skeleton-card"></div>'.repeat(4);
+            '<div class="skeleton-lesson"><div class="skeleton skeleton-lesson-num"></div><div class="skeleton-lesson-body"><div class="skeleton skeleton-lesson-title"></div><div class="skeleton skeleton-lesson-sub"></div></div></div>'.repeat(5);
     }
 
     // ===== Fetch schedule data =====
@@ -935,9 +935,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chip = document.createElement('div');
             chip.className = 'hw-attach-chip';
             if (att.type && att.type.startsWith('image/')) {
-                chip.innerHTML = `<img src="${safeUrl(att.url)}" alt="${escHtml(att.name)}" loading="lazy" crossorigin="anonymous"><button class="hw-chip-remove" data-url="${safeUrl(att.url)}">&times;</button>`;
+                chip.innerHTML = `<img src="${safeUrl(att.url)}" alt="${escHtml(att.name)}" loading="lazy" crossorigin="anonymous"><button class="hw-chip-remove" data-url="${safeUrl(att.url)}" aria-label="Видалити ${escHtml(att.name)}">&times;</button>`;
             } else {
-                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${safeUrl(att.url)}">&times;</button>`;
+                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(att.name)}</div><button class="hw-chip-remove" data-url="${safeUrl(att.url)}" aria-label="Видалити ${escHtml(att.name)}">&times;</button>`;
             }
             hwAttachPreview.appendChild(chip);
         });
@@ -947,9 +947,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (f.type.startsWith('image/')) {
                 const url = URL.createObjectURL(f);
                 _previewObjUrls.push(url);
-                chip.innerHTML = `<img src="${url}" alt="${escHtml(f.name)}" loading="lazy"><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
+                chip.innerHTML = `<img src="${url}" alt="${escHtml(f.name)}" loading="lazy"><button class="hw-chip-remove" data-pending="${i}" aria-label="Видалити ${escHtml(f.name)}">&times;</button>`;
             } else {
-                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(f.name)}</div><button class="hw-chip-remove" data-pending="${i}">&times;</button>`;
+                chip.innerHTML = `<div class="hw-chip-file">📄 ${escHtml(f.name)}</div><button class="hw-chip-remove" data-pending="${i}" aria-label="Видалити ${escHtml(f.name)}">&times;</button>`;
             }
             hwAttachPreview.appendChild(chip);
         });
@@ -1203,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Due-date badge shown on the lesson card when HW is stored for this date
         const dueBadgeHtml = savedText && dateISO ? `<span class="hw-due-badge">${SVG_CALENDAR} ${dateISOtoDisplay(dateISO)}</span>` : '';
 
-        const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${buttonKey}" data-subject="${escapedSubject}" data-day="${dayLabel}" data-dueiso="${suggestedDueISO || ''}">${btnIcon} ${btnLabel}</button>` : '';
+        const hwBtnHtml = canEditHw() ? `<button class="homework-btn" data-key="${buttonKey}" data-subject="${escapedSubject}" data-day="${dayLabel}" data-dueiso="${suggestedDueISO || ''}" aria-label="${btnLabel}: ${escapedSubject}">${btnIcon} ${btnLabel}</button>` : '';
         const deleteHtml = canEditHw() ? savedHtml : savedText ? `<div class="hw-saved"><span>${escHtml(savedText)}</span></div>` : '';
         div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${deleteHtml}${attachHtml}${hwBtnHtml}`;
         return div;
@@ -1745,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }).join('') + '</div>';
             }
             const actionsHtml = !isHistory && canEditHw()
-                ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(entry.day || isoToUkDay(entry.date || ''))}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`
+                ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(entry.day || isoToUkDay(entry.date || ''))}" aria-label="Редагувати: ${escapedSub}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}" aria-label="Видалити: ${escapedSub}">${SVG_TRASH} Видалити</button></div>`
                 : '';
             card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${metaDate}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
             return card;

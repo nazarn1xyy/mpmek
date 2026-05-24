@@ -44,6 +44,11 @@
         .skeleton{background:var(--surface-color,#f5f5f5);border-radius:20px;animation:pulse 1.5s ease-in-out infinite}
         .skeleton-header{height:60px;margin-bottom:1rem;border-radius:12px}
         .skeleton-card{height:88px;margin-bottom:1rem}
+        .skeleton-lesson{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border-color,#e0e0e0)}
+        .skeleton-lesson-num{width:36px;height:36px;border-radius:10px;flex-shrink:0}
+        .skeleton-lesson-body{flex:1;display:flex;flex-direction:column;gap:8px}
+        .skeleton-lesson-title{height:18px;width:70%;border-radius:6px}
+        .skeleton-lesson-sub{height:14px;width:45%;border-radius:6px}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
@@ -134,6 +139,16 @@
           "target": "https://mpmek.site/?group={search_term_string}",
           "query-input": "required name=search_term_string"
         }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Головна", "item": "https://mpmek.site/" },
+          { "@type": "ListItem", "position": 2, "name": "Розклад", "item": "https://mpmek.site/?view=schedule" },
+          { "@type": "ListItem", "position": 3, "name": "Домашні завдання", "item": "https://mpmek.site/?view=homework" },
+          { "@type": "ListItem", "position": 4, "name": "Налаштування", "item": "https://mpmek.site/?view=settings" }
+        ]
       }
     ]
     </script>
