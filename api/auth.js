@@ -72,6 +72,14 @@ async function getUser(username) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+// Login audit — records successful logins (last 500 entries)
+function loginLog(req, username, role) {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const entry = JSON.stringify({ ts: new Date().toISOString(), user: username, role, ip });
+  redis('LPUSH', 'auth:logins', entry).catch(() => {});
+  redis('LTRIM', 'auth:logins', 0, 499).catch(() => {});
+}
+
 module.exports = async (req, res) => {
   // CORS for same-origin — allow only POST & GET
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -194,6 +202,7 @@ module.exports = async (req, res) => {
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
         res.setHeader('Set-Cookie', buildSetCookie(token));
+        loginLog(req, username, 'admin');
         return res.json({
           token,
           user: { username, displayName: user.displayName, group: user.group || '', role: 'admin' }
@@ -224,6 +233,7 @@ module.exports = async (req, res) => {
         await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
         res.setHeader('Set-Cookie', buildSetCookie(token));
+        loginLog(req, username, 'starosta');
         return res.json({
           token,
           user: { username, displayName: user.displayName, group: starostaGroup, role: 'starosta' }
@@ -249,6 +259,7 @@ module.exports = async (req, res) => {
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
       res.setHeader('Set-Cookie', buildSetCookie(token));
+      loginLog(req, username, getUserRole(username, user));
       return res.json({
         token,
         user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username, user) }
@@ -271,6 +282,25 @@ module.exports = async (req, res) => {
           role: getUserRole(session.username, user)
         }
       });
+    }
+
+    // ── Export user data (GDPR/privacy right) ──
+    if (req.method === 'GET' && action === 'export') {
+      const session = await getSession(req);
+      if (!session) return res.status(401).json({ error: 'Не авторизовано' });
+      const user = await getUser(session.username);
+      if (!user) return res.status(401).json({ error: 'Не авторизовано' });
+      const exportData = {
+        username: session.username,
+        displayName: user.displayName,
+        group: user.group || '',
+        role: getUserRole(session.username, user),
+        createdAt: user.createdAt || null,
+        hasWebauthn: !!(await redis('GET', `webauthn:creds:${session.username}`)),
+        hasPushSubscription: !!(await redis('HGET', 'push-subs', session.username))
+      };
+      res.setHeader('Content-Disposition', `attachment; filename="${session.username}-data.json"`);
+      return res.json(exportData);
     }
 
     // ── Set group ──
@@ -462,6 +492,24 @@ module.exports = async (req, res) => {
         console.error('WebAuthn auth error:', e);
         return res.status(400).json({ error: 'Verification failed' });
       }
+    }
+
+    // ── CSP violation report sink ──
+    if (action === 'csp-report') {
+      // Accept POST reports from browser, log to Redis for visibility
+      try {
+        const body = req.body || {};
+        const report = body['csp-report'] || body;
+        const entry = JSON.stringify({
+          ts: new Date().toISOString(),
+          url: (report['document-uri'] || report.documentURL || '').slice(0, 200),
+          violated: (report['violated-directive'] || report.effectiveDirective || '').slice(0, 100),
+          blocked: (report['blocked-uri'] || report.blockedURL || '').slice(0, 200)
+        });
+        await redis('LPUSH', 'csp:reports', entry);
+        await redis('LTRIM', 'csp:reports', 0, 99); // keep last 100
+      } catch {}
+      return res.status(204).end();
     }
 
     return res.status(400).json({ error: 'Unknown action' });

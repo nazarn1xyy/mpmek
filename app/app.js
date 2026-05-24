@@ -217,8 +217,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!scheduleData || !selectedGroup || !scheduleData[selectedGroup]) return fallback();
         const ukFull = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
         const groupData = scheduleData[selectedGroup];
-        const subLower = subject.toLowerCase().replace(/\s+/g,'').slice(0, 6);
-        if (!subLower) return fallback();
+        const subNorm = subject.toLowerCase().replace(/\s+/g,'');
+        if (!subNorm) return fallback();
         const from = new Date(fromDateISO);
         for (let offset = 1; offset <= 21; offset++) {
             const d = new Date(from); d.setDate(from.getDate() + offset);
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const found = wd[dayName].find(p =>
                     p && parseInt(p.number) === parseInt(lessonNum) &&
                     typeof p.subject === 'string' &&
-                    p.subject.toLowerCase().replace(/\s+/g,'').slice(0,6).startsWith(subLower.slice(0,4))
+                    p.subject.toLowerCase().replace(/\s+/g,'') === subNorm
                 );
                 if (found) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             }

@@ -7,7 +7,7 @@
 const { safeCompare, getSessionUsername, redis } = require('./_lib/redis');
 const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS } = require('./_lib/config');
 
-const DATE_RE = /^\d{2}\.\d{2}$/;
+const DATE_RE = /^\d{2}\.\d{2}(\.\d{4})?$/;
 
 // Authenticate via Bearer token — returns { username, group, role } or null
 async function authenticateBearer(req) {
@@ -162,13 +162,21 @@ async function bumpSwVersion(owner, repo, headers) {
 
 function sanitizeEntry(e) {
   if (!e || typeof e !== 'object') return null;
-  const date = typeof e.date === 'string' ? e.date.trim() : '';
+  let date = typeof e.date === 'string' ? e.date.trim() : '';
   if (!DATE_RE.test(date)) return null;
+  // Validate day/month ranges
+  const parts = date.split('.');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  // Normalize: strip year for storage (schedule.json uses DD.MM), but keep _fullDate for conflict detection
+  const fullDate = parts.length === 3 ? date : `${parts[0]}.${parts[1]}.${new Date().getFullYear()}`;
+  date = `${parts[0]}.${parts[1]}`; // always store as DD.MM
   const number = Number(e.number);
   if (!Number.isFinite(number) || number < 1 || number > 8) return null;
   const subject = typeof e.subject === 'string' ? e.subject.trim().slice(0, 200) : '';
   const teacher = typeof e.teacher === 'string' ? e.teacher.trim().slice(0, 100) : '';
-  return { date, number, subject, teacher };
+  return { date, number, subject, teacher, _fullDate: fullDate };
 }
 
 async function handleAdd(req, res, ghHeaders, owner, repo, authUser) {
@@ -218,12 +226,13 @@ async function handleAdd(req, res, ghHeaders, owner, repo, authUser) {
       let updated = 0;
       for (const e of validEntries) {
         const key = `${e.date}|${e.number}`;
+        const stored = { date: e.date, number: e.number, subject: e.subject, teacher: e.teacher };
         if (existingMap.has(key)) {
           // Replace existing entry with new data
-          scheduleData[group]['ПІДВІСКА'][existingMap.get(key)] = e;
+          scheduleData[group]['ПІДВІСКА'][existingMap.get(key)] = stored;
           updated++;
         } else {
-          scheduleData[group]['ПІДВІСКА'].push(e);
+          scheduleData[group]['ПІДВІСКА'].push(stored);
           existingMap.set(key, scheduleData[group]['ПІДВІСКА'].length - 1);
           added++;
         }

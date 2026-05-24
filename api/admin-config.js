@@ -283,6 +283,11 @@ async function handleDeleteUser(req, res) {
   await redis('DEL', `auth:sver:${uname}`);
   await redis('DEL', `webauthn:creds:${uname}`);
   await redis('DEL', `webauthn:challenge:${uname}`);
+  // Cleanup user's push subscription
+  await redis('HDEL', 'push-subs', uname).catch(() => {});
+  // Cleanup rate-limit keys
+  const rlKeys = await scanKeys(`hw:*:${uname}`, 50).catch(() => []);
+  for (const k of rlKeys) { await redis('DEL', k).catch(() => {}); }
   auditLog(req, 'delete-user', uname).catch(() => {});
   return res.json({ ok: true });
 }
@@ -368,6 +373,16 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
     if (req.method === 'GET' && action === 'audit-log') {
       const raw = await redis('LRANGE', 'audit:log', 0, 99);
+      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      return res.json({ entries, total: entries.length });
+    }
+    if (req.method === 'GET' && action === 'login-log') {
+      const raw = await redis('LRANGE', 'auth:logins', 0, 99);
+      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      return res.json({ entries, total: entries.length });
+    }
+    if (req.method === 'GET' && action === 'csp-reports') {
+      const raw = await redis('LRANGE', 'csp:reports', 0, 99);
       const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
       return res.json({ entries, total: entries.length });
     }
