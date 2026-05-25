@@ -4,11 +4,12 @@
     function showCrash(detail) {
         if (shown) return;
         shown = true;
+        if (detail) console.error('[crash]', detail);
         var d = document.getElementById('app');
         if (!d) d = document.body;
         d.innerHTML = '<div style="padding:2rem;text-align:center;font-family:-apple-system,sans-serif;color:#333">' +
             '<h2 style="margin-bottom:1rem">Щось пішло не так</h2>' +
-            '<p style="margin-bottom:1rem;font-size:14px;color:#888">' + (detail || '') + '</p>' +
+            '<p style="margin-bottom:1rem;font-size:14px;color:#888">Спробуйте перезавантажити сторінку. Якщо помилка повторюється — напишіть нам в Telegram.</p>' +
             '<button onclick="location.reload()" style="padding:10px 24px;border:none;border-radius:10px;background:#000;color:#fff;font-size:15px;cursor:pointer">Перезавантажити</button>' +
             '</div>';
     }
@@ -459,14 +460,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!username || !password) { showAuthError('Заповніть всі поля'); return; }
 
+        const origText = authSubmit.textContent;
         authSubmit.disabled = true;
+        authSubmit.textContent = 'Зачекайте...';
         try {
             let data;
             if (isLoginMode) {
                 data = await authFetch('login', 'POST', { username, password });
             } else {
                 const displayName = authDisplayName.value.trim();
-                if (!displayName) { showAuthError('Введіть ім\'я та прізвище'); authSubmit.disabled = false; return; }
+                if (!displayName) { showAuthError('Введіть ім\'я та прізвище'); authSubmit.disabled = false; authSubmit.textContent = origText; return; }
                 data = await authFetch('register', 'POST', { username, password, displayName });
             }
             authToken = data.token;
@@ -488,6 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             showAuthError(e.message);
         }
         authSubmit.disabled = false;
+        authSubmit.textContent = origText;
     }
 
     authSubmit.addEventListener('click', handleAuthSubmit);
@@ -498,9 +502,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.addEventListener('keydown', e => { if (e.key === 'Enter') handleAuthSubmit(); });
     });
 
-    // Logout with confirmation
-    logoutBtn.addEventListener('click', async () => {
-        if (!confirm('Ви впевнені, що хочете вийти? Локальні дані будуть видалені.')) return;
+    // Logout with confirmation (custom modal)
+    const logoutModalEl = document.getElementById('logoutModal');
+    const logoutModalCancel = document.getElementById('logoutModalCancel');
+    const logoutModalConfirm = document.getElementById('logoutModalConfirm');
+
+    logoutBtn.addEventListener('click', () => { logoutModalEl.classList.remove('hidden'); });
+    logoutModalCancel.addEventListener('click', () => { logoutModalEl.classList.add('hidden'); });
+    logoutModalEl.addEventListener('click', (e) => { if (e.target === logoutModalEl) logoutModalEl.classList.add('hidden'); });
+
+    logoutModalConfirm.addEventListener('click', async () => {
+        logoutModalConfirm.disabled = true;
+        logoutModalConfirm.textContent = 'Вихід...';
         try { await authFetch('logout', 'POST'); } catch (e) { console.warn('Logout request failed:', e); }
         authToken = null;
         currentUser = null;
@@ -508,42 +521,107 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.removeItem('selectedGroup');
         selectedGroup = null;
         applyUserInfo(null);
+        logoutModalEl.classList.add('hidden');
+        logoutModalConfirm.disabled = false;
+        logoutModalConfirm.textContent = 'Вийти';
         showScreen('onboarding');
         showAuthScreen();
     });
 
-    // Change password
-    document.getElementById('changePasswordBtn')?.addEventListener('click', async () => {
-        const currentPassword = prompt('Поточний пароль:');
-        if (!currentPassword) return;
-        const newPassword = prompt('Новий пароль (мін. 8 символів, літера + цифра):');
-        if (!newPassword) return;
-        if (newPassword.length < 8) { showToast('Пароль занадто короткий', 'error'); return; }
+    // Change password (custom modal)
+    const chPwdModal = document.getElementById('chPwdModal');
+    const chPwdCurrent = document.getElementById('chPwdCurrent');
+    const chPwdNew = document.getElementById('chPwdNew');
+    const chPwdConfirm = document.getElementById('chPwdConfirm');
+    const chPwdError = document.getElementById('chPwdError');
+    const chPwdSave = document.getElementById('chPwdSave');
+
+    function openChPwdModal() {
+        chPwdCurrent.value = '';
+        chPwdNew.value = '';
+        chPwdConfirm.value = '';
+        chPwdError.classList.add('hidden');
+        chPwdSave.disabled = false;
+        chPwdSave.textContent = 'Змінити';
+        chPwdModal.classList.remove('hidden');
+        setTimeout(() => chPwdCurrent.focus(), 250);
+    }
+    function closeChPwdModal() { chPwdModal.classList.add('hidden'); }
+
+    document.getElementById('changePasswordBtn')?.addEventListener('click', openChPwdModal);
+    document.getElementById('chPwdCancel').addEventListener('click', closeChPwdModal);
+    chPwdModal.addEventListener('click', (e) => { if (e.target === chPwdModal) closeChPwdModal(); });
+
+    chPwdSave.addEventListener('click', async () => {
+        chPwdError.classList.add('hidden');
+        const currentPassword = chPwdCurrent.value;
+        const newPassword = chPwdNew.value;
+        const confirmPassword = chPwdConfirm.value;
+        if (!currentPassword) { chPwdError.textContent = 'Введіть поточний пароль'; chPwdError.classList.remove('hidden'); return; }
+        if (!newPassword || newPassword.length < 8) { chPwdError.textContent = 'Новий пароль — мінімум 8 символів'; chPwdError.classList.remove('hidden'); return; }
+        if (newPassword !== confirmPassword) { chPwdError.textContent = 'Паролі не збігаються'; chPwdError.classList.remove('hidden'); return; }
+        chPwdSave.disabled = true;
+        chPwdSave.textContent = 'Зміна...';
         try {
             const data = await authFetch('change-password', 'POST', { currentPassword, newPassword });
             if (data.token) authToken = data.token;
+            closeChPwdModal();
             showToast('Пароль змінено');
         } catch (e) {
-            showToast(e.message || 'Помилка зміни пароля', 'error');
+            chPwdError.textContent = e.message || 'Помилка зміни пароля';
+            chPwdError.classList.remove('hidden');
         }
+        chPwdSave.disabled = false;
+        chPwdSave.textContent = 'Змінити';
     });
 
-    // Delete account
-    document.getElementById('deleteAccountBtn')?.addEventListener('click', async () => {
-        if (!confirm('Ви впевнені? Ваш акаунт та всі дані будуть видалені назавжди.')) return;
-        const password = prompt('Введіть пароль для підтвердження видалення:');
-        if (!password) return;
+    [chPwdCurrent, chPwdNew, chPwdConfirm].forEach(el => {
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') chPwdSave.click(); });
+    });
+
+    // Delete account (custom modal)
+    const delAccModal = document.getElementById('delAccModal');
+    const delAccPassword = document.getElementById('delAccPassword');
+    const delAccError = document.getElementById('delAccError');
+    const delAccConfirm = document.getElementById('delAccConfirm');
+
+    function openDelAccModal() {
+        delAccPassword.value = '';
+        delAccError.classList.add('hidden');
+        delAccConfirm.disabled = false;
+        delAccConfirm.textContent = 'Видалити';
+        delAccModal.classList.remove('hidden');
+        setTimeout(() => delAccPassword.focus(), 250);
+    }
+    function closeDelAccModal() { delAccModal.classList.add('hidden'); }
+
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', openDelAccModal);
+    document.getElementById('delAccCancel').addEventListener('click', closeDelAccModal);
+    delAccModal.addEventListener('click', (e) => { if (e.target === delAccModal) closeDelAccModal(); });
+
+    delAccConfirm.addEventListener('click', async () => {
+        delAccError.classList.add('hidden');
+        const password = delAccPassword.value;
+        if (!password) { delAccError.textContent = 'Введіть пароль'; delAccError.classList.remove('hidden'); return; }
+        delAccConfirm.disabled = true;
+        delAccConfirm.textContent = 'Видалення...';
         try {
             await authFetch('delete-account', 'POST', { password });
             authToken = null;
             currentUser = null;
             localStorage.clear();
+            closeDelAccModal();
             showToast('Акаунт видалено');
             setTimeout(() => { location.reload(); }, 1000);
         } catch (e) {
-            showToast(e.message || 'Помилка видалення', 'error');
+            delAccError.textContent = e.message || 'Помилка видалення';
+            delAccError.classList.remove('hidden');
+            delAccConfirm.disabled = false;
+            delAccConfirm.textContent = 'Видалити';
         }
     });
+
+    delAccPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') delAccConfirm.click(); });
 
     // ===== Onboarding Intro Slider =====
     function initOnboardingIntro() {
@@ -1118,8 +1196,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !hwModal.classList.contains('hidden')) {
-            closeHomeworkModal();
+        if (e.key === 'Escape') {
+            if (!hwModal.classList.contains('hidden')) closeHomeworkModal();
+            else if (!chPwdModal.classList.contains('hidden')) closeChPwdModal();
+            else if (!delAccModal.classList.contains('hidden')) closeDelAccModal();
+            else if (!logoutModalEl.classList.contains('hidden')) logoutModalEl.classList.add('hidden');
         }
         if (e.key === 'Tab' && !hwModal.classList.contains('hidden')) {
             trapFocus(hwModal, e);
@@ -1767,7 +1848,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (activeEntries.length === 0 && historyEntries.length === 0) {
-            homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">Ура! Ви ще не додали жодного домашнього завдання.</p></div>`;
+            const desc = canEditHw()
+                ? 'Натисніть «Додати завдання» в розкладі, щоб створити запис.'
+                : 'Завдання з\'являться тут, коли староста їх додасть.';
+            homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">${desc}</p></div>`;
             return;
         }
 

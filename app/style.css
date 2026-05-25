@@ -829,6 +829,33 @@ input:checked + .slider:before {
     color: var(--bg-color);
 }
 
+.modal-input {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 0.5rem;
+    transition: border-color 0.2s;
+}
+.modal-input:focus {
+    border-color: var(--accent-color);
+}
+.modal-error {
+    font-size: 13px;
+    color: #ff453a;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+}
+.modal-btn-save:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 /* Homework attachments */
 .hw-attach-row {
     display: flex;

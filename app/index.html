@@ -422,6 +422,51 @@
         </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div id="chPwdModal" class="modal-overlay hidden" data-nosnippet role="dialog" aria-modal="true" aria-labelledby="chPwdTitle">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <h2 id="chPwdTitle">Змінити пароль</h2>
+            <p class="modal-subject">Введіть поточний та новий паролі</p>
+            <input type="password" id="chPwdCurrent" class="modal-input" placeholder="Поточний пароль" autocomplete="current-password">
+            <input type="password" id="chPwdNew" class="modal-input" placeholder="Новий пароль (мін. 8 символів)" autocomplete="new-password">
+            <input type="password" id="chPwdConfirm" class="modal-input" placeholder="Повторіть новий пароль" autocomplete="new-password">
+            <p id="chPwdError" class="modal-error hidden"></p>
+            <div class="modal-actions">
+                <button id="chPwdCancel" class="modal-btn-cancel">Скасувати</button>
+                <button id="chPwdSave" class="modal-btn-save">Змінити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Modal -->
+    <div id="delAccModal" class="modal-overlay hidden" data-nosnippet role="dialog" aria-modal="true" aria-labelledby="delAccTitle">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <h2 id="delAccTitle" style="color:#ff453a">Видалити акаунт</h2>
+            <p class="modal-subject">Ваш акаунт та всі дані будуть видалені назавжди. Ця дія незворотна.</p>
+            <input type="password" id="delAccPassword" class="modal-input" placeholder="Введіть пароль для підтвердження" autocomplete="current-password">
+            <p id="delAccError" class="modal-error hidden"></p>
+            <div class="modal-actions">
+                <button id="delAccCancel" class="modal-btn-cancel">Скасувати</button>
+                <button id="delAccConfirm" class="modal-btn-save" style="background-color:#ff453a">Видалити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="modal-overlay hidden" data-nosnippet role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <h2 id="logoutModalTitle">Вийти з акаунту?</h2>
+            <p class="modal-subject">Локальні дані будуть видалені. Ви зможете увійти знову.</p>
+            <div class="modal-actions">
+                <button id="logoutModalCancel" class="modal-btn-cancel">Скасувати</button>
+                <button id="logoutModalConfirm" class="modal-btn-save" style="background-color:#ff453a">Вийти</button>
+            </div>
+        </div>
+    </div>
+
     <!-- iOS Install Overlay -->
     <div id="installOverlay" class="install-overlay" role="dialog" aria-modal="true" aria-labelledby="installTitle">
         <div class="install-content">

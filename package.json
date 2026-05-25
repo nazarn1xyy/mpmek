@@ -7,7 +7,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "esbuild app/app.js --minify --allow-overwrite --outfile=app/app.js && esbuild app/sw.js --minify --allow-overwrite --outfile=app/sw.js"
+    "build": "esbuild app/app.js --minify --allow-overwrite --outfile=app/app.js && esbuild app/sw.js --minify --allow-overwrite --outfile=app/sw.js",
+    "test": "node tests/run-all.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",

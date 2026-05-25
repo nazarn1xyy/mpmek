@@ -90,12 +90,22 @@ async function scanKeys(pattern, maxKeys = 5000) {
   return keys.slice(0, maxKeys);
 }
 
-// Extract username from Bearer token (handles both "username" legacy and "username:sessionVer" formats)
+// Extract username from Bearer token OR httpOnly cookie (handles both "username" legacy and "username:sessionVer" formats)
 // Returns null if token invalid, session not found, or sessionVer mismatch.
 async function getSessionUsername(req) {
+  let token = null;
+  // 1. Authorization header (in-memory Bearer — sent by client during active session)
   const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
+  if (auth && auth.startsWith('Bearer ')) {
+    const t = auth.slice(7).trim();
+    if (t) token = t;
+  }
+  // 2. Fallback: httpOnly cookie (sent automatically by browser on every request)
+  if (!token) {
+    const cookieStr = req.headers.cookie || '';
+    const match = cookieStr.match(/(?:^|;\s*)auth_token=([^;]+)/);
+    if (match) token = decodeURIComponent(match[1]);
+  }
   if (!token || token.length > 128) return null;
   const raw = await redis('GET', `auth:session:${token}`);
   if (!raw) return null;
