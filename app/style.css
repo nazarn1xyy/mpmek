@@ -313,16 +313,26 @@ body.ob-lock {
     border: 1px solid var(--border-color);
 }
 .setting-user-avatar {
-    width: 44px; height: 44px;
+    width: 48px; height: 48px;
     border-radius: 50%;
     background: var(--accent-color);
-    color: var(--bg-color);
+    color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 1.1rem;
+    font-weight: 700; font-size: 1rem;
     flex-shrink: 0;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 .setting-user-name { font-weight: 600; font-size: 1rem; }
 .setting-user-login { color: var(--text-secondary); font-size: .85rem; }
+.setting-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    padding: 1.25rem 0 0.25rem;
+}
 
 /* Onboarding */
 #onboarding {

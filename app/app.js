@@ -416,13 +416,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         setAuthMode(false);
     }
 
+    const _avatarColors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9','#F0B27A','#82E0AA'];
+    function _avatarColor(name) {
+        let h = 0;
+        for (let i = 0; i < (name || '').length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+        return _avatarColors[Math.abs(h) % _avatarColors.length];
+    }
+    function _avatarInitials(name) {
+        if (!name) return 'U';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return parts[0].substring(0, 2).toUpperCase();
+    }
+
+    const accountSection = document.getElementById('accountSection');
+
     function applyUserInfo(user) {
         currentUser = user;
         if (user) {
             userInfoCard.classList.remove('hidden');
+            accountSection.classList.remove('hidden');
             userDisplayNameEl.textContent = user.displayName;
             userUsernameEl.textContent = '@' + user.username;
-            userAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
+            const initials = _avatarInitials(user.displayName);
+            userAvatar.textContent = initials;
+            userAvatar.style.backgroundColor = _avatarColor(user.displayName);
             logoutRow.style.display = '';
             const chPwdRow = document.getElementById('changePasswordRow');
             if (chPwdRow) chPwdRow.style.display = '';
@@ -430,6 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (delRow) delRow.style.display = '';
         } else {
             userInfoCard.classList.add('hidden');
+            accountSection.classList.add('hidden');
             logoutRow.style.display = 'none';
             const chPwdRow = document.getElementById('changePasswordRow');
             if (chPwdRow) chPwdRow.style.display = 'none';
@@ -1516,8 +1535,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dayEl = document.createElement('div');
             dayEl.className = 'diary-day';
 
+            const pairWord = pairs.length === 1 ? 'пара' : (pairs.length >= 2 && pairs.length <= 4) ? 'пари' : 'пар';
             const title = document.createElement('h2');
-            title.innerHTML = `${day} <span class="date-badge">${dateStr}</span>`;
+            title.innerHTML = `${day} <span class="date-badge">${dateStr} · ${pairs.length} ${pairWord}</span>`;
             
             const isToday = weekOffset === 0 && currentWeekType !== 'ПІДВІСКА' && day === todayLabel;
             if (isToday) {
@@ -1851,7 +1871,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (let di = 0; di < days.length; di++) {
             const dp = dayPairs[di];
             slidesHtml += '<div class="swipe-slide"><div class="diary-day">';
-            slidesHtml += `<h2>${dp.day} <span class="date-badge">${dp.dateStr}</span>`;
+            const swPairWord = dp.pairs.length === 1 ? 'пара' : (dp.pairs.length >= 2 && dp.pairs.length <= 4) ? 'пари' : 'пар';
+            slidesHtml += `<h2>${dp.day} <span class="date-badge">${dp.dateStr} · ${dp.pairs.length} ${swPairWord}</span>`;
             const isToday = weekOffset === 0 && dp.day === todayLabel;
             if (isToday) slidesHtml += '<span class="today-badge">Сьогодні</span>';
             slidesHtml += '</h2>';

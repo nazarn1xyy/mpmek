@@ -316,6 +316,7 @@
                 <h1>Налаштування</h1>
             </header>
             <main class="settings-container">
+                <!-- Акаунт -->
                 <div id="userInfoCard" class="setting-user-card hidden">
                     <div class="setting-user-avatar" id="userAvatar">U</div>
                     <div class="setting-user-details">
@@ -323,6 +324,28 @@
                         <div class="setting-user-login" id="userUsername"></div>
                     </div>
                 </div>
+                <div id="accountSection" class="setting-section hidden">
+                    <div class="setting-section-title">Акаунт</div>
+                    <div class="setting-item" id="changePasswordRow" style="display:none">
+                        <span>Змінити пароль</span>
+                        <button id="changePasswordBtn" class="btn">Змінити</button>
+                    </div>
+                    <div class="setting-item">
+                        <span>Змінити групу</span>
+                        <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
+                    </div>
+                    <div class="setting-item" id="logoutRow" style="display:none">
+                        <span>Вийти з акаунту</span>
+                        <button id="logoutBtn" class="btn" style="background-color: #ff453a; color: #fff">Вийти</button>
+                    </div>
+                    <div class="setting-item" id="deleteAccountRow" style="display:none">
+                        <span>Видалити акаунт</span>
+                        <button id="deleteAccountBtn" class="btn" style="background-color: #ff453a; color: #fff; font-size:12px">Видалити</button>
+                    </div>
+                </div>
+
+                <!-- Зовнішній вигляд -->
+                <div class="setting-section-title">Зовнішній вигляд</div>
                 <div class="setting-item">
                     <span>Тема (Темна/Світла)</span>
                     <label class="switch">
@@ -337,6 +360,9 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+
+                <!-- Сповіщення -->
+                <div class="setting-section-title">Сповіщення</div>
                 <div class="setting-item">
                     <span>Сповіщення про розклад</span>
                     <label class="switch">
@@ -358,6 +384,9 @@
                         <option value="10:00">10:00</option>
                     </select>
                 </div>
+
+                <!-- Про додаток -->
+                <div class="setting-section-title">Про додаток</div>
                 <div class="setting-item" id="installRow">
                     <span>Додати на екран</span>
                     <a href="#installOverlay" class="btn" style="background-color: #0A84FF; color: white; text-decoration: none;">Встановити</a>
@@ -369,25 +398,9 @@
                         @mpmek_bot
                     </a>
                 </div>
-                <div class="setting-item">
-                    <span>Змінити групу</span>
-                    <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
-                </div>
-                <div class="setting-item" id="changePasswordRow" style="display:none">
-                    <span>Змінити пароль</span>
-                    <button id="changePasswordBtn" class="btn">Змінити</button>
-                </div>
                 <div class="setting-item" id="feedbackRow">
                     <span>Повідомити про помилку</span>
                     <a href="https://t.me/mpmek_bot" target="_blank" rel="noopener" class="btn">Написати</a>
-                </div>
-                <div class="setting-item" id="logoutRow" style="display:none">
-                    <span>Вийти з акаунту</span>
-                    <button id="logoutBtn" class="btn" style="background-color: #ff453a; color: #fff">Вийти</button>
-                </div>
-                <div class="setting-item" id="deleteAccountRow" style="display:none">
-                    <span>Видалити акаунт</span>
-                    <button id="deleteAccountBtn" class="btn" style="background-color: #ff453a; color: #fff; font-size:12px">Видалити</button>
                 </div>
                 <div class="setting-security" style="margin-top:1.5rem;padding:1rem;background:var(--surface-color,#f5f5f5);border-radius:12px;font-size:13px;color:var(--secondary-text,#888);line-height:1.6">
                     <strong style="color:var(--text-color)">Безпека ваших даних</strong><br>
