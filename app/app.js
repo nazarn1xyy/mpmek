@@ -359,6 +359,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const viewToggleBtn = document.getElementById('viewToggleBtn');
     const viewToggleIcon = document.getElementById('viewToggleIcon');
     let gridView = localStorage.getItem('gridView') === '1';
+    let swipeView = localStorage.getItem('swipeView') === '1';
+    let _swipeDayIdx = -1; // currently selected day in swipe mode (0-4, Mon-Fri)
 
     let modalCurrentKey = null;
     let authToken = null; // in-memory only — actual auth via httpOnly cookie
@@ -1754,6 +1756,239 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // ===== Swipe Day View =====
+    function renderSwipeView() {
+        if (!scheduleData) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Немає з'єднання</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
+            return;
+        }
+        if (!scheduleData[selectedGroup]) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Групу не знайдено</p></div>`;
+            return;
+        }
+        currentGroupTitle.textContent = selectedGroup;
+
+        // Week type detection (same as renderSchedule)
+        const groupTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
+        const hasChis = groupTypes.includes('ЧИСЕЛЬНИК');
+        const hasZnam = groupTypes.includes('ЗНАМЕННИК');
+        if (hasChis && hasZnam && (currentWeekType === 'ОСНОВНИЙ РОЗКЛАД' || currentWeekType === 'ЧИСЕЛЬНИК' || currentWeekType === 'ЗНАМЕННИК')) {
+            const isoWeek = getISOWeek(weekOffset);
+            currentWeekType = isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
+        }
+        let weekData = scheduleData[selectedGroup][currentWeekType];
+        const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);
+        if (isDataEmpty) {
+            currentWeekType = groupTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : groupTypes[0];
+            weekData = scheduleData[selectedGroup][currentWeekType];
+            if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
+        }
+        weekTypeToggle.textContent = (currentWeekType || 'РОЗКЛАД').split(' ')[0];
+        if (!weekData) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Розклад відсутній</p></div>`;
+            return;
+        }
+
+        const hw = getHomework();
+        const kyivNow = getKyivNow();
+        const currentDayOfWeek = kyivNow.dayOfWeek || 7;
+        const todayLabel = ukDays[kyivNow.dayOfWeek];
+        const today = new Date(kyivNow.year, kyivNow.month - 1, kyivNow.day);
+        const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
+        const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
+        const substitutionsList = scheduleData[selectedGroup]['ПІДВІСКА'] || [];
+
+        // Compute week dates
+        const weekDates = {};
+        const weekDatesISO = {};
+        const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
+        for (let i = 0; i < daysOrder.length; i++) {
+            const offset = (i + 1) - currentDayOfWeek + (weekOffset * 7);
+            const d = new Date(today);
+            d.setDate(today.getDate() + offset);
+            const dayStr = String(d.getDate()).padStart(2, '0');
+            const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+            weekDates[daysOrder[i]] = `${dayStr}.${monthStr}`;
+            weekDatesISO[daysOrder[i]] = `${d.getFullYear()}-${monthStr}-${dayStr}`;
+        }
+
+        // Build pairs per day
+        const dayPairs = [];
+        for (let di = 0; di < days.length; di++) {
+            const day = days[di];
+            const dateStr = weekDates[day];
+            let pairs = weekData[day] ? [...weekData[day]] : [];
+            const subsForDate = substitutionsList.filter(s => s.date === dateStr);
+            if (subsForDate.length > 0) {
+                subsForDate.forEach(sub => {
+                    const replaces = pairs.some(p => parseInt(p.number) === parseInt(sub.number));
+                    pairs = pairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+                    pairs.push({ ...sub, isSubstitution: true, substitutionType: replaces ? 'заміна' : 'підвіска' });
+                });
+            }
+            pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
+            dayPairs.push({ day, dateStr, dateISO: weekDatesISO[day], pairs, hasSub: subsForDate.length > 0 });
+        }
+
+        // Auto-select today (or Mon) on first render / week change
+        if (_swipeDayIdx < 0 || _swipeDayIdx > 4) {
+            const todayIdx = days.indexOf(todayLabel);
+            _swipeDayIdx = (weekOffset === 0 && todayIdx >= 0 && todayIdx < 5) ? todayIdx : 0;
+        }
+
+        // Day chips bar
+        let chipsHtml = '<div class="swipe-day-bar">';
+        for (let i = 0; i < days.length; i++) {
+            const isActive = i === _swipeDayIdx;
+            const hasSub = dayPairs[i].hasSub;
+            const dateNum = dayPairs[i].dateStr.split('.')[0];
+            chipsHtml += `<button class="swipe-day-chip${isActive ? ' active' : ''}${hasSub ? ' has-sub' : ''}" data-idx="${i}">${shortDays[i]}<br><span style="font-size:11px;font-weight:400;opacity:.7">${dateNum}</span></button>`;
+        }
+        chipsHtml += '</div>';
+
+        // Slides
+        let slidesHtml = '<div class="swipe-track"><div class="swipe-slides" style="transform:translateX(-' + (_swipeDayIdx * 100) + '%)">';
+        for (let di = 0; di < days.length; di++) {
+            const dp = dayPairs[di];
+            slidesHtml += '<div class="swipe-slide"><div class="diary-day">';
+            slidesHtml += `<h2>${dp.day} <span class="date-badge">${dp.dateStr}</span>`;
+            const isToday = weekOffset === 0 && dp.day === todayLabel;
+            if (isToday) slidesHtml += '<span class="today-badge">Сьогодні</span>';
+            slidesHtml += '</h2>';
+
+            if (dp.pairs.length === 0) {
+                slidesHtml += '<div style="padding:2rem 0;text-align:center;color:var(--text-secondary);font-size:14px">Немає пар</div>';
+            } else {
+                // Lesson statuses
+                const lessonStatuses = {};
+                if (isToday) {
+                    const nowMin = kyivNow.totalMinutes;
+                    let foundNext = false;
+                    for (const pr of dp.pairs) {
+                        const t = LESSON_TIMES[pr.number];
+                        if (!t) continue;
+                        const [s, e] = t.split(' - ');
+                        const [sh, sm] = s.split(':').map(Number);
+                        const [eh, em] = e.split(':').map(Number);
+                        if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) {
+                            lessonStatuses[pr.number] = 'now';
+                        } else if (nowMin < sh * 60 + sm && !foundNext) {
+                            lessonStatuses[pr.number] = 'next';
+                            foundNext = true;
+                        }
+                    }
+                }
+                // Use a temp container to get HTML from buildLessonCard
+                const tempDiv = document.createElement('div');
+                for (const pair of dp.pairs) {
+                    tempDiv.appendChild(buildLessonCard(pair, dp.day, hw, lessonStatuses[pair.number] || null, dp.dateISO));
+                }
+                slidesHtml += tempDiv.innerHTML;
+            }
+            slidesHtml += '</div></div>';
+        }
+        slidesHtml += '</div></div>';
+
+        // Week nav
+        const mondayDate = weekDates['Понеділок'];
+        const fridayDate = weekDates["П'ятниця"];
+        const weekLabel = weekOffset === 0 ? 'Поточний тиждень' : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
+        const weekNavHtml = `<div class="week-nav">
+            <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="week-nav-center">
+                <span class="week-nav-label">${weekLabel}</span>
+                <span class="week-nav-dates">${mondayDate} — ${fridayDate}</span>
+            </div>
+            <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>`;
+
+        diaryContainer.innerHTML = chipsHtml + slidesHtml + weekNavHtml;
+
+        // --- Event wiring ---
+
+        // Day chips tap
+        diaryContainer.querySelectorAll('.swipe-day-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                _swipeDayIdx = parseInt(chip.dataset.idx);
+                goToSlide(_swipeDayIdx);
+            });
+        });
+
+        // Week nav
+        diaryContainer.querySelectorAll('.week-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                weekOffset += parseInt(btn.dataset.dir);
+                _swipeDayIdx = 0;
+                renderSwipeView();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        const center = diaryContainer.querySelector('.week-nav-center');
+        if (center) center.addEventListener('click', () => {
+            if (weekOffset !== 0) { weekOffset = 0; _swipeDayIdx = -1; renderSwipeView(); }
+        });
+
+        // --- Touch swipe handling ---
+        const track = diaryContainer.querySelector('.swipe-track');
+        const slides = diaryContainer.querySelector('.swipe-slides');
+        if (!track || !slides) return;
+
+        let startX = 0, startY = 0, deltaX = 0, isSwiping = false, locked = false;
+        const THRESHOLD = 50;
+
+        function goToSlide(idx) {
+            _swipeDayIdx = Math.max(0, Math.min(4, idx));
+            slides.classList.remove('dragging');
+            slides.style.transform = `translateX(-${_swipeDayIdx * 100}%)`;
+            // Update chips
+            diaryContainer.querySelectorAll('.swipe-day-chip').forEach((c, i) => {
+                c.classList.toggle('active', i === _swipeDayIdx);
+            });
+        }
+
+        track.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            deltaX = 0;
+            isSwiping = false;
+            locked = false;
+        }, { passive: true });
+
+        track.addEventListener('touchmove', (e) => {
+            const dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
+
+            // Lock direction after 10px movement
+            if (!locked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+                locked = true;
+                isSwiping = Math.abs(dx) > Math.abs(dy);
+            }
+            if (!isSwiping) return;
+
+            e.preventDefault();
+            deltaX = dx;
+            const baseOffset = -_swipeDayIdx * 100;
+            const pxToPercent = (deltaX / track.offsetWidth) * 100;
+            slides.classList.add('dragging');
+            slides.style.transform = `translateX(${baseOffset + pxToPercent}%)`;
+        }, { passive: false });
+
+        track.addEventListener('touchend', () => {
+            if (!isSwiping) return;
+            if (deltaX < -THRESHOLD && _swipeDayIdx < 4) {
+                goToSlide(_swipeDayIdx + 1);
+            } else if (deltaX > THRESHOLD && _swipeDayIdx > 0) {
+                goToSlide(_swipeDayIdx - 1);
+            } else {
+                goToSlide(_swipeDayIdx); // snap back
+            }
+        });
+    }
+
     // Toggle grid/list view
     function updateViewIcon() {
         if (gridView) {
@@ -1765,8 +2000,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateViewIcon();
 
     function renderCurrentView() {
-        if (gridView) renderGridView(); else renderSchedule();
+        if (swipeView) renderSwipeView();
+        else if (gridView) renderGridView();
+        else renderSchedule();
     }
+
+    // ===== Swipe View Toggle (settings) =====
+    const swipeViewToggle = document.getElementById('swipeViewToggle');
+    swipeViewToggle.checked = swipeView;
+    swipeViewToggle.addEventListener('change', () => {
+        swipeView = swipeViewToggle.checked;
+        localStorage.setItem('swipeView', swipeView ? '1' : '0');
+        renderCurrentView();
+    });
 
     // ===== Pull-to-refresh (schedule screen) =====
     (function initPullToRefresh() {

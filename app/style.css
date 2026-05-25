@@ -412,6 +412,69 @@ input[type="text"]:focus {
     contain: content;
 }
 
+/* ===== Swipe Day View ===== */
+.swipe-day-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 1rem 4px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.swipe-day-chip {
+    flex: 1;
+    max-width: 72px;
+    padding: 6px 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+.swipe-day-chip.active {
+    background: var(--accent-color);
+    color: var(--bg-color);
+}
+.swipe-day-chip.has-sub {
+    position: relative;
+}
+.swipe-day-chip.has-sub::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ff9f0a;
+}
+.swipe-track {
+    overflow: hidden;
+    touch-action: pan-y;
+    position: relative;
+}
+.swipe-slides {
+    display: flex;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform;
+}
+.swipe-slides.dragging {
+    transition: none;
+}
+.swipe-slide {
+    flex: 0 0 100%;
+    min-height: 200px;
+    padding: 0.5rem 0;
+}
+
 .diary-day {
     margin-bottom: 2rem;
 }
