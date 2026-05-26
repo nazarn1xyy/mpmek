@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function syncHomeworkFromServer() {
-        if (!selectedGroup) return;
+        if (!selectedGroup || selectedGroup === '__teacher__') return;
         try {
             const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`, { cache: 'no-store' });
             if (!resp.ok) return;
@@ -914,7 +914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             scheduleData = data;
             _scheduleUpdatedAt = resp.headers.get('last-modified') || new Date().toISOString();
             // Auto-migrate short-year group names to full-year (e.g. КСМ-24-1 → КСМ-2024-1)
-            if (selectedGroup && !data[selectedGroup]) {
+            if (selectedGroup && selectedGroup !== '__teacher__' && !data[selectedGroup]) {
                 var migrated = selectedGroup.split('-').map(function(p) {
                     if (/^\d{2}$/.test(p) && parseInt(p) >= 20) return (parseInt(p) < 50 ? '20' : '19') + p;
                     return p;
