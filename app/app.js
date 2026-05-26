@@ -507,6 +507,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (data.user.role === 'teacher') {
                 // Teacher doesn't need to select a group — go straight to schedule
+                selectedGroup = '__teacher__';
+                localStorage.setItem('selectedGroup', '__teacher__');
                 obAuth.classList.add('hidden');
                 document.body.classList.remove('ob-lock');
                 navItems[0].classList.add('active');
@@ -2047,8 +2049,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Teacher Schedule View =====
     function renderTeacherSchedule() {
-        if (!scheduleData || !currentUser || !currentUser.teacherName) {
-            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Немає розкладу</p><p class="empty-state-desc">Не знайдено пар для вашого імені в розкладі.</p></div>`;
+        if (!scheduleData) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Завантаження...</p></div>`;
+            return;
+        }
+        if (!currentUser || !currentUser.teacherName) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Завантаження сесії...</p><p class="empty-state-desc">Будь ласка, зачекайте.</p></div>`;
             return;
         }
 
@@ -2241,7 +2247,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderCurrentView() {
-        if (isTeacher()) { renderTeacherSchedule(); return; }
+        // Always use teacher view when logged in as teacher
+        if (isTeacher() || selectedGroup === '__teacher__') { renderTeacherSchedule(); return; }
         if (swipeView) renderSwipeView();
         else if (gridView) renderGridView();
         else renderSchedule();
@@ -2777,6 +2784,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Teacher doesn't need a group — go straight to schedule
     if (isTeacher() && sessionValid && !selectedGroup) {
         selectedGroup = '__teacher__';
+        localStorage.setItem('selectedGroup', '__teacher__');
     }
 
     if (!selectedGroup) {

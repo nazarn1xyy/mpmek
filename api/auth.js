@@ -290,11 +290,11 @@ module.exports = async (req, res) => {
       await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
 
       res.setHeader('Set-Cookie', buildSetCookie(token));
-      loginLog(req, username, getUserRole(username, user));
-      return res.json({
-        token,
-        user: { username, displayName: user.displayName, group: user.group || '', role: getUserRole(username, user) }
-      });
+      const role = getUserRole(username, user);
+      const respUser = { username, displayName: user.displayName, group: user.group || '', role };
+      if (role === 'teacher') respUser.teacherName = TEACHER_ACCOUNTS[username] || user.teacherName || '';
+      loginLog(req, username, role);
+      return res.json({ token, user: respUser });
     }
 
     // ── Me (validate session) ──
