@@ -535,6 +535,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <section id="sec-users" class="section">
                 <div class="section-header">
                     <h2>Користувачі <span id="usersCount" class="users-count"></span></h2>
+                    <button id="importTeachersBtn" class="btn-secondary" style="margin-right:6px">📥 Імпорт вчителів</button>
                     <button id="createTeacherBtn" class="btn-primary" style="margin-right:6px">+ Вчитель</button>
                     <button id="createStarostaBtn" class="btn-primary">+ Староста</button>
                 </div>
@@ -652,6 +653,28 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <div class="modal-actions">
                 <button id="starostaModalCancel" class="btn-secondary">Скасувати</button>
                 <button id="starostaModalOk" class="btn-primary">Створити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Import Teachers Result -->
+    <div id="importModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-box" style="max-width:640px;width:95vw">
+            <h3>📥 Імпорт вчителів</h3>
+            <p id="importSummary" style="margin-bottom:12px;font-size:14px;color:var(--text-secondary)"></p>
+            <div style="overflow-x:auto;max-height:60vh">
+                <table id="importTable" style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
+                        <th style="padding:6px 8px">Вчитель</th>
+                        <th style="padding:6px 8px">Логін</th>
+                        <th style="padding:6px 8px">Пароль</th>
+                    </tr></thead>
+                    <tbody id="importTableBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions" style="margin-top:16px">
+                <button id="importCopyBtn" class="btn-secondary">📋 Копіювати все</button>
+                <button id="importCloseBtn" class="btn-primary">Закрити</button>
             </div>
         </div>
     </div>

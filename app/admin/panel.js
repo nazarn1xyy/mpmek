@@ -1944,7 +1944,8 @@
 
     // Close modals on overlay click
     const teacherModal = document.getElementById('teacherModal');
-    [userModal, starostaModal, teacherModal].forEach(m => {
+    const importModal = document.getElementById('importModal');
+    [userModal, starostaModal, teacherModal, importModal].forEach(m => {
         if (m) m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
     });
 
@@ -1980,6 +1981,50 @@
             logAction('Create starosta: @' + username + ' / ' + group);
             loadUsers();
         } catch (e) { showToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + e.message, 'error'); }
+    });
+
+    // -- Import Teachers --
+    document.getElementById('importTeachersBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('importTeachersBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Імпортую...';
+        try {
+            const r = await fetch('/api/admin-config?action=import-teachers', {
+                method: 'POST', headers: adminHeaders(), body: JSON.stringify({})
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
+
+            // Fill result table
+            const tbody = document.getElementById('importTableBody');
+            tbody.innerHTML = data.teachers.map(t =>
+                '<tr style="border-bottom:1px solid var(--border)">'
+                + '<td style="padding:6px 8px">' + escHtml(t.teacherName) + '</td>'
+                + '<td style="padding:6px 8px;font-family:monospace">' + escHtml(t.login) + '</td>'
+                + '<td style="padding:6px 8px;font-family:monospace">' + escHtml(t.password) + '</td>'
+                + '</tr>'
+            ).join('');
+            document.getElementById('importSummary').textContent =
+                'Створено ' + data.created + ' акаунтів. Збережіть цю таблицю — паролі більше не відображатимуться!';
+            importModal.classList.remove('hidden');
+            loadUsers();
+            logAction('Import teachers: ' + data.created + ' created');
+        } catch (e) { showToast('Помилка: ' + e.message, 'error'); }
+        btn.disabled = false;
+        btn.textContent = '📥 Імпорт вчителів';
+    });
+
+    document.getElementById('importCloseBtn')?.addEventListener('click', () => importModal.classList.add('hidden'));
+
+    document.getElementById('importCopyBtn')?.addEventListener('click', () => {
+        const rows = document.querySelectorAll('#importTableBody tr');
+        const text = [...rows].map(r => {
+            const cells = r.querySelectorAll('td');
+            return [cells[0]?.textContent, cells[1]?.textContent, cells[2]?.textContent].join('\t');
+        }).join('\n');
+        navigator.clipboard.writeText('Вчитель\tЛогін\tПароль\n' + text)
+            .then(() => showToast('Скопійовано!', 'success'))
+            .catch(() => showToast('Не вдалося скопіювати', 'error'));
     });
 
     // -- Create Teacher Modal --

@@ -309,6 +309,87 @@ async function handleCreateTeacher(req, res) {
   return res.json({ ok: true, username: uname });
 }
 
+// Transliteration table for Ukrainian teacher name → latin login
+const TRANSLIT = {
+  'а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ie','ж':'zh',
+  'з':'z','и':'y','і':'i','ї':'i','й':'j','к':'k','л':'l','м':'m','н':'n',
+  'о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts',
+  'ч':'ch','ш':'sh','щ':'shch','ь':'','ю':'iu','я':'ia'
+};
+function translitName(str) {
+  return str.toLowerCase().split('').map(c => TRANSLIT[c] ?? (c.match(/[a-z0-9]/) ? c : '')).join('');
+}
+function generateLogin(teacherName) {
+  // "Сабірова О.В." → surname="Сабірова", initial="О" → "sabirova_o"
+  const parts = teacherName.trim().split(/\s+/);
+  const surname = translitName(parts[0] || '');
+  const initial = parts[1] ? translitName(parts[1].replace(/\./g, '').slice(0, 1)) : '';
+  const base = (surname + (initial ? '_' + initial : '')).replace(/[^a-z0-9_]/g, '').slice(0, 28);
+  return base || 'teacher';
+}
+function generatePassword() {
+  const digits = Math.floor(1000 + Math.random() * 9000);
+  const words = ['Mpmek','Shkola','Teach','Klass','Rozklad'];
+  return words[Math.floor(Math.random() * words.length)] + digits;
+}
+
+async function handleImportTeachers(req, res) {
+  // Fetch schedule to extract unique teacher names
+  const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
+  let schedule;
+  try {
+    const r = await fetch(`${baseUrl}/schedule.json`);
+    if (!r.ok) throw new Error('schedule fetch failed');
+    schedule = await r.json();
+  } catch (e) {
+    return res.status(503).json({ error: 'Не вдалося завантажити розклад: ' + e.message });
+  }
+
+  // Collect unique non-empty teacher names
+  const teacherSet = new Set();
+  for (const groupData of Object.values(schedule)) {
+    for (const [weekType, weekData] of Object.entries(groupData)) {
+      if (weekType === 'ПІДВІСКА' || !weekData || typeof weekData !== 'object') continue;
+      for (const dayPairs of Object.values(weekData)) {
+        if (!Array.isArray(dayPairs)) continue;
+        for (const pair of dayPairs) {
+          if (pair.teacher && pair.teacher.trim()) teacherSet.add(pair.teacher.trim());
+        }
+      }
+    }
+  }
+
+  const results = [];
+  for (const teacherName of [...teacherSet].sort()) {
+    const baseLogin = generateLogin(teacherName);
+    // Ensure unique login (append number if taken)
+    let login = baseLogin;
+    let attempt = 0;
+    while (await redis('GET', `auth:user:${login}`)) {
+      attempt++;
+      login = baseLogin + attempt;
+    }
+
+    const password = generatePassword();
+    const salt = crypto.randomBytes(32).toString('hex');
+    const hash = await pbkdf2(password, salt);
+    const userData = {
+      displayName: teacherName,
+      passwordHash: hash,
+      salt,
+      group: '',
+      role: 'teacher',
+      teacherName,
+      createdAt: new Date().toISOString()
+    };
+    await redis('SET', `auth:user:${login}`, JSON.stringify(userData));
+    results.push({ login, password, teacherName });
+  }
+
+  auditLog(req, 'import-teachers', `Imported ${results.length} teachers`).catch(() => {});
+  return res.json({ ok: true, created: results.length, teachers: results });
+}
+
 async function handleDeleteUser(req, res) {
   const { username } = req.body || {};
   const uname = (username || '').trim().toLowerCase();
@@ -406,6 +487,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
     if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
     if (req.method === 'POST' && action === 'create-teacher') return await handleCreateTeacher(req, res);
+    if (req.method === 'POST' && action === 'import-teachers') return await handleImportTeachers(req, res);
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
     if (req.method === 'GET' && action === 'audit-log') {
       const raw = await redis('LRANGE', 'audit:log', 0, 99);
