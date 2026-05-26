@@ -209,19 +209,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     function isoToUkDay(iso) {
         if (!iso) return '';
         const full = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
-        const d = new Date(iso);
-        return full[d.getDay()];
+        const [y, m, d] = iso.split('-').map(Number);
+        return full[new Date(y, m - 1, d).getDay()];
     }
     // Finds the next date (YYYY-MM-DD) when subject+lessonNum appears in schedule after fromDateISO
     function findNextSubjectDateISO(subject, lessonNum, fromDateISO) {
-        const fallback = () => { const fb = new Date(fromDateISO); fb.setDate(fb.getDate() + 7); return fb.toISOString().split('T')[0]; };
+        const fallback = () => { const [fy, fm, fd] = fromDateISO.split('-').map(Number); const fb = new Date(fy, fm - 1, fd + 7); return `${fb.getFullYear()}-${String(fb.getMonth()+1).padStart(2,'0')}-${String(fb.getDate()).padStart(2,'0')}`; };
         if (!subject || typeof subject !== 'string') return fallback();
         if (!scheduleData || !selectedGroup || !scheduleData[selectedGroup]) return fallback();
         const ukFull = ['Неділя','Понеділок','Вівторок','Середа','Четвер',"П'ятниця",'Субота'];
         const groupData = scheduleData[selectedGroup];
         const subNorm = subject.toLowerCase().replace(/\s+/g,'');
         if (!subNorm) return fallback();
-        const from = new Date(fromDateISO);
+        const [_fy, _fm, _fd] = fromDateISO.split('-').map(Number);
+        const from = new Date(_fy, _fm - 1, _fd);
         for (let offset = 1; offset <= 21; offset++) {
             const d = new Date(from); d.setDate(from.getDate() + offset);
             const dow = d.getDay();
