@@ -2053,12 +2053,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Завантаження...</p></div>`;
             return;
         }
-        if (!currentUser || !currentUser.teacherName) {
-            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Завантаження сесії...</p><p class="empty-state-desc">Будь ласка, зачекайте.</p></div>`;
+        if (!currentUser) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Завантаження...</p></div>`;
             return;
         }
-
-        const teacherName = currentUser.teacherName;
+        // Use teacherName or fall back to displayName (for accounts where teacherName wasn't stored)
+        const teacherName = currentUser.teacherName || currentUser.displayName || '';
+        if (!teacherName) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Ім'я в розкладі не налаштовано</p><p class="empty-state-desc">Зверніться до адміністратора.</p></div>`;
+            return;
+        }
         currentGroupTitle.textContent = teacherName;
 
         const kyivNow = getKyivNow();
@@ -2775,6 +2779,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 selectedGroup = data.user.group;
                 localStorage.setItem('selectedGroup', selectedGroup);
             }
+            // Re-render now that we have user info (fixes teacher view loading)
+            if (scheduleData && selectedGroup) renderCurrentView();
         } catch {
             // Cookie expired or invalid — clear the hint
             localStorage.removeItem('hasSession');
