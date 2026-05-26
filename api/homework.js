@@ -1,6 +1,6 @@
 const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername } = require('./_lib/redis');
 const { put, del } = require('@vercel/blob');
-const { ADMIN_USERNAMES } = require('./_lib/config');
+const { ADMIN_USERNAMES, TEACHER_ACCOUNTS } = require('./_lib/config');
 
 // Normalize group name to full-year format for comparison (КСМ-24-1 → КСМ-2024-1)
 function normalizeGroup(g) {
@@ -16,7 +16,7 @@ const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 const MAX_ATTACHMENTS = 5;
 const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
-// Authenticate via Bearer token, return { username, group, isAdmin } or null
+// Authenticate via Bearer token, return { username, group, role, canEdit, teacherName } or null
 async function authenticate(req) {
   const uname = await getSessionUsername(req);
   if (!uname) return null;
@@ -26,8 +26,10 @@ async function authenticate(req) {
     const user = JSON.parse(raw);
     const isAdmin = ADMIN_USERNAMES.includes(uname);
     const isStarosta = !isAdmin && (user.role === 'starosta');
-    const role = isAdmin ? 'admin' : isStarosta ? 'starosta' : 'user';
-    return { username: uname, group: user.group || '', role, canEdit: isAdmin || isStarosta };
+    const isTeacher = !isAdmin && !isStarosta && (!!TEACHER_ACCOUNTS[uname] || user.role === 'teacher');
+    const role = isAdmin ? 'admin' : isStarosta ? 'starosta' : isTeacher ? 'teacher' : 'user';
+    const teacherName = TEACHER_ACCOUNTS[uname] || user.teacherName || '';
+    return { username: uname, group: user.group || '', role, canEdit: isAdmin || isStarosta || isTeacher, teacherName };
   } catch { return null; }
 }
 
@@ -106,7 +108,8 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !fileData || !fileName) {
         return res.status(400).json({ error: 'group, day, number, fileName, fileData required' });
       }
-      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
+      // Starosta: own group only. Teacher: any group (subject checked client-side). Admin: any.
+      if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const mimeType = typeof fileType === 'string' ? fileType : 'application/octet-stream';
@@ -169,7 +172,8 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !url) {
         return res.status(400).json({ error: 'group, day, number, url required' });
       }
-      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
+      // Starosta: own group only. Teacher/Admin: any group.
+      if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
       const num = Number(number);
@@ -225,8 +229,8 @@ module.exports = async function handler(req, res) {
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
       if (typeof day !== 'string' || day.length > 20) return res.status(400).json({ error: 'invalid day' });
 
-      // Starosta can only modify homework for their own group; admins can modify any
-      if (user.role !== 'admin' && !sameGroup(user.group, group)) {
+      // Starosta: own group only. Teacher/Admin: any group.
+      if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
       }
 

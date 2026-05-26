@@ -9,7 +9,7 @@
  */
 const crypto = require('crypto');
 const { redis, rateLimit, safeCompare, getSessionUsername, scanKeys } = require('./_lib/redis');
-const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS } = require('./_lib/config');
+const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, TEACHER_ACCOUNTS } = require('./_lib/config');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
 const GH_TOKEN = process.env.GITHUB_TOKEN;
@@ -226,19 +226,28 @@ async function handleUsers(res) {
       usersMap[u].group = usersMap[u].group || g;
     }
   }
+  for (const [u, teacherName] of Object.entries(TEACHER_ACCOUNTS)) {
+    if (!usersMap[u]) {
+      usersMap[u] = { username: u, displayName: teacherName, group: '', role: 'teacher', createdAt: null, envTeacher: true, teacherName };
+    } else if (usersMap[u].role !== 'admin') {
+      usersMap[u].envTeacher = true;
+      usersMap[u].role = 'teacher';
+      usersMap[u].teacherName = teacherName;
+    }
+  }
   const users = Object.values(usersMap);
   users.sort((a, b) => {
-    const ro = { admin: 0, starosta: 1, user: 2 };
-    return (ro[a.role] ?? 3) - (ro[b.role] ?? 3) || a.username.localeCompare(b.username);
+    const ro = { admin: 0, teacher: 1, starosta: 2, user: 3 };
+    return (ro[a.role] ?? 4) - (ro[b.role] ?? 4) || a.username.localeCompare(b.username);
   });
   return res.json({ users, total: users.length });
 }
 
 async function handleSetRole(req, res) {
-  const { username, role, group } = req.body || {};
+  const { username, role, group, teacherName } = req.body || {};
   const uname = (username || '').trim().toLowerCase();
   if (!uname) return res.status(400).json({ error: 'Username required' });
-  if (!['user', 'starosta'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!['user', 'starosta', 'teacher'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot modify admin' });
   const raw = await redis('GET', `auth:user:${uname}`);
   if (!raw) return res.status(404).json({ error: 'User not found' });
@@ -246,11 +255,17 @@ async function handleSetRole(req, res) {
   if (role === 'starosta') {
     userData.role = 'starosta';
     if (group) userData.group = group;
+    delete userData.teacherName;
+  } else if (role === 'teacher') {
+    userData.role = 'teacher';
+    if (teacherName) userData.teacherName = teacherName;
+    delete userData.group;
   } else {
     delete userData.role;
+    delete userData.teacherName;
   }
   await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
-  auditLog(req, 'set-role', `${uname} → ${role}${group ? ' (' + group + ')' : ''}`).catch(() => {});
+  auditLog(req, 'set-role', `${uname} → ${role}${group ? ' (' + group + ')' : ''}${teacherName ? ' [' + teacherName + ']' : ''}`).catch(() => {});
   return res.json({ ok: true });
 }
 
@@ -271,6 +286,26 @@ async function handleCreateStarosta(req, res) {
   const userData = { displayName: name || uname, passwordHash: hash, salt, group: grp, role: 'starosta', createdAt: new Date().toISOString() };
   await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
   auditLog(req, 'create-starosta', `${uname} (${grp})`).catch(() => {});
+  return res.json({ ok: true, username: uname });
+}
+
+async function handleCreateTeacher(req, res) {
+  const { username, password, displayName, teacherName } = req.body || {};
+  const uname = (username || '').trim().toLowerCase();
+  const pwd = password || '';
+  const name = (displayName || '').trim();
+  const tName = (teacherName || '').trim();
+  if (!uname || !pwd || !tName) return res.status(400).json({ error: 'Логін, пароль і ім\'я вчителя (як в розкладі) обов\'язкові' });
+  if (uname.length < 3 || !/^[a-z0-9_]+$/.test(uname)) return res.status(400).json({ error: 'Логін: від 3 символів, латиниця/цифри/_' });
+  if (pwd.length < 8) return res.status(400).json({ error: 'Пароль: мінімум 8 символів' });
+  if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Логін зарезервовано' });
+  const existing = await redis('GET', `auth:user:${uname}`);
+  if (existing) return res.status(409).json({ error: 'Користувач вже існує' });
+  const salt = crypto.randomBytes(32).toString('hex');
+  const hash = await pbkdf2(pwd, salt);
+  const userData = { displayName: name || tName, passwordHash: hash, salt, group: '', role: 'teacher', teacherName: tName, createdAt: new Date().toISOString() };
+  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  auditLog(req, 'create-teacher', `${uname} (${tName})`).catch(() => {});
   return res.json({ ok: true, username: uname });
 }
 
@@ -370,6 +405,7 @@ module.exports = async function handler(req, res) {
     }
     if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
     if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
+    if (req.method === 'POST' && action === 'create-teacher') return await handleCreateTeacher(req, res);
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
     if (req.method === 'GET' && action === 'audit-log') {
       const raw = await redis('LRANGE', 'audit:log', 0, 99);

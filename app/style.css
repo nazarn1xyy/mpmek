@@ -602,6 +602,16 @@ input[type="text"]:focus {
     font-weight: 500;
     border: 1px solid var(--border-color);
 }
+.diary-item-group-badge {
+    display: inline-block;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
 
 .homework-btn {
     align-self: flex-start;

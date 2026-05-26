@@ -364,11 +364,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let modalCurrentKey = null;
     let authToken = null; // in-memory only — actual auth via httpOnly cookie
-    let currentUser = null; // { username, displayName, group, role }
+    let currentUser = null; // { username, displayName, group, role, teacherName? }
     let isLoginMode = false;
 
+    function isTeacher() {
+        return currentUser && currentUser.role === 'teacher';
+    }
     function canEditHw() {
-        return currentUser && (currentUser.role === 'starosta' || currentUser.role === 'admin');
+        return currentUser && (currentUser.role === 'starosta' || currentUser.role === 'admin' || currentUser.role === 'teacher');
     }
 
     // ===== Auth helpers =====
@@ -433,11 +436,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function applyUserInfo(user) {
         currentUser = user;
+        // Preserve teacherName from login/me response
+        if (user && user.teacherName) currentUser.teacherName = user.teacherName;
         if (user) {
             userInfoCard.classList.remove('hidden');
             accountSection.classList.remove('hidden');
             userDisplayNameEl.textContent = user.displayName;
-            userUsernameEl.textContent = '@' + user.username;
+            userUsernameEl.textContent = user.role === 'teacher' ? 'Вчитель' : '@' + user.username;
             const initials = _avatarInitials(user.displayName);
             userAvatar.textContent = initials;
             userAvatar.style.backgroundColor = _avatarColor(user.displayName);
@@ -446,6 +451,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (chPwdRow) chPwdRow.style.display = '';
             const delRow = document.getElementById('deleteAccountRow');
             if (delRow) delRow.style.display = '';
+            // Hide group-related UI for teachers
+            const changeGroupBtn = document.getElementById('changeGroupBtn');
+            if (changeGroupBtn) changeGroupBtn.closest('.setting-item').style.display = user.role === 'teacher' ? 'none' : '';
         } else {
             userInfoCard.classList.add('hidden');
             accountSection.classList.add('hidden');
@@ -497,7 +505,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('hasSession', '1');
             applyUserInfo(data.user);
 
-            if (data.user.group) {
+            if (data.user.role === 'teacher') {
+                // Teacher doesn't need to select a group — go straight to schedule
+                obAuth.classList.add('hidden');
+                document.body.classList.remove('ob-lock');
+                navItems[0].classList.add('active');
+                showScreen('schedule');
+            } else if (data.user.group) {
                 // User already has a group — go to schedule
                 selectedGroup = data.user.group;
                 localStorage.setItem('selectedGroup', selectedGroup);
@@ -1395,6 +1409,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hwBtn = e.target.closest('.homework-btn');
         if (hwBtn) {
+            // Teacher HW buttons use data-group/day/number instead of data-key
+            if (hwBtn.classList.contains('teacher-hw-btn')) {
+                const group = hwBtn.dataset.group;
+                const day = hwBtn.dataset.day;
+                const number = hwBtn.dataset.number;
+                const key = `${group}|${day}|${number}`;
+                const hw = getHomework();
+                const existingText = hw[key] || '';
+                openHomeworkModal(key, hwBtn.closest('.diary-item')?.querySelector('.diary-item-subject')?.textContent || '', day, existingText, null);
+                return;
+            }
             const { key, subject, day, dueiso } = hwBtn.dataset;
             const hw = getHomework();
             // Look up existing text: check both the button key and any dueiso-based key
@@ -2020,7 +2045,203 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     updateViewIcon();
 
+    // ===== Teacher Schedule View =====
+    function renderTeacherSchedule() {
+        if (!scheduleData || !currentUser || !currentUser.teacherName) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Немає розкладу</p><p class="empty-state-desc">Не знайдено пар для вашого імені в розкладі.</p></div>`;
+            return;
+        }
+
+        const teacherName = currentUser.teacherName;
+        currentGroupTitle.textContent = teacherName;
+
+        const kyivNow = getKyivNow();
+        const currentDayOfWeek = kyivNow.dayOfWeek || 7;
+        const todayLabel = ukDays[kyivNow.dayOfWeek];
+        const today = new Date(kyivNow.year, kyivNow.month - 1, kyivNow.day);
+
+        const daysOrder = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця'];
+        const weekDates = {};
+        const weekDatesISO = {};
+        for (let i = 0; i < 7; i++) {
+            const allDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
+            const offset = (i + 1) - currentDayOfWeek + (weekOffset * 7);
+            const d = new Date(today);
+            d.setDate(today.getDate() + offset);
+            const dayStr = String(d.getDate()).padStart(2, '0');
+            const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+            weekDates[allDays[i]] = `${dayStr}.${monthStr}`;
+            weekDatesISO[allDays[i]] = `${d.getFullYear()}-${monthStr}-${dayStr}`;
+        }
+
+        // Collect teacher's pairs from ALL groups
+        const frag = document.createDocumentFragment();
+        const groups = Object.keys(scheduleData).filter(k => k !== '_settings');
+
+        // Determine which week type to use per group
+        function getWeekData(group) {
+            const gd = scheduleData[group];
+            if (!gd) return null;
+            const types = Object.keys(gd).filter(t => t !== 'ПІДВІСКА');
+            if (types.includes(currentWeekType)) return { weekData: gd[currentWeekType], subs: gd['ПІДВІСКА'] || [] };
+            if (types.length > 0) return { weekData: gd[types[0]], subs: gd['ПІДВІСКА'] || [] };
+            return null;
+        }
+
+        for (let di = 0; di < daysOrder.length; di++) {
+            const day = daysOrder[di];
+            const dateStr = weekDates[day];
+            const dayPairs = []; // { pair, group }
+
+            for (const group of groups) {
+                const wd = getWeekData(group);
+                if (!wd || !wd.weekData || !wd.weekData[day]) continue;
+
+                // Regular pairs
+                let groupPairs = [...wd.weekData[day]];
+
+                // Merge substitutions for this date
+                const subsForDate = (wd.subs || []).filter(s => s.date === dateStr);
+                if (subsForDate.length > 0) {
+                    subsForDate.forEach(sub => {
+                        groupPairs = groupPairs.filter(p => parseInt(p.number) !== parseInt(sub.number));
+                        groupPairs.push({ ...sub, isSubstitution: true, substitutionType: 'заміна' });
+                    });
+                }
+
+                for (const pair of groupPairs) {
+                    if (pair.teacher === teacherName) {
+                        dayPairs.push({ pair, group });
+                    }
+                }
+            }
+
+            if (dayPairs.length === 0) continue;
+            dayPairs.sort((a, b) => parseInt(a.pair.number) - parseInt(b.pair.number));
+
+            const dayEl = document.createElement('div');
+            dayEl.className = 'diary-day';
+
+            const pairWord = dayPairs.length === 1 ? 'пара' : (dayPairs.length >= 2 && dayPairs.length <= 4) ? 'пари' : 'пар';
+            const title = document.createElement('h2');
+            title.innerHTML = `${day} <span class="date-badge">${dateStr} · ${dayPairs.length} ${pairWord}</span>`;
+
+            const isToday = weekOffset === 0 && day === todayLabel;
+            if (isToday) {
+                dayEl.classList.add('is-today');
+                dayEl.id = 'today-marker';
+                const badge = document.createElement('span');
+                badge.className = 'today-badge';
+                badge.textContent = 'Сьогодні';
+                title.appendChild(badge);
+            }
+            dayEl.appendChild(title);
+
+            // Lesson statuses for today
+            const lessonStatuses = {};
+            if (isToday) {
+                const nowMin = kyivNow.totalMinutes;
+                let foundNext = false;
+                for (const { pair: pr } of dayPairs) {
+                    const t = LESSON_TIMES[pr.number];
+                    if (!t) continue;
+                    const [s, e] = t.split(' - ');
+                    const [sh, sm] = s.split(':').map(Number);
+                    const [eh, em] = e.split(':').map(Number);
+                    if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) {
+                        lessonStatuses[pr.number] = 'now';
+                    } else if (nowMin < sh * 60 + sm && !foundNext) {
+                        lessonStatuses[pr.number] = 'next';
+                        foundNext = true;
+                    }
+                }
+            }
+
+            for (const { pair, group } of dayPairs) {
+                const card = document.createElement('div');
+                card.className = 'diary-item';
+                if (lessonStatuses[pair.number] === 'now') card.classList.add('is-now');
+                else if (lessonStatuses[pair.number] === 'next') card.classList.add('is-next');
+                if (pair.isSubstitution) card.classList.add('substitution');
+
+                const safeNum = Number(pair.number) || 0;
+                const escapedSubject = escHtml(pair.subject);
+                const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
+                const roomHtml = pair.room ? `<span class="diary-item-room">ауд. ${escHtml(pair.room)}</span>` : '';
+
+                let statusBadge = '';
+                if (lessonStatuses[pair.number] === 'now') {
+                    const t = LESSON_TIMES[pair.number];
+                    if (t) {
+                        const endStr = t.split(' - ')[1];
+                        const [eh, em] = endStr.split(':').map(Number);
+                        const remaining = Math.max(0, (eh * 60 + em) - kyivNow.totalMinutes);
+                        statusBadge = `<span class="badge-now">ЗАРАЗ • ще ${remaining} хв</span>`;
+                    }
+                } else if (lessonStatuses[pair.number] === 'next') {
+                    const t = LESSON_TIMES[pair.number];
+                    if (t) {
+                        const startStr = t.split(' - ')[0];
+                        const [sh, sm] = startStr.split(':').map(Number);
+                        const until = Math.max(0, (sh * 60 + sm) - kyivNow.totalMinutes);
+                        statusBadge = `<span class="badge-next">НАСТУПНА • через ${until} хв</span>`;
+                    }
+                }
+
+                let subBadge = '';
+                if (pair.isSubstitution) {
+                    const badgeText = pair.substitutionType === 'підвіска' ? 'ПІДВІСКА' : 'ЗАМІНА';
+                    subBadge = `<span class="badge-substitution">${badgeText}</span> `;
+                }
+
+                // Teacher sees group name instead of teacher name
+                const groupBadge = `<span class="diary-item-group-badge">${escHtml(group)}</span>`;
+
+                // Homework button for teacher
+                const hwKey = `${group}|${day}|${safeNum}`;
+                const hw = getHomework();
+                const existingHw = hw[hwKey] || '';
+                const hwBtnHtml = `<button class="homework-btn teacher-hw-btn" data-group="${escHtml(group)}" data-day="${escHtml(day)}" data-number="${safeNum}">${existingHw ? '✏️ ДЗ' : '+ ДЗ'}</button>`;
+
+                card.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div><div class="diary-item-subject">${subBadge}${escapedSubject}</div><div class="diary-item-teacher">${groupBadge}${roomHtml ? ' · ' + roomHtml : ''}</div>${existingHw ? '<div class="diary-item-hw">' + escHtml(existingHw) + '</div>' : ''}${hwBtnHtml}`;
+                dayEl.appendChild(card);
+            }
+            frag.appendChild(dayEl);
+        }
+
+        if (frag.childElementCount === 0) {
+            diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Немає пар</p><p class="empty-state-desc">На цьому тижні у вас немає пар.</p></div>`;
+        } else {
+            diaryContainer.innerHTML = '';
+            diaryContainer.appendChild(frag);
+        }
+
+        // Week navigation (reuse existing pattern)
+        const navHtml = `<div class="week-nav"><button class="week-nav-btn" data-dir="-1">← Попередній</button><span class="week-nav-center">${weekOffset === 0 ? 'Поточний тиждень' : (weekOffset > 0 ? '+' : '') + weekOffset + ' тиж.'}</span><button class="week-nav-btn" data-dir="1">Наступний →</button></div>`;
+        diaryContainer.insertAdjacentHTML('beforeend', navHtml);
+        diaryContainer.querySelectorAll('.week-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                weekOffset += parseInt(btn.dataset.dir);
+                renderTeacherSchedule();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        const center = diaryContainer.querySelector('.week-nav-center');
+        if (center) center.addEventListener('click', () => {
+            if (weekOffset !== 0) { weekOffset = 0; renderTeacherSchedule(); }
+        });
+
+        // Scroll to today
+        requestAnimationFrame(() => {
+            const todayMarker = document.getElementById('today-marker');
+            if (todayMarker) {
+                todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    }
+
     function renderCurrentView() {
+        if (isTeacher()) { renderTeacherSchedule(); return; }
         if (swipeView) renderSwipeView();
         else if (gridView) renderGridView();
         else renderSchedule();
@@ -2551,6 +2772,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Cookie expired or invalid — clear the hint
             localStorage.removeItem('hasSession');
         }
+    }
+
+    // Teacher doesn't need a group — go straight to schedule
+    if (isTeacher() && sessionValid && !selectedGroup) {
+        selectedGroup = '__teacher__';
     }
 
     if (!selectedGroup) {

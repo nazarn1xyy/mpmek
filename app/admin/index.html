@@ -535,10 +535,12 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <section id="sec-users" class="section">
                 <div class="section-header">
                     <h2>Користувачі <span id="usersCount" class="users-count"></span></h2>
+                    <button id="createTeacherBtn" class="btn-primary" style="margin-right:6px">+ Вчитель</button>
                     <button id="createStarostaBtn" class="btn-primary">+ Староста</button>
                 </div>
                 <div class="role-tabs">
                     <button class="role-tab active" data-filter="all">Всі</button>
+                    <button class="role-tab" data-filter="teacher">Вчителі</button>
                     <button class="role-tab" data-filter="starosta">Старости</button>
                     <button class="role-tab" data-filter="user">Юзері</button>
                     <button class="role-tab" data-filter="bot"><svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/></svg> Бот</button>
@@ -650,6 +652,21 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
             <div class="modal-actions">
                 <button id="starostaModalCancel" class="btn-secondary">Скасувати</button>
                 <button id="starostaModalOk" class="btn-primary">Створити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Create Teacher -->
+    <div id="teacherModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h3>Створити вчителя</h3>
+            <input type="text" id="teacherUsername" class="input" placeholder="Логін (латиниця, цифри, _)">
+            <input type="password" id="teacherPassword" class="input" placeholder="Пароль">
+            <input type="text" id="teacherDisplayName" class="input" placeholder="Відображуване ім'я (необов'язково)">
+            <input type="text" id="teacherName" class="input" placeholder="Ім'я в розкладі (напр. Сабірова О.В.)">
+            <div class="modal-actions">
+                <button id="teacherModalCancel" class="btn-secondary">Скасувати</button>
+                <button id="teacherModalOk" class="btn-primary">Створити</button>
             </div>
         </div>
     </div>

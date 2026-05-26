@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { redis, rateLimit, safeKey, safeCompare, scanKeys } = require('./_lib/redis');
-const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, getUserRole } = require('./_lib/config');
+const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, TEACHER_ACCOUNTS, getUserRole } = require('./_lib/config');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
 
@@ -124,8 +124,8 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Ім\'я: мінімум 2 символи' });
       }
 
-      // Block admin and starosta usernames from normal registration
-      if (ADMIN_USERNAMES.includes(username) || STAROSTA_ACCOUNTS[username]) {
+      // Block admin, starosta, teacher usernames from normal registration
+      if (ADMIN_USERNAMES.includes(username) || STAROSTA_ACCOUNTS[username] || TEACHER_ACCOUNTS[username]) {
         return res.status(403).json({ error: 'Цей логін зарезервовано' });
       }
 
@@ -240,6 +240,37 @@ module.exports = async (req, res) => {
         });
       }
 
+      // Teacher login: uses stored password hash (same as starostas)
+      if (TEACHER_ACCOUNTS[username]) {
+        if (!user || !user.passwordHash) {
+          return res.status(401).json({ error: 'Акаунт не активовано. Зверніться до адміністратора' });
+        }
+        const hash = await pbkdf2(password, user.salt);
+        if (hash !== user.passwordHash) {
+          return res.status(401).json({ error: 'Невірний логін або пароль' });
+        }
+
+        const teacherName = TEACHER_ACCOUNTS[username];
+        if (user.role !== 'teacher' || user.teacherName !== teacherName) {
+          user.role = 'teacher';
+          user.teacherName = teacherName;
+          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+        }
+
+        const sessionVer = crypto.randomBytes(4).toString('hex');
+        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+        const token = crypto.randomBytes(32).toString('hex');
+        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
+        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+
+        res.setHeader('Set-Cookie', buildSetCookie(token));
+        loginLog(req, username, 'teacher');
+        return res.json({
+          token,
+          user: { username, displayName: user.displayName, group: '', role: 'teacher', teacherName }
+        });
+      }
+
       // Normal user login
       {
         if (!user) {
@@ -274,14 +305,19 @@ module.exports = async (req, res) => {
       const user = await getUser(session.username);
       if (!user) return res.status(401).json({ error: 'Не авторизовано' });
 
-      return res.json({
+      const role = getUserRole(session.username, user);
+      const resp = {
         user: {
           username: session.username,
           displayName: user.displayName,
           group: user.group || '',
-          role: getUserRole(session.username, user)
+          role
         }
-      });
+      };
+      if (role === 'teacher') {
+        resp.user.teacherName = TEACHER_ACCOUNTS[session.username] || user.teacherName || '';
+      }
+      return res.json(resp);
     }
 
     // ── Export user data (GDPR/privacy right) ──

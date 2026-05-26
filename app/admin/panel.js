@@ -1736,10 +1736,10 @@
         }
         container.innerHTML = users.map(u => {
             const initials = (u.displayName || u.username).slice(0, 2).toUpperCase();
-            const roleClass = u.role === 'admin' ? 'admin' : u.role === 'starosta' ? 'starosta' : 'user';
-            const roleLabel = u.role === 'admin' ? 'Admin' : u.role === 'starosta' ? 'Староста' : 'User';
+            const roleClass = u.role === 'admin' ? 'admin' : u.role === 'starosta' ? 'starosta' : u.role === 'teacher' ? 'teacher' : 'user';
+            const roleLabel = u.role === 'admin' ? 'Admin' : u.role === 'starosta' ? 'Староста' : u.role === 'teacher' ? 'Вчитель' : 'User';
             const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('uk') : '';
-            const envTag = u.envStarosta ? '<span class="env-badge">ENV</span>' : '';
+            const envTag = u.envStarosta ? '<span class="env-badge">ENV</span>' : (u.envTeacher ? '<span class="env-badge">ENV</span>' : '');
             return '<div class="user-card" data-username="' + escAttr(u.username) + '" data-role="' + escAttr(u.role) + '">'
                 + '<div class="user-avatar">' + escHtml(initials) + '</div>'
                 + '<div class="user-info">'
@@ -1747,6 +1747,7 @@
                 + '<div class="user-meta">'
                 + '<span>@' + escHtml(u.username) + '</span>'
                 + (u.group ? ' <span>' + IC.book + ' ' + escHtml(u.group) + '</span>' : '')
+                + (u.teacherName ? ' <span>📚 ' + escHtml(u.teacherName) + '</span>' : '')
                 + (date ? ' <span>' + IC.calendar + ' ' + date + '</span>' : '')
                 + '</div></div>'
                 + '<span class="user-badge ' + roleClass + '">' + roleLabel + '</span>'
@@ -1848,8 +1849,8 @@
         const isAdmin = user.role === 'admin';
         const groups = scheduleData ? Object.keys(scheduleData).filter(k => k !== '_settings').sort() : [];
         const initials = (user.displayName || user.username).slice(0, 2).toUpperCase();
-        const roleClass = user.role === 'admin' ? 'admin' : user.role === 'starosta' ? 'starosta' : 'user';
-        const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'starosta' ? 'Староста' : 'Користувач';
+        const roleClass = user.role === 'admin' ? 'admin' : user.role === 'starosta' ? 'starosta' : user.role === 'teacher' ? 'teacher' : 'user';
+        const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'starosta' ? 'Староста' : user.role === 'teacher' ? 'Вчитель' : 'Користувач';
         const date = user.createdAt ? new Date(user.createdAt).toLocaleDateString('uk') : '\u2014';
         const envTag = user.envStarosta ? '<span class="env-badge">ENV</span>' : '';
 
@@ -1942,7 +1943,8 @@
     }
 
     // Close modals on overlay click
-    [userModal, starostaModal].forEach(m => {
+    const teacherModal = document.getElementById('teacherModal');
+    [userModal, starostaModal, teacherModal].forEach(m => {
         if (m) m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
     });
 
@@ -1978,6 +1980,37 @@
             logAction('Create starosta: @' + username + ' / ' + group);
             loadUsers();
         } catch (e) { showToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: ' + e.message, 'error'); }
+    });
+
+    // -- Create Teacher Modal --
+    document.getElementById('createTeacherBtn')?.addEventListener('click', () => {
+        document.getElementById('teacherUsername').value = '';
+        document.getElementById('teacherPassword').value = '';
+        document.getElementById('teacherDisplayName').value = '';
+        document.getElementById('teacherName').value = '';
+        teacherModal.classList.remove('hidden');
+    });
+
+    document.getElementById('teacherModalCancel')?.addEventListener('click', () => teacherModal.classList.add('hidden'));
+
+    document.getElementById('teacherModalOk')?.addEventListener('click', async () => {
+        const username = document.getElementById('teacherUsername').value.trim();
+        const password = document.getElementById('teacherPassword').value;
+        const displayName = document.getElementById('teacherDisplayName').value.trim();
+        const teacherName = document.getElementById('teacherName').value.trim();
+        if (!username || !password || !teacherName) { showToast('Заповніть логін, пароль і ім\'я в розкладі', 'error'); return; }
+        try {
+            const r = await fetch('/api/admin-config?action=create-teacher', {
+                method: 'POST', headers: adminHeaders(),
+                body: JSON.stringify({ username, password, displayName, teacherName })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
+            teacherModal.classList.add('hidden');
+            showToast('Вчителя створено: @' + username + ' (' + teacherName + ')', 'success');
+            logAction('Create teacher: @' + username + ' / ' + teacherName);
+            loadUsers();
+        } catch (e) { showToast('Помилка: ' + e.message, 'error'); }
     });
 
 })();
