@@ -1476,7 +1476,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const key = `${group}|${day}|${number}`;
                 const hw = getHomework();
                 const existingText = hw[key] || '';
-                openHomeworkModal(key, hwBtn.closest('.diary-item')?.querySelector('.diary-item-subject')?.textContent || '', day, existingText, null);
+                const dayDisplay = /^\d{4}-\d{2}-\d{2}$/.test(day) ? dateISOtoDisplay(day) : day;
+                openHomeworkModal(key, hwBtn.closest('.diary-item')?.querySelector('.diary-item-subject')?.textContent || '', `${group} · ${dayDisplay}`, existingText, null);
                 return;
             }
             const { key, subject, day, dueiso } = hwBtn.dataset;
@@ -1562,6 +1563,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         weekTypeToggle.style.display = '';
+        shareScheduleBtn.style.display = '';
         weekTypeToggle.textContent = (currentWeekType || 'РОЗКЛАД').split(' ')[0];
 
         if (!weekData || (Array.isArray(weekData) && weekData.length === 0)) {
@@ -2123,6 +2125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         currentGroupTitle.textContent = teacherName;
         weekTypeToggle.style.display = 'none';
+        shareScheduleBtn.style.display = 'none';
 
         const kyivNow = getKyivNow();
         const currentDayOfWeek = kyivNow.dayOfWeek || 7;
@@ -2857,8 +2860,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Teacher doesn't need a group — go straight to schedule
-    if (isTeacher() && sessionValid && !selectedGroup) {
+    // Teacher doesn't need a group — force __teacher__ (handles upgrade from student→teacher too)
+    if (isTeacher() && sessionValid && selectedGroup !== '__teacher__') {
         selectedGroup = '__teacher__';
         localStorage.setItem('selectedGroup', '__teacher__');
     }
