@@ -1719,7 +1719,7 @@
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
             allUsersData = data.users || [];
-            renderUsers(allUsersData);
+            applyUserFilter();
         } catch (e) {
             container.innerHTML = '<p class="placeholder-text" style="color:var(--danger)">Помилка: ' + escHtml(e.message) + '</p>';
         }
@@ -1759,14 +1759,18 @@
     let currentFilter = 'all';
     let botUsersCache = null;
 
+    function applyUserFilter() {
+        if (currentFilter === 'bot') { loadBotUsers(); return; }
+        if (currentFilter === 'all') { renderUsers(allUsersData); return; }
+        renderUsers(allUsersData.filter(u => u.role === currentFilter));
+    }
+
     document.querySelectorAll('.role-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             currentFilter = tab.dataset.filter;
-            if (currentFilter === 'bot') { loadBotUsers(); return; }
-            if (currentFilter === 'all') { renderUsers(allUsersData); return; }
-            renderUsers(allUsersData.filter(u => u.role === currentFilter));
+            applyUserFilter();
         });
     });
 
