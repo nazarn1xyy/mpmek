@@ -862,7 +862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentWeekType = availableTypes[(currentIndex + 1) % availableTypes.length];
 
         weekTypeToggle.textContent = currentWeekType;
-        renderSchedule();
+        renderCurrentView();
     });
 
     // ===== Show skeleton while loading =====
