@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             _hwFiles = serverFiles;
             if (changed) setHomework(merged);
             // Re-render only visible screens
-            if (screens.schedule && !screens.schedule.classList.contains('hidden')) renderSchedule();
+            if (screens.schedule && !screens.schedule.classList.contains('hidden')) renderCurrentView();
             if (screens.homework && !screens.homework.classList.contains('hidden')) renderHomeworkTab();
         } catch (e) { console.warn('[hw-sync] FAILED:', e); }
     }
@@ -938,7 +938,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await refreshSchedule(false);
     } catch (e) { console.warn('[init] schedule load error:', e); }
-    if (scheduleData) renderSchedule();
+    if (scheduleData) renderCurrentView();
     try {
         await syncHomeworkFromServer();
     } catch (e) { console.warn('[init] hw sync error:', e); }
@@ -978,7 +978,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         showScreen('schedule');
         // Sync homework then re-render so homework appears immediately
-        syncHomeworkFromServer().then(() => { renderSchedule(); renderHomeworkTab(); }).catch(() => {});
+        syncHomeworkFromServer().then(() => { renderCurrentView(); renderHomeworkTab(); }).catch(() => {});
     });
 
     // Debounced search
