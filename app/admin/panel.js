@@ -2009,7 +2009,7 @@
                 + '</tr>'
             ).join('');
             document.getElementById('importSummary').textContent =
-                'Створено ' + data.created + ' акаунтів. Збережіть цю таблицю — паролі більше не відображатимуться!';
+                'Створено ' + data.created + ' акаунтів' + (data.skipped ? ', пропущено ' + data.skipped + ' (вже існують)' : '') + '. Збережіть цю таблицю — паролі більше не відображатимуться!';
             importModal.classList.remove('hidden');
             loadUsers();
             logAction('Import teachers: ' + data.created + ' created');

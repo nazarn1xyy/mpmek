@@ -211,7 +211,8 @@ async function handleUsers(res) {
         group: d.group || '',
         role: ADMIN_USERNAMES.includes(username) ? 'admin' : (d.role || 'user'),
         createdAt: d.createdAt || null,
-        envStarosta: !!STAROSTA_ACCOUNTS[username]
+        envStarosta: !!STAROSTA_ACCOUNTS[username],
+        teacherName: d.teacherName || ''
       };
     } catch {
       usersMap[username] = { username, displayName: username, group: '', role: 'user', createdAt: null };
@@ -360,15 +361,32 @@ async function handleImportTeachers(req, res) {
   }
 
   const results = [];
+  let skipped = 0;
   for (const teacherName of [...teacherSet].sort()) {
     const baseLogin = generateLogin(teacherName);
     // Ensure unique login (append number if taken)
     let login = baseLogin;
     let attempt = 0;
-    while (await redis('GET', `auth:user:${login}`)) {
+    let existingRaw = await redis('GET', `auth:user:${login}`);
+    // Skip if account with same teacherName already exists
+    if (existingRaw) {
+      try {
+        const existingUser = JSON.parse(existingRaw);
+        if (existingUser.teacherName === teacherName) { skipped++; continue; }
+      } catch {}
+    }
+    while (existingRaw) {
       attempt++;
       login = baseLogin + attempt;
+      existingRaw = await redis('GET', `auth:user:${login}`);
+      if (existingRaw) {
+        try {
+          const eu = JSON.parse(existingRaw);
+          if (eu.teacherName === teacherName) { skipped++; login = null; break; }
+        } catch {}
+      }
     }
+    if (!login) continue;
 
     const password = generatePassword();
     const salt = crypto.randomBytes(32).toString('hex');
@@ -386,8 +404,8 @@ async function handleImportTeachers(req, res) {
     results.push({ login, password, teacherName });
   }
 
-  auditLog(req, 'import-teachers', `Imported ${results.length} teachers`).catch(() => {});
-  return res.json({ ok: true, created: results.length, teachers: results });
+  auditLog(req, 'import-teachers', `Imported ${results.length}, skipped ${skipped} teachers`).catch(() => {});
+  return res.json({ ok: true, created: results.length, skipped, teachers: results });
 }
 
 async function handleDeleteUser(req, res) {

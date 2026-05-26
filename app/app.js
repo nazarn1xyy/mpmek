@@ -260,7 +260,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function syncHomeworkFromServer() {
-        if (!selectedGroup || selectedGroup === '__teacher__') return;
+        if (!selectedGroup) return;
+        // Teacher: fetch HW from all groups where teacher has lessons
+        if (selectedGroup === '__teacher__') {
+            await syncTeacherHomework();
+            return;
+        }
         try {
             const resp = await fetch(`/api/homework?group=${encodeURIComponent(selectedGroup)}`, { cache: 'no-store' });
             if (!resp.ok) return;
@@ -290,6 +295,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (screens.schedule && !screens.schedule.classList.contains('hidden')) renderCurrentView();
             if (screens.homework && !screens.homework.classList.contains('hidden')) renderHomeworkTab();
         } catch (e) { console.warn('[hw-sync] FAILED:', e); }
+    }
+
+    async function syncTeacherHomework() {
+        if (!scheduleData || !currentUser) return;
+        const teacherName = currentUser.teacherName || currentUser.displayName || '';
+        if (!teacherName) return;
+        // Find all groups where teacher has lessons
+        const teacherGroups = new Set();
+        const groups = Object.keys(scheduleData).filter(k => k !== '_settings');
+        for (const group of groups) {
+            const gd = scheduleData[group];
+            if (!gd) continue;
+            const types = Object.keys(gd).filter(t => t !== 'ПІДВІСКА');
+            for (const wt of types) {
+                const wd = gd[wt];
+                if (!wd) continue;
+                for (const day of Object.values(wd)) {
+                    if (!Array.isArray(day)) continue;
+                    for (const pair of day) {
+                        if (pair.teacher === teacherName) { teacherGroups.add(group); break; }
+                    }
+                }
+            }
+        }
+        if (teacherGroups.size === 0) return;
+        // Fetch HW from each group (parallel, max 5 at a time)
+        const localHw = getHomework();
+        let merged = { ...localHw };
+        let changed = false;
+        let allFiles = { ..._hwFiles };
+        const fetchGroup = async (group) => {
+            try {
+                const resp = await fetch(`/api/homework?group=${encodeURIComponent(group)}`, { cache: 'no-store' });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const serverTexts = data.texts || data;
+                const serverFiles = data.files || {};
+                for (const [key, value] of Object.entries(serverTexts)) {
+                    if (!value) { if (merged[key]) { delete merged[key]; changed = true; } continue; }
+                    if (merged[key] !== value) { merged[key] = value; changed = true; }
+                }
+                Object.assign(allFiles, serverFiles);
+            } catch (e) { console.warn(`[teacher-hw] fetch ${group} failed:`, e); }
+        };
+        const arr = [...teacherGroups];
+        for (let i = 0; i < arr.length; i += 5) {
+            await Promise.all(arr.slice(i, i + 5).map(fetchGroup));
+        }
+        _hwFiles = allFiles;
+        if (changed) setHomework(merged);
+        if (screens.schedule && !screens.schedule.classList.contains('hidden')) renderCurrentView();
+        if (screens.homework && !screens.homework.classList.contains('hidden')) renderHomeworkTab();
     }
 
     // ===== DOM Elements (cached once) =====
@@ -1289,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             _hwSaveBusy = false;
             hwModalSave.disabled = false;
             closeHomeworkModal();
-            renderSchedule();
+            renderCurrentView();
             renderHomeworkTab();
         }
     });
@@ -1444,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 files.forEach(f => deleteAttachment(parts[0], parts[1], parts[2], f.url).catch(() => {}));
                 delete _hwFiles[key];
             }
-            renderSchedule();
+            renderCurrentView();
             return;
         }
 
@@ -1504,6 +1561,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
         }
 
+        weekTypeToggle.style.display = '';
         weekTypeToggle.textContent = (currentWeekType || 'РОЗКЛАД').split(' ')[0];
 
         if (!weekData || (Array.isArray(weekData) && weekData.length === 0)) {
@@ -2064,6 +2122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         currentGroupTitle.textContent = teacherName;
+        weekTypeToggle.style.display = 'none';
 
         const kyivNow = getKyivNow();
         const currentDayOfWeek = kyivNow.dayOfWeek || 7;
@@ -2207,11 +2266,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Teacher sees group name instead of teacher name
                 const groupBadge = `<span class="diary-item-group-badge">${escHtml(group)}</span>`;
 
-                // Homework button for teacher
-                const hwKey = `${group}|${day}|${safeNum}`;
+                // Homework button for teacher (check both day-name and ISO-date keys)
+                const hwKeyDay = `${group}|${day}|${safeNum}`;
+                const hwKeyISO = weekDatesISO[day] ? `${group}|${weekDatesISO[day]}|${safeNum}` : '';
                 const hw = getHomework();
-                const existingHw = hw[hwKey] || '';
-                const hwBtnHtml = `<button class="homework-btn teacher-hw-btn" data-group="${escHtml(group)}" data-day="${escHtml(day)}" data-number="${safeNum}">${existingHw ? '✏️ ДЗ' : '+ ДЗ'}</button>`;
+                const existingHw = hw[hwKeyISO] || hw[hwKeyDay] || '';
+                const hwBtnHtml = `<button class="homework-btn teacher-hw-btn" data-group="${escHtml(group)}" data-day="${hwKeyISO ? escHtml(weekDatesISO[day]) : escHtml(day)}" data-number="${safeNum}">${existingHw ? '✏️ ДЗ' : '+ ДЗ'}</button>`;
 
                 card.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${safeNum} пара</span>${statusBadge}${timeHtml}</div><div class="diary-item-subject">${subBadge}${escapedSubject}</div><div class="diary-item-teacher">${groupBadge}${roomHtml ? ' · ' + roomHtml : ''}</div>${existingHw ? '<div class="diary-item-hw">' + escHtml(existingHw) + '</div>' : ''}${hwBtnHtml}`;
                 dayEl.appendChild(card);
@@ -2327,7 +2387,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Render Homework Tab =====
     function renderHomeworkTab() {
         const hw = getHomework();
-        const prefix = selectedGroup + '|';
+        const isTeacherView = isTeacher() || selectedGroup === '__teacher__';
+        const prefix = isTeacherView ? null : selectedGroup + '|';
         const todayISO = getTodayISO();
         const activeEntries = [];  // date >= today OR legacy (day name)
         const historyEntries = []; // date < today
@@ -2340,17 +2401,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (parts.length !== 3) return;
             const dayOrDate = parts[1];
             if (isISODate(dayOrDate)) {
-                (dayOrDate < todayISO ? historyEntries : activeEntries).push({ key, date: dayOrDate, number: parts[2], text });
+                (dayOrDate < todayISO ? historyEntries : activeEntries).push({ key, date: dayOrDate, number: parts[2], text, group: parts[0] });
             } else {
-                activeEntries.push({ key, day: dayOrDate, number: parts[2], text });
+                activeEntries.push({ key, day: dayOrDate, number: parts[2], text, group: parts[0] });
             }
         }
 
         for (const key in hw) {
-            if (key.startsWith(prefix)) collectEntry(key, hw[key]);
+            if (prefix ? key.startsWith(prefix) : true) collectEntry(key, hw[key]);
         }
         for (const key in _hwFiles) {
-            if (key.startsWith(prefix) && !hw[key] && _hwFiles[key].length > 0) collectEntry(key, '');
+            if ((prefix ? key.startsWith(prefix) : true) && !hw[key] && _hwFiles[key].length > 0) collectEntry(key, '');
         }
 
         if (activeEntries.length === 0 && historyEntries.length === 0) {
@@ -2368,8 +2429,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         function lookupSubject(entry) {
             const dayName = entry.date ? isoToUkDay(entry.date) : entry.day;
             let subjectName = `Пара ${entry.number}`;
-            if (scheduleData && scheduleData[selectedGroup]) {
-                const groupData = scheduleData[selectedGroup];
+            const groupKey = entry.group || selectedGroup;
+            if (scheduleData && scheduleData[groupKey]) {
+                const groupData = scheduleData[groupKey];
                 const weekTypes = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
                 for (const wt of weekTypes) {
                     const wd = groupData[wt];
@@ -2401,7 +2463,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const actionsHtml = !isHistory && canEditHw()
                 ? `<div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${escapedSub}" data-day="${escHtml(entry.day || isoToUkDay(entry.date || ''))}" aria-label="Редагувати: ${escapedSub}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}" aria-label="Видалити: ${escapedSub}">${SVG_TRASH} Видалити</button></div>`
                 : '';
-            card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${entry.number} пара · ${metaDate}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
+            const groupLabel = (isTeacherView && entry.group) ? `<span class="diary-item-group-badge">${escHtml(entry.group)}</span> · ` : '';
+            card.innerHTML = `<div class="hw-card-subject">${escapedSub}</div><div class="hw-card-meta">${groupLabel}${entry.number} пара · ${metaDate}</div><div class="hw-card-text">${escHtml(entry.text)}</div>${cardAttHtml}${actionsHtml}`;
             return card;
         }
 
@@ -2729,7 +2792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const targetDow = targetDate.getDay() || 7;
             const targetMon = new Date(targetDate); targetMon.setDate(targetDate.getDate() - targetDow + 1); targetMon.setHours(0,0,0,0);
             weekOffset = Math.round((targetMon - todayMon) / (7 * 24 * 3600 * 1000));
-            renderSchedule();
+            renderCurrentView();
         }
 
         requestAnimationFrame(() => {
