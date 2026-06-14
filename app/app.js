@@ -27,7 +27,7 @@
     });
     window.onerror = function(msg, src, line) {
         // Safari JSON-LD @context quirk — not our bug, suppress noise
-        if (typeof msg === 'string' && msg.indexOf('@context') !== -1) return;
+        if (typeof msg === 'string' && msg.indexOf('@context') !== -1) return true;
         console.error('Global error:', msg, src, line);
         if (isOurScript(src)) {
             showCrash(msg + ' (line ' + line + ')');
