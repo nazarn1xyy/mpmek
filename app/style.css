@@ -2075,7 +2075,7 @@ html.in-tg-webapp .onboarding-content {
 }
 
 /* Minimum touch targets (WCAG 2.5.8 — 44×44 CSS px) */
-.icon-btn, .nav-item, .btn, .switch, .pin-key,
+.icon-btn, .nav-item, .btn, .pin-key,
 .homework-btn, .hw-attach-btn, .hw-chip-remove,
 .modal-btn-save, .modal-btn-cancel, .notif-prompt-enable, .notif-prompt-dismiss {
     min-height: 44px;
