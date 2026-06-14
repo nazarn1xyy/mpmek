@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "esbuild app/app.js --minify --allow-overwrite --outfile=app/app.js && esbuild app/sw.js --minify --allow-overwrite --outfile=app/sw.js",
+    "build": "esbuild app/app.js --minify --allow-overwrite --outfile=app/app.js && esbuild app/sw.js --minify --allow-overwrite --outfile=app/sw.js && esbuild app/style.css --minify --allow-overwrite --outfile=app/style.css && esbuild app/admin/panel.js --minify --allow-overwrite --outfile=app/admin/panel.js && esbuild app/admin/admin.js --minify --allow-overwrite --outfile=app/admin/admin.js",
     "test": "node tests/run-all.js"
   },
   "dependencies": {

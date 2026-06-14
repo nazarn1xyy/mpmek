@@ -57,11 +57,20 @@ async function ensureFont() {
   fontLoaded = true;
 }
 
+let _scheduleCache = null;
+let _scheduleCacheTS = 0;
+const SCHEDULE_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
 async function fetchSchedule() {
+  if (_scheduleCache && (Date.now() - _scheduleCacheTS) < SCHEDULE_CACHE_TTL) {
+    return _scheduleCache;
+  }
   const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL}`;
   const resp = await fetch(`${baseUrl}/schedule.json`);
   const data = await resp.json();
   delete data._settings;
+  _scheduleCache = data;
+  _scheduleCacheTS = Date.now();
   return data;
 }
 

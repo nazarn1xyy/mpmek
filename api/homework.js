@@ -1,4 +1,4 @@
-const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername } = require('./_lib/redis');
+const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername, checkOrigin } = require('./_lib/redis');
 const { put, del } = require('@vercel/blob');
 const { ADMIN_USERNAMES, TEACHER_ACCOUNTS } = require('./_lib/config');
 
@@ -11,6 +11,45 @@ function normalizeGroup(g) {
   }).join('-');
 }
 function sameGroup(a, b) { return normalizeGroup(a) === normalizeGroup(b); }
+
+// Verify teacher actually teaches in this group (server-side check)
+// Caches schedule groups→teachers mapping in Redis for 5 min
+async function verifyTeacherGroup(teacherName, group) {
+  if (!teacherName || !group) return false;
+  const ng = normalizeGroup(group);
+  const cacheKey = `cache:teacher-groups:${teacherName}`;
+  try {
+    const cached = await redis('GET', cacheKey);
+    if (cached) {
+      const groups = JSON.parse(cached);
+      return groups.includes(ng) || groups.includes(group);
+    }
+  } catch {}
+  try {
+    const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
+    const resp = await fetch(`${baseUrl}/schedule.json`);
+    if (!resp.ok) return true; // fail-open: allow if schedule unavailable
+    const schedule = await resp.json();
+    const teacherGroups = [];
+    for (const [gName, gData] of Object.entries(schedule)) {
+      if (gName === '_settings' || !gData || typeof gData !== 'object') continue;
+      let found = false;
+      for (const [weekType, weekData] of Object.entries(gData)) {
+        if (weekType === 'ПІДВІСКА' || !weekData || typeof weekData !== 'object') continue;
+        for (const dayPairs of Object.values(weekData)) {
+          if (!Array.isArray(dayPairs)) continue;
+          if (dayPairs.some(p => p.teacher && p.teacher.trim() === teacherName)) { found = true; break; }
+        }
+        if (found) break;
+      }
+      if (found) teacherGroups.push(normalizeGroup(gName));
+    }
+    redis('SET', cacheKey, JSON.stringify(teacherGroups), 'EX', 300).catch(() => {});
+    return teacherGroups.includes(ng) || teacherGroups.includes(group);
+  } catch {
+    return true; // fail-open
+  }
+}
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
 const MAX_ATTACHMENTS = 5;
@@ -40,6 +79,11 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // CSRF check for state-changing requests
+  if ((req.method === 'POST' || req.method === 'DELETE') && !checkOrigin(req)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
 
   try {
@@ -47,6 +91,9 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'GET' && !action) {
       // GET is public — anyone in the group can read collaborative homework
+      if (await rateLimit(`hw:read:${ip}`, 60, 60)) {
+        return res.status(429).json({ error: 'Too many requests' });
+      }
       const { group } = req.query;
       if (!group) return res.status(400).json({ error: 'group is required' });
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
@@ -108,9 +155,13 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !fileData || !fileName) {
         return res.status(400).json({ error: 'group, day, number, fileName, fileData required' });
       }
-      // Starosta: own group only. Teacher: any group (subject checked client-side). Admin: any.
+      // Starosta: own group only. Teacher: verify group/subject. Admin: any.
       if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
+      }
+      if (user.role === 'teacher') {
+        const ok = await verifyTeacherGroup(user.teacherName, group);
+        if (!ok) return res.status(403).json({ error: 'Ви не викладаєте у цій групі' });
       }
       const mimeType = typeof fileType === 'string' ? fileType : 'application/octet-stream';
       if (!ALLOWED_TYPES.includes(mimeType)) {
@@ -172,9 +223,13 @@ module.exports = async function handler(req, res) {
       if (!group || !day || number === undefined || !url) {
         return res.status(400).json({ error: 'group, day, number, url required' });
       }
-      // Starosta: own group only. Teacher/Admin: any group.
+      // Starosta: own group only. Teacher: verify group. Admin: any.
       if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
+      }
+      if (user.role === 'teacher') {
+        const ok = await verifyTeacherGroup(user.teacherName, group);
+        if (!ok) return res.status(403).json({ error: 'Ви не викладаєте у цій групі' });
       }
       const num = Number(number);
       if (!Number.isFinite(num) || num < 1 || num > 8) {
@@ -229,9 +284,13 @@ module.exports = async function handler(req, res) {
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
       if (typeof day !== 'string' || day.length > 20) return res.status(400).json({ error: 'invalid day' });
 
-      // Starosta: own group only. Teacher/Admin: any group.
+      // Starosta: own group only. Teacher: verify group. Admin: any.
       if (user.role === 'starosta' && !sameGroup(user.group, group)) {
         return res.status(403).json({ error: 'Можна редагувати тільки свою групу' });
+      }
+      if (user.role === 'teacher') {
+        const ok = await verifyTeacherGroup(user.teacherName, group);
+        if (!ok) return res.status(403).json({ error: 'Ви не викладаєте у цій групі' });
       }
 
       const num = Number(number);

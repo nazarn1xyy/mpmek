@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { redis, rateLimit, getSessionUsername } = require('./_lib/redis');
+const { redis, rateLimit, getSessionUsername, checkOrigin } = require('./_lib/redis');
 const { encryptSubscription } = require('./_lib/push-crypto');
 
 async function getSession(req) {
@@ -11,6 +11,10 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (req.method === 'POST' && !checkOrigin(req)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

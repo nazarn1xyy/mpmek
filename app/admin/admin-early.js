@@ -24,7 +24,7 @@
         }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
         .then(function(res){
             if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; if(btn){btn.disabled=false; btn.textContent='Увійти';} busy=false; return; }
-            localStorage.setItem('authToken', res.data.token);
+            sessionStorage.setItem('authToken', res.data.token);
             window._loginUser = res.data.user;
             if (window._onLoginSuccess) { window._onLoginSuccess(res.data); }
             else { location.reload(); }

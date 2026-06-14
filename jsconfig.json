@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "strict": false,
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
+  },
+  "include": ["api/**/*.js", "app/app.js", "app/sw.js", "app/admin/*.js", "tests/**/*.js"],
+  "exclude": ["node_modules"]
+}

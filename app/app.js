@@ -10,8 +10,10 @@
         d.innerHTML = '<div style="padding:2rem;text-align:center;font-family:-apple-system,sans-serif;color:#333">' +
             '<h2 style="margin-bottom:1rem">Щось пішло не так</h2>' +
             '<p style="margin-bottom:1rem;font-size:14px;color:#888">Спробуйте перезавантажити сторінку. Якщо помилка повторюється — напишіть нам в Telegram.</p>' +
-            '<button onclick="location.reload()" style="padding:10px 24px;border:none;border-radius:10px;background:#000;color:#fff;font-size:15px;cursor:pointer">Перезавантажити</button>' +
+            '<button id="crashReload" style="padding:10px 24px;border:none;border-radius:10px;background:#000;color:#fff;font-size:15px;cursor:pointer">Перезавантажити</button>' +
             '</div>';
+        var rb = document.getElementById('crashReload');
+        if (rb) rb.addEventListener('click', function(){ location.reload(); });
     }
     // Only treat as crash if error originates from OUR script files.
     // Extensions/injects often report src as the page URL or empty — ignore those.
@@ -372,7 +374,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notifPrompt = document.getElementById('notifPrompt');
     const notifPromptBtn = document.getElementById('notifPromptBtn');
     const notifPromptClose = document.getElementById('notifPromptClose');
-    const notifTimeSelect = document.getElementById('notifTimeSelect');
     const notifTimeRow = document.getElementById('notifTimeRow');
     const installRow = document.getElementById('installRow');
     const installBtn = document.getElementById('installBtn');
@@ -803,17 +804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Notifications =====
     notifToggle.checked = notificationsEnabled && ('Notification' in window) && window.Notification?.permission === 'granted';
 
-    // Notification time preference
-    const savedNotifTime = localStorage.getItem('notifTime') || '08:00';
-    notifTimeSelect.value = savedNotifTime;
     notifTimeRow.style.display = notifToggle.checked ? '' : 'none';
-
-    notifTimeSelect.addEventListener('change', () => {
-        localStorage.setItem('notifTime', notifTimeSelect.value);
-        if (notificationsEnabled && window.Notification?.permission === 'granted') {
-            subscribeToPush();
-        }
-    });
 
     function showNotifPrompt() {
         if (!('Notification' in window)) return;
@@ -1018,11 +1009,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { console.warn('[init] hw sync error:', e); }
 
     // ===== Groups =====
+    let _groupsCache = null;
+    async function fetchGroupsList() {
+        if (_groupsCache) return _groupsCache;
+        if (scheduleData) {
+            _groupsCache = Object.keys(scheduleData).filter(k => k !== '_settings');
+            return _groupsCache;
+        }
+        try {
+            const resp = await fetch('groups.json');
+            if (resp.ok) { _groupsCache = await resp.json(); return _groupsCache; }
+        } catch {}
+        return null;
+    }
+
     function renderGroupList(filter = '') {
-        if (!scheduleData) return;
+        const groups = _groupsCache || (scheduleData ? Object.keys(scheduleData).filter(k => k !== '_settings') : null);
+        if (!groups) {
+            fetchGroupsList().then(() => renderGroupList(filter));
+            return;
+        }
         const frag = document.createDocumentFragment();
         const lowerFilter = filter.toLowerCase();
-        const groups = Object.keys(scheduleData).filter(k => k !== '_settings');
 
         for (let i = 0; i < groups.length; i++) {
             const group = groups[i];
@@ -1297,8 +1305,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             else if (!delAccModal.classList.contains('hidden')) closeDelAccModal();
             else if (!logoutModalEl.classList.contains('hidden')) logoutModalEl.classList.add('hidden');
         }
-        if (e.key === 'Tab' && !hwModal.classList.contains('hidden')) {
-            trapFocus(hwModal, e);
+        if (e.key === 'Tab') {
+            if (!hwModal.classList.contains('hidden')) trapFocus(hwModal, e);
+            else if (!chPwdModal.classList.contains('hidden')) trapFocus(chPwdModal, e);
+            else if (!delAccModal.classList.contains('hidden')) trapFocus(delAccModal, e);
+            else if (!logoutModalEl.classList.contains('hidden')) trapFocus(logoutModalEl, e);
         }
     });
 

@@ -3,7 +3,7 @@
 
     // ===== User session state =====
     let currentUser = null; // { username, displayName, group, role }
-    let authToken = localStorage.getItem('authToken');
+    let authToken = sessionStorage.getItem('authToken');
 
     // ===== Constants =====
     const DAYS = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
@@ -114,7 +114,7 @@
                 return;
             }
             authToken = res.data.token;
-            localStorage.setItem('authToken', authToken);
+            sessionStorage.setItem('authToken', authToken);
             currentUser = res.data.user;
             proceedAfterLogin();
         })
@@ -1074,7 +1074,7 @@
 
     // ===== Publish (via server endpoint /api/admin-publish) =====
     publishBtn.addEventListener('click', async () => {
-        const authToken = localStorage.getItem('authToken');
+        const authToken = sessionStorage.getItem('authToken');
         if (!authToken || !verifiedPin) {
             showToast('Сесія втрачена. Увійдіть знову', 'error');
             return;
@@ -1519,7 +1519,7 @@
 
     // -- Logout --
     function doLogout() {
-        localStorage.removeItem('authToken');
+        sessionStorage.removeItem('authToken');
         location.reload();
     }
     document.getElementById('logoutBtn')?.addEventListener('click', () => {

@@ -119,4 +119,11 @@ async function getSessionUsername(req) {
   return uname;
 }
 
-module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare, getSessionUsername, scanKeys };
+// CSRF protection: verify request origin matches expected domain for state-changing requests
+function checkOrigin(req) {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const allowed = ['https://mpmek.site', `https://${process.env.VERCEL_URL || ''}`].filter(Boolean);
+  return !origin || allowed.some(a => origin.startsWith(a));
+}
+
+module.exports = { redis, parseRedisHash, parseRedisEntries, rateLimit, safeKey, safeCompare, getSessionUsername, scanKeys, checkOrigin };

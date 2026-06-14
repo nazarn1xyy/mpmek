@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { redis, rateLimit, safeKey, safeCompare, scanKeys } = require('./_lib/redis');
+const { redis, rateLimit, safeKey, safeCompare, checkOrigin } = require('./_lib/redis');
 const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, TEACHER_ACCOUNTS, getUserRole } = require('./_lib/config');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -73,9 +73,9 @@ async function getUser(username) {
 }
 
 // Login audit — records successful logins (last 500 entries)
-function loginLog(req, username, role) {
+function loginLog(req, username, role, success = true) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-  const entry = JSON.stringify({ ts: new Date().toISOString(), user: username, role, ip });
+  const entry = JSON.stringify({ ts: new Date().toISOString(), user: username, role, ip, ok: success });
   redis('LPUSH', 'auth:logins', entry).catch(() => {});
   redis('LTRIM', 'auth:logins', 0, 499).catch(() => {});
 }
@@ -84,6 +84,11 @@ module.exports = async (req, res) => {
   // CORS for same-origin — allow only POST & GET
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // CSRF check for state-changing requests
+  if (req.method === 'POST' && !checkOrigin(req)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
   }
 
   try {
@@ -185,6 +190,7 @@ module.exports = async (req, res) => {
       if (ADMIN_USERNAMES.includes(username)) {
         const envPwd = process.env.ADMIN_PASSWORD;
         if (!envPwd || !safeCompare(password, envPwd)) {
+          loginLog(req, username, 'admin', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
@@ -216,6 +222,7 @@ module.exports = async (req, res) => {
         }
         const hash = await pbkdf2(password, user.salt);
         if (hash !== user.passwordHash) {
+          loginLog(req, username, 'starosta', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
@@ -247,6 +254,7 @@ module.exports = async (req, res) => {
         }
         const hash = await pbkdf2(password, user.salt);
         if (hash !== user.passwordHash) {
+          loginLog(req, username, 'teacher', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
 
@@ -278,6 +286,7 @@ module.exports = async (req, res) => {
         }
         const hash = await pbkdf2(password, user.salt);
         if (hash !== user.passwordHash) {
+          loginLog(req, username, 'user', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
       }
@@ -622,10 +631,6 @@ module.exports = async (req, res) => {
       await redis('DEL', `webauthn:creds:${uname}`);
       await redis('DEL', `webauthn:challenge:${uname}`);
       await redis('HDEL', 'push-subs', uname).catch(() => {});
-      // Cleanup homework
-      const hwKeys = await scanKeys(`hw:*:${uname}`, 50).catch(() => []);
-      for (const k of hwKeys) { await redis('DEL', k).catch(() => {}); }
-
       res.setHeader('Set-Cookie', clearSetCookie());
       return res.json({ ok: true, deleted: true });
     }

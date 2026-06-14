@@ -157,6 +157,19 @@ async function handlePublish(req, res) {
   // Invalidate groups cache so new groups/renames take effect immediately
   redis('DEL', 'cache:schedule-groups').catch(() => {});
 
+  // 1b. Generate lightweight groups.json for fast group selection loading
+  try {
+    const groupNames = Object.keys(schedule).filter(k => k !== '_settings').sort();
+    const groupsContent = JSON.stringify(groupNames);
+    await ghPutWithRetry(
+      'app/groups.json',
+      () => groupsContent,
+      '📋 Оновлено groups.json'
+    );
+  } catch (e) {
+    console.warn('groups.json write skipped:', e.message);
+  }
+
   // 2. Bump SW cache version so clients fetch fresh assets
   try {
     await ghPutWithRetry(
@@ -419,9 +432,6 @@ async function handleDeleteUser(req, res) {
   await redis('DEL', `webauthn:challenge:${uname}`);
   // Cleanup user's push subscription
   await redis('HDEL', 'push-subs', uname).catch(() => {});
-  // Cleanup rate-limit keys
-  const rlKeys = await scanKeys(`hw:*:${uname}`, 50).catch(() => []);
-  for (const k of rlKeys) { await redis('DEL', k).catch(() => {}); }
   auditLog(req, 'delete-user', uname).catch(() => {});
   return res.json({ ok: true });
 }

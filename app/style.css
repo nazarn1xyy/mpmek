@@ -2074,6 +2074,20 @@ html.in-tg-webapp .onboarding-content {
     padding-top: 110px !important;
 }
 
+/* Minimum touch targets (WCAG 2.5.8 — 44×44 CSS px) */
+.icon-btn, .nav-item, .btn, .switch, .pin-key,
+.homework-btn, .hw-attach-btn, .hw-chip-remove,
+.modal-btn-save, .modal-btn-cancel, .notif-prompt-enable, .notif-prompt-dismiss {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Notification setting column layout + note */
+.setting-item-col { flex-direction: column; align-items: flex-start; gap: 4px; }
+.setting-item-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.setting-hint { font-size: 13px; color: var(--text-tertiary, #888); font-weight: 500; }
+.setting-note { font-size: 12px; color: var(--text-tertiary, #888); line-height: 1.4; margin-top: 2px; }
+
 /* Respect reduced motion preference (a11y) */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

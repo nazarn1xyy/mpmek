@@ -127,7 +127,7 @@
     }
 
     async function handlePinComplete() {
-        const authToken = localStorage.getItem('authToken');
+        const authToken = sessionStorage.getItem('authToken');
         if (!authToken) {
             showPinError('Спершу увійдіть на головному сайті як адмін, потім поверніться сюди', true);
             return;
@@ -652,7 +652,7 @@
 
     // ===== Publish (via server endpoint /api/admin-publish) =====
     publishBtn.addEventListener('click', async () => {
-        const authToken = localStorage.getItem('authToken');
+        const authToken = sessionStorage.getItem('authToken');
         if (!authToken || !verifiedPin) {
             showToast('Сесія втрачена. Увійдіть знову', 'error');
             return;
