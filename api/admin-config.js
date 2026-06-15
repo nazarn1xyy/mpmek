@@ -342,9 +342,9 @@ function generateLogin(teacherName) {
   return base || 'teacher';
 }
 function generatePassword() {
-  const digits = Math.floor(1000 + Math.random() * 9000);
+  const digits = crypto.randomInt(1000, 9999);
   const words = ['Mpmek','Shkola','Teach','Klass','Rozklad'];
-  return words[Math.floor(Math.random() * words.length)] + digits;
+  return words[crypto.randomInt(words.length)] + digits;
 }
 
 async function handleImportTeachers(req, res) {

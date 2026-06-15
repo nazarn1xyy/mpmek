@@ -28,7 +28,7 @@ async function verifyTeacherGroup(teacherName, group) {
   try {
     const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
     const resp = await fetch(`${baseUrl}/schedule.json`);
-    if (!resp.ok) return true; // fail-open: allow if schedule unavailable
+    if (!resp.ok) return false; // fail-closed: deny if schedule unavailable
     const schedule = await resp.json();
     const teacherGroups = [];
     for (const [gName, gData] of Object.entries(schedule)) {
@@ -47,7 +47,7 @@ async function verifyTeacherGroup(teacherName, group) {
     redis('SET', cacheKey, JSON.stringify(teacherGroups), 'EX', 300).catch(() => {});
     return teacherGroups.includes(ng) || teacherGroups.includes(group);
   } catch {
-    return true; // fail-open
+    return false; // fail-closed: deny on error
   }
 }
 

@@ -1664,6 +1664,23 @@ input:checked + .slider:before {
     text-transform: uppercase;
 }
 
+/* ===== Tablet Layout (600–767px) ===== */
+@media (min-width: 600px) and (max-width: 767px) {
+    .diary-container, .homework-container, .settings-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    .top-nav {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .group-list {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 /* ===== Desktop Layout (≥768px) ===== */
 @media (min-width: 768px) {
     /* Remove mobile bottom padding */

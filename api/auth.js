@@ -37,6 +37,12 @@ function sanitize(str, maxLen) {
   return str.trim().slice(0, maxLen);
 }
 
+// Timing-safe hash comparison (both sides are hex strings of same length from PBKDF2)
+function hashEquals(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+}
+
 async function getSession(req) {
   let token = null;
   // 1. Authorization header (in-memory Bearer — sent by client during active session)
@@ -221,7 +227,7 @@ module.exports = async (req, res) => {
           return res.status(401).json({ error: 'Акаунт не активовано. Зверніться до адміністратора' });
         }
         const hash = await pbkdf2(password, user.salt);
-        if (hash !== user.passwordHash) {
+        if (!hashEquals(hash, user.passwordHash)) {
           loginLog(req, username, 'starosta', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
@@ -253,7 +259,7 @@ module.exports = async (req, res) => {
           return res.status(401).json({ error: 'Акаунт не активовано. Зверніться до адміністратора' });
         }
         const hash = await pbkdf2(password, user.salt);
-        if (hash !== user.passwordHash) {
+        if (!hashEquals(hash, user.passwordHash)) {
           loginLog(req, username, 'teacher', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
@@ -285,7 +291,7 @@ module.exports = async (req, res) => {
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
         const hash = await pbkdf2(password, user.salt);
-        if (hash !== user.passwordHash) {
+        if (!hashEquals(hash, user.passwordHash)) {
           loginLog(req, username, 'user', false);
           return res.status(401).json({ error: 'Невірний логін або пароль' });
         }
@@ -572,7 +578,7 @@ module.exports = async (req, res) => {
 
       // Verify current password
       const currentHash = await pbkdf2(currentPassword, user.salt);
-      if (currentHash !== user.passwordHash) {
+      if (!hashEquals(currentHash, user.passwordHash)) {
         return res.status(401).json({ error: 'Поточний пароль невірний' });
       }
 
@@ -619,7 +625,7 @@ module.exports = async (req, res) => {
 
       // Verify password
       const hash = await pbkdf2(password, user.salt);
-      if (hash !== user.passwordHash) {
+      if (!hashEquals(hash, user.passwordHash)) {
         return res.status(401).json({ error: 'Невірний пароль' });
       }
 
@@ -637,6 +643,8 @@ module.exports = async (req, res) => {
 
     // ── CSP violation report sink ──
     if (action === 'csp-report') {
+      const cspIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+      if (await rateLimit(`csp:${cspIp}`, 30, 60)) return res.status(204).end();
       // Accept POST reports from browser, log to Redis for visibility
       try {
         const body = req.body || {};
