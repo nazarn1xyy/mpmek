@@ -150,20 +150,20 @@ async function loadFonts() {
   return cachedFonts;
 }
 
-function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, themeName) {
+function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
   const t = THEMES[themeName] || THEMES.dark;
   const activeIdx = findActiveLessonIndex(lessons, currentTime);
   const currentMin = parseTimeToMinutes(currentTime);
   const kyiv = getKyivDate();
   const dateLabel = `${kyiv.getDate()} ${UK_MONTHS[kyiv.getMonth()]}`;
 
+  // Header: only day name + date (group name removed for lock screen)
   const header = {
     type: 'div',
     props: {
-      style: { display: 'flex', flexDirection: 'column', marginBottom: 48 },
+      style: { display: 'flex', flexDirection: 'column', marginBottom: 56 },
       children: [
-        { type: 'span', props: { style: { fontSize: 56, fontWeight: 800, color: t.textPrimary, marginBottom: 8 }, children: groupName } },
-        { type: 'span', props: { style: { fontSize: 40, fontWeight: 600, color: t.textPrimary, marginBottom: 4 }, children: dayName } },
+        { type: 'span', props: { style: { fontSize: 44, fontWeight: 700, color: t.textPrimary, marginBottom: 6 }, children: dayName } },
         { type: 'span', props: { style: { fontSize: 30, fontWeight: 400, color: t.textSecondary }, children: dateLabel } }
       ]
     }
@@ -176,7 +176,7 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
       {
         type: 'div',
         props: {
-          style: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 400 },
+          style: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 300 },
           children: { type: 'span', props: { style: { fontSize: 42, fontWeight: 600, color: t.textSecondary }, children: 'Сьогодні пар немає' } }
         }
       }
@@ -284,11 +284,12 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
     });
   }
 
+  // Footer: pushed to bottom, extra padding for lock screen flashlight/camera area
   const footer = {
     type: 'div',
     props: {
-      style: { display: 'flex', justifyContent: 'center', paddingTop: 40 },
-      children: { type: 'span', props: { style: { fontSize: 24, color: t.footerColor }, children: 'Розклад Студента · mpmek.site' } }
+      style: { display: 'flex', justifyContent: 'center', paddingTop: 40, paddingBottom: 80 },
+      children: { type: 'span', props: { style: { fontSize: 24, fontWeight: 400, color: t.footerColor }, children: 'Розклад Студента · mpmek.site' } }
     }
   };
 
@@ -301,6 +302,8 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
     }
   };
 
+  // Lock screen layout: large top safe area for clock/date/widgets
+  // Content starts ~700px down (below iPhone lock screen clock + widgets)
   return {
     type: 'div',
     props: {
@@ -310,10 +313,10 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
         width: 1170,
         height: 2532,
         background: t.background,
-        paddingTop: 100,
-        paddingLeft: 40,
-        paddingRight: 40,
-        paddingBottom: 60
+        paddingTop: 720,
+        paddingLeft: 48,
+        paddingRight: 48,
+        paddingBottom: 220
       },
       children: [header, body, footer]
     }
@@ -328,7 +331,7 @@ function buildErrorTree(message, themeName) {
       style: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 1170, height: 2532, background: t.background,
-        padding: 80
+        paddingTop: 720, paddingLeft: 80, paddingRight: 80, paddingBottom: 220
       },
       children: {
         type: 'div',
@@ -410,7 +413,7 @@ module.exports = async function handler(req, res) {
     const result = getPairsForDay(scheduleData, groupName, dayName);
     const lessons = result ? result.pairs : [];
 
-    const tree = buildSatoriTree(groupName, dayName, lessons, currentTime, result?.dateStr || '', themeName);
+    const tree = buildSatoriTree(dayName, lessons, currentTime, result?.dateStr || '', themeName);
     const png = await renderToPng(tree);
 
     res.setHeader('Content-Type', 'image/png');
