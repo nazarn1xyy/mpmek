@@ -148,6 +148,15 @@ CREATE TABLE IF NOT EXISTS bot_users (
 );
 ALTER TABLE bot_users ENABLE ROW LEVEL SECURITY;
 
+-- ── Telegram subscriptions (bot users per group) ──
+CREATE TABLE IF NOT EXISTS tg_subscriptions (
+  chat_id     TEXT NOT NULL,
+  group_name  TEXT NOT NULL,
+  PRIMARY KEY (chat_id, group_name)
+);
+CREATE INDEX IF NOT EXISTS idx_tg_subs_group ON tg_subscriptions(group_name);
+ALTER TABLE tg_subscriptions ENABLE ROW LEVEL SECURITY;
+
 -- ============================================================
 -- Rate-limit check function (atomic increment + expiry)
 -- Returns TRUE if rate-limited (over the limit)
