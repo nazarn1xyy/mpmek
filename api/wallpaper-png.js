@@ -108,7 +108,7 @@ function findActiveLessonIndex(lessons, currentTime) {
 
 const THEMES = {
   dark: {
-    background: '#0A0A0A',
+    background: '#000000',
     cardBg: '#1A1A1A',
     cardActiveBg: '#1E3A5F',
     textPrimary: '#FFFFFF',
