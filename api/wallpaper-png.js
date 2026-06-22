@@ -302,7 +302,7 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
         width: 1170,
         height: 2532,
         background: t.background,
-        paddingTop: 720,
+        paddingTop: 900,
         paddingLeft: 48,
         paddingRight: 48,
         paddingBottom: 220
