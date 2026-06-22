@@ -8,7 +8,12 @@
  * Auth (for every route): X-Admin-Pin header + Authorization: Bearer <admin session token>
  */
 const crypto = require('crypto');
-const { redis, rateLimit, safeCompare, getSessionUsername, scanKeys } = require('./_lib/redis');
+const {
+  rateLimit, safeCompare, getSessionUsername,
+  getAllUsers, getUser, createUser, updateUser, deleteUser,
+  insertAuditLog, getAuditLog, getLoginLog, getCspReports,
+  getBotUsers, upsertScheduleGroups
+} = require('./_lib/db');
 const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, TEACHER_ACCOUNTS } = require('./_lib/config');
 
 const ADMIN_PIN = process.env.ADMIN_PIN;
@@ -154,8 +159,8 @@ async function handlePublish(req, res) {
     '📅 Оновлено розклад через адмін-панель'
   );
 
-  // Invalidate groups cache so new groups/renames take effect immediately
-  redis('DEL', 'cache:schedule-groups').catch(() => {});
+  // Update schedule in Supabase so API endpoints serve fresh data immediately
+  upsertScheduleGroups(schedule).catch(() => {});
 
   // 1b. Generate lightweight groups.json for fast group selection loading
   try {
@@ -191,46 +196,30 @@ async function handlePublish(req, res) {
   return res.json({ ok: true });
 }
 
-// Audit log — writes admin actions to Redis list with auto-trim
 async function auditLog(req, action, detail) {
   try {
     const uname = await getSessionUsername(req);
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
-    const entry = JSON.stringify({
-      ts: new Date().toISOString(),
-      user: uname || 'unknown',
-      ip,
-      action,
-      detail: (detail || '').slice(0, 500)
-    });
-    await redis('LPUSH', 'audit:log', entry);
-    await redis('LTRIM', 'audit:log', 0, 999); // keep last 1000 entries
+    await insertAuditLog({ username: uname || 'unknown', ip, action, detail });
   } catch (e) {
     console.warn('Audit log write failed:', e.message);
   }
 }
 
 async function handleUsers(res) {
-  const keys = await scanKeys('auth:user:*');
-  const values = keys && keys.length ? await redis('MGET', ...keys) : [];
+  const dbUsers = await getAllUsers();
   const usersMap = {};
-  (keys || []).forEach((key, i) => {
-    const username = key.replace('auth:user:', '');
-    try {
-      const d = JSON.parse(values[i]);
-      usersMap[username] = {
-        username,
-        displayName: d.displayName || username,
-        group: d.group || '',
-        role: ADMIN_USERNAMES.includes(username) ? 'admin' : (d.role || 'user'),
-        createdAt: d.createdAt || null,
-        envStarosta: !!STAROSTA_ACCOUNTS[username],
-        teacherName: d.teacherName || ''
-      };
-    } catch {
-      usersMap[username] = { username, displayName: username, group: '', role: 'user', createdAt: null };
-    }
-  });
+  for (const d of dbUsers) {
+    usersMap[d.username] = {
+      username: d.username,
+      displayName: d.displayName || d.username,
+      group: d.group || '',
+      role: ADMIN_USERNAMES.includes(d.username) ? 'admin' : (d.role || 'user'),
+      createdAt: d.createdAt || null,
+      envStarosta: !!STAROSTA_ACCOUNTS[d.username],
+      teacherName: d.teacherName || ''
+    };
+  }
   for (const [u, g] of Object.entries(STAROSTA_ACCOUNTS)) {
     if (!usersMap[u]) {
       usersMap[u] = { username: u, displayName: u, group: g, role: 'starosta', createdAt: null, envStarosta: true };
@@ -263,22 +252,18 @@ async function handleSetRole(req, res) {
   if (!uname) return res.status(400).json({ error: 'Username required' });
   if (!['user', 'starosta', 'teacher'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot modify admin' });
-  const raw = await redis('GET', `auth:user:${uname}`);
-  if (!raw) return res.status(404).json({ error: 'User not found' });
-  const userData = JSON.parse(raw);
+  const user = await getUser(uname);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const updates = { role };
   if (role === 'starosta') {
-    userData.role = 'starosta';
-    if (group) userData.group = group;
-    delete userData.teacherName;
+    if (group) updates.group = group;
+    updates.teacherName = '';
   } else if (role === 'teacher') {
-    userData.role = 'teacher';
-    if (teacherName) userData.teacherName = teacherName;
-    delete userData.group;
+    if (teacherName) updates.teacherName = teacherName;
   } else {
-    delete userData.role;
-    delete userData.teacherName;
+    updates.teacherName = '';
   }
-  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  await updateUser(uname, updates);
   auditLog(req, 'set-role', `${uname} → ${role}${group ? ' (' + group + ')' : ''}${teacherName ? ' [' + teacherName + ']' : ''}`).catch(() => {});
   return res.json({ ok: true });
 }
@@ -293,12 +278,12 @@ async function handleCreateStarosta(req, res) {
   if (uname.length < 3 || !/^[a-z0-9_]+$/.test(uname)) return res.status(400).json({ error: 'Логін: від 3 символів, латиниця/цифри/_' });
   if (pwd.length < 8) return res.status(400).json({ error: 'Пароль: мінімум 8 символів' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Логін зарезервовано' });
-  const existing = await redis('GET', `auth:user:${uname}`);
+  const existing = await getUser(uname);
   if (existing) return res.status(409).json({ error: 'Користувач вже існує' });
   const salt = crypto.randomBytes(32).toString('hex');
   const hash = await pbkdf2(pwd, salt);
-  const userData = { displayName: name || uname, passwordHash: hash, salt, group: grp, role: 'starosta', createdAt: new Date().toISOString() };
-  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  const ok = await createUser(uname, { displayName: name || uname, passwordHash: hash, salt, group: grp, role: 'starosta' });
+  if (!ok) return res.status(409).json({ error: 'Користувач вже існує' });
   auditLog(req, 'create-starosta', `${uname} (${grp})`).catch(() => {});
   return res.json({ ok: true, username: uname });
 }
@@ -313,12 +298,12 @@ async function handleCreateTeacher(req, res) {
   if (uname.length < 3 || !/^[a-z0-9_]+$/.test(uname)) return res.status(400).json({ error: 'Логін: від 3 символів, латиниця/цифри/_' });
   if (pwd.length < 8) return res.status(400).json({ error: 'Пароль: мінімум 8 символів' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Логін зарезервовано' });
-  const existing = await redis('GET', `auth:user:${uname}`);
+  const existing = await getUser(uname);
   if (existing) return res.status(409).json({ error: 'Користувач вже існує' });
   const salt = crypto.randomBytes(32).toString('hex');
   const hash = await pbkdf2(pwd, salt);
-  const userData = { displayName: name || tName, passwordHash: hash, salt, group: '', role: 'teacher', teacherName: tName, createdAt: new Date().toISOString() };
-  await redis('SET', `auth:user:${uname}`, JSON.stringify(userData));
+  const ok = await createUser(uname, { displayName: name || tName, passwordHash: hash, salt, group: '', role: 'teacher', teacherName: tName });
+  if (!ok) return res.status(409).json({ error: 'Користувач вже існує' });
   auditLog(req, 'create-teacher', `${uname} (${tName})`).catch(() => {});
   return res.json({ ok: true, username: uname });
 }
@@ -380,40 +365,23 @@ async function handleImportTeachers(req, res) {
     // Ensure unique login (append number if taken)
     let login = baseLogin;
     let attempt = 0;
-    let existingRaw = await redis('GET', `auth:user:${login}`);
+    let existingUser = await getUser(login);
     // Skip if account with same teacherName already exists
-    if (existingRaw) {
-      try {
-        const existingUser = JSON.parse(existingRaw);
-        if (existingUser.teacherName === teacherName) { skipped++; continue; }
-      } catch {}
+    if (existingUser) {
+      if (existingUser.teacherName === teacherName) { skipped++; continue; }
     }
-    while (existingRaw) {
+    while (existingUser) {
       attempt++;
       login = baseLogin + attempt;
-      existingRaw = await redis('GET', `auth:user:${login}`);
-      if (existingRaw) {
-        try {
-          const eu = JSON.parse(existingRaw);
-          if (eu.teacherName === teacherName) { skipped++; login = null; break; }
-        } catch {}
-      }
+      existingUser = await getUser(login);
+      if (existingUser && existingUser.teacherName === teacherName) { skipped++; login = null; break; }
     }
     if (!login) continue;
 
     const password = generatePassword();
     const salt = crypto.randomBytes(32).toString('hex');
     const hash = await pbkdf2(password, salt);
-    const userData = {
-      displayName: teacherName,
-      passwordHash: hash,
-      salt,
-      group: '',
-      role: 'teacher',
-      teacherName,
-      createdAt: new Date().toISOString()
-    };
-    await redis('SET', `auth:user:${login}`, JSON.stringify(userData));
+    await createUser(login, { displayName: teacherName, passwordHash: hash, salt, group: '', role: 'teacher', teacherName });
     results.push({ login, password, teacherName });
   }
 
@@ -426,12 +394,7 @@ async function handleDeleteUser(req, res) {
   const uname = (username || '').trim().toLowerCase();
   if (!uname) return res.status(400).json({ error: 'Username required' });
   if (ADMIN_USERNAMES.includes(uname)) return res.status(403).json({ error: 'Cannot delete admin' });
-  await redis('DEL', `auth:user:${uname}`);
-  await redis('DEL', `auth:sver:${uname}`);
-  await redis('DEL', `webauthn:creds:${uname}`);
-  await redis('DEL', `webauthn:challenge:${uname}`);
-  // Cleanup user's push subscription
-  await redis('HDEL', 'push-subs', uname).catch(() => {});
+  await deleteUser(uname); // cascades sessions, webauthn, push subs via FK
   auditLog(req, 'delete-user', uname).catch(() => {});
   return res.json({ ok: true });
 }
@@ -461,37 +424,21 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'ADMIN_PIN not configured' });
   }
 
-  // Per-account (session-tied) lockout: resist botnet brute-force even if
-  // the attacker rotates through many IPs while holding a valid admin session.
+  // Per-account (session-tied) lockout via Supabase rate limiter
   const bearerToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').slice(0, 128);
   if (bearerToken) {
-    const lockKey = `admin:pin-fail:${bearerToken.slice(0, 16)}`;
-    const fails = parseInt(await redis('GET', lockKey), 10) || 0;
-    if (fails >= 20) {
+    if (await rateLimit(`admin:pin:${bearerToken.slice(0, 16)}`, 20, 900)) {
       return res.status(429).json({ error: 'Акаунт заблоковано на 15 хв через забагато невдалих спроб' });
     }
   }
 
   const pin = req.headers['x-admin-pin'];
   if (!safeCompare(pin, ADMIN_PIN)) {
-    // Record failure per-session to trigger lockout
-    if (bearerToken) {
-      const lockKey = `admin:pin-fail:${bearerToken.slice(0, 16)}`;
-      try {
-        const fails = await redis('INCR', lockKey);
-        if (fails === 1) await redis('EXPIRE', lockKey, 900); // 15 min
-      } catch { /* ignore */ }
-    }
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   if (!(await hasAdminSession(req))) {
     return res.status(403).json({ error: 'Admin session required' });
-  }
-
-  // Success → clear failure counter
-  if (bearerToken) {
-    redis('DEL', `admin:pin-fail:${bearerToken.slice(0, 16)}`).catch(() => {});
   }
 
   try {
@@ -500,17 +447,9 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'publish') return await handlePublish(req, res);
     if (req.method === 'GET' && action === 'users') return await handleUsers(res);
     if (req.method === 'GET' && action === 'bot-users') {
-      const raw = await redis('GET', 'bot:users');
-      if (!raw) return res.json({ users: [], syncedAt: null });
-      try {
-        const d = JSON.parse(raw);
-        const users = [];
-        for (const [chatId, u] of Object.entries(d.users || {})) {
-          users.push({ chatId, name: u.name || '', group: u.group || '', notifyTime: u.notify_time || '07:30', active: u.active !== false });
-        }
-        users.sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.name || '').localeCompare(b.name || ''));
-        return res.json({ users, total: users.length, syncedAt: d.syncedAt || null });
-      } catch { return res.json({ users: [], syncedAt: null }); }
+      const users = await getBotUsers();
+      users.sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.name || '').localeCompare(b.name || ''));
+      return res.json({ users, total: users.length, syncedAt: users[0]?.syncedAt || null });
     }
     if (req.method === 'POST' && action === 'set-role') return await handleSetRole(req, res);
     if (req.method === 'POST' && action === 'create-starosta') return await handleCreateStarosta(req, res);
@@ -518,18 +457,15 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && action === 'import-teachers') return await handleImportTeachers(req, res);
     if (req.method === 'POST' && action === 'delete-user') return await handleDeleteUser(req, res);
     if (req.method === 'GET' && action === 'audit-log') {
-      const raw = await redis('LRANGE', 'audit:log', 0, 99);
-      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      const entries = await getAuditLog(100);
       return res.json({ entries, total: entries.length });
     }
     if (req.method === 'GET' && action === 'login-log') {
-      const raw = await redis('LRANGE', 'auth:logins', 0, 99);
-      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      const entries = await getLoginLog(100);
       return res.json({ entries, total: entries.length });
     }
     if (req.method === 'GET' && action === 'csp-reports') {
-      const raw = await redis('LRANGE', 'csp:reports', 0, 99);
-      const entries = (raw || []).map(s => { try { return JSON.parse(s); } catch { return null; } }).filter(Boolean);
+      const entries = await getCspReports(100);
       return res.json({ entries, total: entries.length });
     }
     if (req.method === 'GET' && !action) return res.status(200).json({ ok: true });
