@@ -37,7 +37,7 @@ function getWeekKey(groupData) {
   const target = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   target.setUTCDate(target.getUTCDate() + 4 - (target.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
+  const isoWeek = Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
 }
 

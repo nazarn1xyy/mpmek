@@ -10,11 +10,11 @@
         if (busy) return;
         var hint = document.getElementById('loginHint');
         var btn = document.getElementById('loginSubmit');
-        var u = document.getElementById('loginUsername').value.trim().toLowerCase();
-        var p = document.getElementById('loginPassword').value;
+        var u = /** @type {HTMLInputElement} */ (document.getElementById('loginUsername')).value.trim().toLowerCase();
+        var p = /** @type {HTMLInputElement} */ (document.getElementById('loginPassword')).value;
         if (!u || !p) { hint.textContent = 'Введіть логін і пароль'; hint.style.color = '#ff4444'; return; }
         busy = true;
-        if (btn) { btn.disabled = true; btn.textContent = 'Вхід...'; }
+        if (btn) { /** @type {HTMLButtonElement} */ (btn).disabled = true; btn.textContent = 'Вхід...'; }
         hint.textContent = 'Вхід...';
         hint.style.color = '';
         fetch('/api/auth?action=login', {
@@ -23,15 +23,15 @@
             body: JSON.stringify({username: u, password: p})
         }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
         .then(function(res){
-            if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; if(btn){btn.disabled=false; btn.textContent='Увійти';} busy=false; return; }
+            if (!res.ok) { hint.textContent = res.data.error || 'Помилка'; hint.style.color='#ff4444'; if(btn){/** @type {HTMLButtonElement} */ (btn).disabled=false; btn.textContent='Увійти';} busy=false; return; }
             sessionStorage.setItem('authToken', res.data.token);
-            window._loginUser = res.data.user;
-            if (window._onLoginSuccess) { window._onLoginSuccess(res.data); }
+            /** @type {any} */ (window)._loginUser = res.data.user;
+            if (/** @type {any} */ (window)._onLoginSuccess) { /** @type {any} */ (window)._onLoginSuccess(res.data); }
             else { location.reload(); }
-        }).catch(function(err){ hint.textContent = 'Помилка: ' + err.message; hint.style.color='#ff4444'; if(btn){btn.disabled=false; btn.textContent='Увійти';} busy=false; });
+        }).catch(function(err){ hint.textContent = 'Помилка: ' + err.message; hint.style.color='#ff4444'; if(btn){/** @type {HTMLButtonElement} */ (btn).disabled=false; btn.textContent='Увійти';} busy=false; });
     });
 
-    window._doLogin = true;
+    /** @type {any} */ (window)._doLogin = true;
 })();
 
 // PIN handler
@@ -58,8 +58,8 @@
         if (!v || pinCode.length >= 4) return;
         pinCode += v;
         upd();
-        if (pinCode.length === 4 && window._onPinComplete) {
-            setTimeout(function(){ window._onPinComplete(pinCode); }, 200);
+        if (pinCode.length === 4 && /** @type {any} */ (window)._onPinComplete) {
+            setTimeout(function(){ /** @type {any} */ (window)._onPinComplete(pinCode); }, 200);
         }
     }
     var btns = document.querySelectorAll('.pin-key[data-val], #pinDelete');
@@ -67,6 +67,6 @@
         btns[i].addEventListener('touchstart', tap, {passive: false});
         btns[i].addEventListener('click', tap);
     }
-    window._pinReset = function() { pinCode = ''; upd(); };
-    window._getPinCode = function() { return pinCode; };
+    /** @type {any} */ (window)._pinReset = function() { pinCode = ''; upd(); };
+    /** @type {any} */ (window)._getPinCode = function() { return pinCode; };
 })();

@@ -36,9 +36,9 @@ function normalizeGroup(g) {
 }
 
 function getKyivDate() {
+  // Vercel runs in UTC — add 3 hours fixed offset for Kyiv (UTC+3)
   const now = new Date();
-  const kyiv = new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
-  return kyiv;
+  return new Date(now.getTime() + 3 * 60 * 60 * 1000);
 }
 
 function getWeekKey(groupData) {
@@ -51,7 +51,7 @@ function getWeekKey(groupData) {
   const target = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   target.setUTCDate(target.getUTCDate() + 4 - (target.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
+  const isoWeek = Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return isoWeek % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
 }
 
@@ -165,7 +165,7 @@ function renderWallpage(groupName, dayName, dayKey, lessons, currentTime, dateSt
         <div class="lesson-num ${isActive ? 'num-active' : ''}">${lesson.number}</div>
         <div class="card-content">
           <div class="subject-row">
-            <span class="subject">${lesson.subject || ''}</span>
+            <span class="subject">${lesson.subject || lesson.name || ''}</span>
             ${subBadge}
             ${isActive ? '<span class="now-badge">● Зараз</span>' : ''}
           </div>
@@ -202,11 +202,13 @@ function renderWallpage(groupName, dayName, dayKey, lessons, currentTime, dateSt
   .header-day { font-size: 40px; font-weight: 600; margin-bottom: 4px; }
   .header-date { font-size: 30px; font-weight: 400; }
 
-  /* ─── Light theme ─── */
+  /* ─── Light theme (default) ─── */
   body { background: #F5F5F5; color: #111111; }
   .header-group { color: #111111; }
   .header-day { color: #111111; }
   .header-date { color: #666666; }
+  .card-content { flex: 1; min-width: 0; }
+  .subject-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .card {
     background: #FFFFFF;
     border-radius: 24px;
@@ -223,12 +225,12 @@ function renderWallpage(groupName, dayName, dayKey, lessons, currentTime, dateSt
   }
   .card.past { opacity: 0.5; }
   .lesson-num {
-    width: 48px; height: 48px;
+    width: 64px; height: 64px;
     border-radius: 50%;
     background: #E0E0E0;
     color: #666666;
     display: flex; align-items: center; justify-content: center;
-    font-size: 24px; font-weight: 700;
+    font-size: 28px; font-weight: 700;
     flex-shrink: 0;
   }
   .lesson-num.num-active {
