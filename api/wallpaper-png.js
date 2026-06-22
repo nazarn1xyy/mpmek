@@ -157,18 +157,7 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
   const kyiv = getKyivDate();
   const dateLabel = `${kyiv.getDate()} ${UK_MONTHS[kyiv.getMonth()]}`;
 
-  // Header: only day name + date (group name removed for lock screen)
-  const header = {
-    type: 'div',
-    props: {
-      style: { display: 'flex', flexDirection: 'column', marginBottom: 56 },
-      children: [
-        { type: 'span', props: { style: { fontSize: 44, fontWeight: 700, color: t.textPrimary, marginBottom: 6 }, children: dayName } },
-        { type: 'span', props: { style: { fontSize: 30, fontWeight: 400, color: t.textSecondary }, children: dateLabel } }
-      ]
-    }
-  };
-
+  // Header removed — no group name, no day, no date (lock screen shows its own clock/date)
   let bodyChildren;
 
   if (lessons.length === 0) {
@@ -318,7 +307,7 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
         paddingRight: 48,
         paddingBottom: 220
       },
-      children: [header, body, footer]
+      children: [body, footer]
     }
   };
 }
