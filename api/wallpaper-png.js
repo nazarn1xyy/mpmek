@@ -131,14 +131,23 @@ const THEMES = {
   }
 };
 
-let cachedFont = null;
+let cachedFonts = null;
 
-async function loadFont() {
-  if (cachedFont) return cachedFont;
-  const url = 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2';
-  const resp = await fetch(url);
-  cachedFont = await resp.arrayBuffer();
-  return cachedFont;
+async function loadFonts() {
+  if (cachedFonts) return cachedFonts;
+  const weights = [
+    { weight: 400, url: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf' },
+    { weight: 600, url: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf' },
+    { weight: 700, url: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf' },
+    { weight: 800, url: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuDyYMZg.ttf' }
+  ];
+  cachedFonts = [];
+  for (const w of weights) {
+    const resp = await fetch(w.url);
+    const data = await resp.arrayBuffer();
+    cachedFonts.push({ name: 'Inter', data, weight: w.weight, style: 'normal' });
+  }
+  return cachedFonts;
 }
 
 function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, themeName) {
@@ -241,7 +250,7 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
         return {
           type: 'div',
           props: {
-            style: { display: 'flex', flexDirection: 'row', marginBottom: 24, borderRadius: 20, overflow: 'hidden', opacity },
+            style: { display: 'flex', flexDirection: 'row', marginBottom: 24, borderRadius: 20, opacity },
             children: [
               { type: 'div', props: { style: { display: 'flex', width: 6, background: t.accent, flexShrink: 0 } } },
               {
@@ -336,11 +345,11 @@ function buildErrorTree(message, themeName) {
 }
 
 async function renderToPng(tree) {
-  const fontData = await loadFont();
+  const fonts = await loadFonts();
   const svg = await satori(tree, {
     width: 1170,
     height: 2532,
-    fonts: [{ name: 'Inter', data: fontData, weight: 400, style: 'normal' }]
+    fonts
   });
   const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1170 } });
   const png = resvg.render().asPng();
