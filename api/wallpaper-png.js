@@ -236,33 +236,18 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
         }
       };
 
-      const cardInner = {
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex', flexDirection: 'row', gap: 32,
-            padding: 36, paddingLeft: 40, paddingRight: 40,
-            borderRadius: 20,
-            background: isActive ? t.cardActiveBg : t.cardBg,
-            opacity,
-            marginBottom: 24,
-            alignItems: 'center'
-          },
-          children: [numCircle, cardContent]
-        }
-      };
-
+      // Active card: left accent bar + card body
       if (isActive) {
         return {
           type: 'div',
           props: {
-            style: { display: 'flex', flexDirection: 'row', marginBottom: 24 },
+            style: { display: 'flex', flexDirection: 'row', marginBottom: 24, borderRadius: 20, overflow: 'hidden', opacity },
             children: [
-              { type: 'div', props: { style: { display: 'flex', width: 6, background: t.accent, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 } } },
+              { type: 'div', props: { style: { display: 'flex', width: 6, background: t.accent, flexShrink: 0 } } },
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', flexDirection: 'row', flex: 1, gap: 32, padding: 36, paddingLeft: 34, paddingRight: 40, borderRadius: 20, background: t.cardActiveBg, opacity },
+                  style: { display: 'flex', flexDirection: 'row', flex: 1, gap: 32, paddingTop: 36, paddingBottom: 36, paddingLeft: 34, paddingRight: 40, background: t.cardActiveBg, alignItems: 'center' },
                   children: [numCircle, cardContent]
                 }
               }
@@ -271,15 +256,39 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
         };
       }
 
-      return cardInner;
+      // Regular card
+      return {
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex', flexDirection: 'row', gap: 32,
+            paddingTop: 36, paddingBottom: 36, paddingLeft: 40, paddingRight: 40,
+            borderRadius: 20,
+            background: t.cardBg,
+            opacity,
+            marginBottom: 24,
+            alignItems: 'center'
+          },
+          children: [numCircle, cardContent]
+        }
+      };
     });
   }
 
   const footer = {
     type: 'div',
     props: {
-      style: { display: 'flex', justifyContent: 'center', marginTop: 'auto' },
+      style: { display: 'flex', justifyContent: 'center', paddingTop: 40 },
       children: { type: 'span', props: { style: { fontSize: 24, color: t.footerColor }, children: 'Розклад Студента · mpmek.site' } }
+    }
+  };
+
+  // Wrap body in flex:1 container so footer is pushed to bottom
+  const body = {
+    type: 'div',
+    props: {
+      style: { display: 'flex', flexDirection: 'column', flex: 1 },
+      children: bodyChildren
     }
   };
 
@@ -292,12 +301,12 @@ function buildSatoriTree(groupName, dayName, lessons, currentTime, dateStr, them
         width: 1170,
         height: 2532,
         background: t.background,
-        padding: 100,
+        paddingTop: 100,
         paddingLeft: 40,
         paddingRight: 40,
         paddingBottom: 60
       },
-      children: [header, ...bodyChildren, footer]
+      children: [header, body, footer]
     }
   };
 }
