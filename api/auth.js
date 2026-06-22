@@ -1,5 +1,14 @@
 const crypto = require('crypto');
-const { redis, rateLimit, safeKey, safeCompare, checkOrigin } = require('./_lib/redis');
+const {
+  rateLimit, safeKey, safeCompare, checkOrigin,
+  createUser, getUser: dbGetUser, updateUser, deleteUser: dbDeleteUser,
+  createSession, getSessionData, deleteSession,
+  setSessionVersion, getSessionVersion,
+  getWebauthnCreds, setWebauthnCreds,
+  getWebauthnChallenge, setWebauthnChallenge, deleteWebauthnChallenge,
+  insertLoginLog, insertCspReport,
+  getScheduleGroups
+} = require('./_lib/db');
 const { ADMIN_USERNAMES, STAROSTA_ACCOUNTS, TEACHER_ACCOUNTS, getUserRole } = require('./_lib/config');
 
 const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -45,45 +54,36 @@ function hashEquals(a, b) {
 
 async function getSession(req) {
   let token = null;
-  // 1. Authorization header (in-memory Bearer — sent by client during active session)
   const auth = req.headers.authorization;
   if (auth && auth.startsWith('Bearer ')) {
     const t = auth.slice(7).trim();
     if (t) token = t;
   }
-  // 2. Fallback: httpOnly cookie (sent automatically by browser on every request)
   if (!token) {
     const cookieStr = req.headers.cookie || '';
     const match = cookieStr.match(/(?:^|;\s*)auth_token=([^;]+)/);
     if (match) token = decodeURIComponent(match[1]);
   }
   if (!token || token.length > 128) return null;
-  const raw = await redis('GET', `auth:session:${token}`);
+  const raw = await getSessionData(token);
   if (!raw) return null;
-  // Format: "username:sessionVer" (new) or "username" (legacy)
   const colonIdx = raw.indexOf(':');
   const uname = colonIdx > 0 ? raw.slice(0, colonIdx) : raw;
   const ver = colonIdx > 0 ? raw.slice(colonIdx + 1) : null;
-  // Verify session version matches current (invalidates old sessions after re-login)
   if (ver) {
-    const currentVer = await redis('GET', `auth:sver:${uname}`);
+    const currentVer = await getSessionVersion(uname);
     if (currentVer && ver !== currentVer) return null;
   }
   return { token, username: uname };
 }
 
 async function getUser(username) {
-  const raw = await redis('GET', `auth:user:${username}`);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  return dbGetUser(username);
 }
 
-// Login audit — records successful logins (last 500 entries)
 function loginLog(req, username, role, success = true) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-  const entry = JSON.stringify({ ts: new Date().toISOString(), user: username, role, ip, ok: success });
-  redis('LPUSH', 'auth:logins', entry).catch(() => {});
-  redis('LTRIM', 'auth:logins', 0, 499).catch(() => {});
+  insertLoginLog({ username, role, ip, success }).catch(() => {});
 }
 
 module.exports = async (req, res) => {
@@ -152,17 +152,16 @@ module.exports = async (req, res) => {
         group: '',
         createdAt: new Date().toISOString()
       };
-      const setResult = await redis('SET', `auth:user:${username}`, JSON.stringify(userData), 'NX');
-      if (!setResult) {
+      const created = await createUser(username, userData);
+      if (!created) {
         return res.status(409).json({ error: 'Цей логін вже зайнятий' });
       }
 
       // Create session (with version for future invalidation)
       const sessionVer = crypto.randomBytes(4).toString('hex');
-      await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+      await setSessionVersion(username, sessionVer, SESSION_TTL);
       const token = crypto.randomBytes(32).toString('hex');
-      await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
-      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+      await createSession(token, username, sessionVer, SESSION_TTL);
 
       res.setHeader('Set-Cookie', buildSetCookie(token));
       return res.status(201).json({
@@ -203,15 +202,14 @@ module.exports = async (req, res) => {
         // Auto-create admin profile record on first login (for displayName/group)
         if (!user) {
           user = { displayName: 'Адміністратор', group: '', createdAt: new Date().toISOString() };
-          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+          await createUser(username, { ...user, role: 'admin' });
         }
 
         // Invalidate old sessions + create new
         const sessionVer = crypto.randomBytes(4).toString('hex');
-        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+        await setSessionVersion(username, sessionVer, SESSION_TTL);
         const token = crypto.randomBytes(32).toString('hex');
-        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
-        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+        await createSession(token, username, sessionVer, SESSION_TTL);
 
         res.setHeader('Set-Cookie', buildSetCookie(token));
         loginLog(req, username, 'admin');
@@ -234,16 +232,13 @@ module.exports = async (req, res) => {
 
         const starostaGroup = STAROSTA_ACCOUNTS[username];
         if (user.group !== starostaGroup || user.role !== 'starosta') {
-          user.group = starostaGroup;
-          user.role = 'starosta';
-          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+          await updateUser(username, { group: starostaGroup, role: 'starosta' });
         }
 
         const sessionVer = crypto.randomBytes(4).toString('hex');
-        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+        await setSessionVersion(username, sessionVer, SESSION_TTL);
         const token = crypto.randomBytes(32).toString('hex');
-        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
-        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+        await createSession(token, username, sessionVer, SESSION_TTL);
 
         res.setHeader('Set-Cookie', buildSetCookie(token));
         loginLog(req, username, 'starosta');
@@ -266,16 +261,13 @@ module.exports = async (req, res) => {
 
         const teacherName = TEACHER_ACCOUNTS[username];
         if (user.role !== 'teacher' || user.teacherName !== teacherName) {
-          user.role = 'teacher';
-          user.teacherName = teacherName;
-          await redis('SET', `auth:user:${username}`, JSON.stringify(user));
+          await updateUser(username, { role: 'teacher', teacherName });
         }
 
         const sessionVer = crypto.randomBytes(4).toString('hex');
-        await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+        await setSessionVersion(username, sessionVer, SESSION_TTL);
         const token = crypto.randomBytes(32).toString('hex');
-        await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
-        await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+        await createSession(token, username, sessionVer, SESSION_TTL);
 
         res.setHeader('Set-Cookie', buildSetCookie(token));
         loginLog(req, username, 'teacher');
@@ -299,10 +291,9 @@ module.exports = async (req, res) => {
 
       // Invalidate old sessions + create new
       const sessionVer = crypto.randomBytes(4).toString('hex');
-      await redis('SET', `auth:sver:${username}`, sessionVer, 'EX', SESSION_TTL);
+      await setSessionVersion(username, sessionVer, SESSION_TTL);
       const token = crypto.randomBytes(32).toString('hex');
-      await redis('SET', `auth:session:${token}`, `${username}:${sessionVer}`);
-      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+      await createSession(token, username, sessionVer, SESSION_TTL);
 
       res.setHeader('Set-Cookie', buildSetCookie(token));
       const role = getUserRole(username, user);
@@ -347,8 +338,8 @@ module.exports = async (req, res) => {
         group: user.group || '',
         role: getUserRole(session.username, user),
         createdAt: user.createdAt || null,
-        hasWebauthn: !!(await redis('GET', `webauthn:creds:${session.username}`)),
-        hasPushSubscription: !!(await redis('HGET', 'push-subs', session.username))
+        hasWebauthn: (await getWebauthnCreds(session.username)).length > 0,
+        hasPushSubscription: false
       };
       res.setHeader('Content-Disposition', `attachment; filename="${session.username}-data.json"`);
       return res.json(exportData);
@@ -364,27 +355,11 @@ module.exports = async (req, res) => {
       const group = sanitize(rawGroup, 50);
 
       if (group) {
-      // Validate group exists — check Redis cache first, fallback to CDN fetch
+      // Validate group exists in Supabase
       try {
-        let cachedGroups = await redis('GET', 'cache:schedule-groups');
-        if (cachedGroups) {
-          const groups = JSON.parse(cachedGroups);
-          if (!groups.includes(group)) {
-            return res.status(400).json({ error: 'Такої групи не існує' });
-          }
-        } else {
-          // Cold miss — fetch and cache for 5 minutes
-          const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
-          const schedResp = await fetch(`${baseUrl}/schedule.json`);
-          if (schedResp.ok) {
-            const schedData = await schedResp.json();
-            const groups = Object.keys(schedData).filter(k => k !== '_settings');
-            // Fire and forget cache write
-            redis('SET', 'cache:schedule-groups', JSON.stringify(groups), 'EX', 300).catch(() => {});
-            if (!groups.includes(group)) {
-              return res.status(400).json({ error: 'Такої групи не існує' });
-            }
-          }
+        const groups = await getScheduleGroups();
+        if (!groups.includes(group)) {
+          return res.status(400).json({ error: 'Такої групи не існує' });
         }
       } catch (e) {
         console.error('Group validation error:', e);
@@ -395,8 +370,7 @@ module.exports = async (req, res) => {
       const user = await getUser(session.username);
       if (!user) return res.status(401).json({ error: 'Не авторизовано' });
 
-      user.group = group;
-      await redis('SET', `auth:user:${session.username}`, JSON.stringify(user));
+      await updateUser(session.username, { group });
 
       return res.json({ ok: true });
     }
@@ -405,7 +379,7 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && action === 'logout') {
       const session = await getSession(req);
       if (session) {
-        await redis('DEL', `auth:session:${session.token}`);
+        await deleteSession(session.token);
       }
       res.setHeader('Set-Cookie', clearSetCookie());
       return res.json({ ok: true });
@@ -417,8 +391,7 @@ module.exports = async (req, res) => {
       if (!session) return res.status(401).json({ error: 'Не авторизовано' });
       const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
-      const raw = await redis('GET', `webauthn:creds:${session.username}`);
-      const creds = raw ? JSON.parse(raw) : [];
+      const creds = await getWebauthnCreds(session.username);
       return res.json({ registered: creds.length > 0 });
     }
 
@@ -429,8 +402,7 @@ module.exports = async (req, res) => {
       const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
-      const raw = await redis('GET', `webauthn:creds:${session.username}`);
-      const existing = raw ? JSON.parse(raw) : [];
+      const existing = await getWebauthnCreds(session.username);
       if (existing.length >= 5) return res.status(400).json({ error: 'Max 5 credentials' });
       const options = await wa.generateRegistrationOptions({
         rpName: RP_NAME,
@@ -445,7 +417,7 @@ module.exports = async (req, res) => {
         },
         excludeCredentials: existing.map(c => ({ id: c.credentialID })),
       });
-      await redis('SET', `webauthn:challenge:${session.username}`, options.challenge, 'EX', 300);
+      await setWebauthnChallenge(session.username, options.challenge, 300);
       return res.json(options);
     }
 
@@ -456,9 +428,9 @@ module.exports = async (req, res) => {
       const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
-      const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
+      const expectedChallenge = await getWebauthnChallenge(session.username);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
-      await redis('DEL', `webauthn:challenge:${session.username}`);
+      await deleteWebauthnChallenge(session.username);
       try {
         const verification = await wa.verifyRegistrationResponse({
           response: req.body,
@@ -470,8 +442,7 @@ module.exports = async (req, res) => {
           return res.status(400).json({ error: 'Verification failed' });
         }
         const { credential } = verification.registrationInfo;
-        const raw = await redis('GET', `webauthn:creds:${session.username}`);
-        const creds = raw ? JSON.parse(raw) : [];
+        const creds = await getWebauthnCreds(session.username);
         if (creds.length >= 5) return res.status(400).json({ error: 'Max 5 credentials' });
         creds.push({
           credentialID: credential.id,
@@ -479,7 +450,7 @@ module.exports = async (req, res) => {
           counter: credential.counter,
           createdAt: new Date().toISOString(),
         });
-        await redis('SET', `webauthn:creds:${session.username}`, JSON.stringify(creds));
+        await setWebauthnCreds(session.username, creds);
         return res.json({ ok: true });
       } catch (e) {
         console.error('WebAuthn register error:', e);
@@ -494,15 +465,14 @@ module.exports = async (req, res) => {
       const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
-      const raw = await redis('GET', `webauthn:creds:${session.username}`);
-      const creds = raw ? JSON.parse(raw) : [];
+      const creds = await getWebauthnCreds(session.username);
       if (creds.length === 0) return res.status(404).json({ error: 'No credentials' });
       const options = await wa.generateAuthenticationOptions({
         rpID: RP_ID,
         userVerification: 'required',
         allowCredentials: creds.map(c => ({ id: c.credentialID })),
       });
-      await redis('SET', `webauthn:challenge:${session.username}`, options.challenge, 'EX', 300);
+      await setWebauthnChallenge(session.username, options.challenge, 300);
       return res.json(options);
     }
 
@@ -513,11 +483,10 @@ module.exports = async (req, res) => {
       const waIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`wa:${waIp}`, 20, 60)) return res.status(429).json({ error: 'Too many requests' });
       const wa = await webauthn();
-      const expectedChallenge = await redis('GET', `webauthn:challenge:${session.username}`);
+      const expectedChallenge = await getWebauthnChallenge(session.username);
       if (!expectedChallenge) return res.status(400).json({ error: 'Challenge expired' });
-      await redis('DEL', `webauthn:challenge:${session.username}`);
-      const raw = await redis('GET', `webauthn:creds:${session.username}`);
-      const creds = raw ? JSON.parse(raw) : [];
+      await deleteWebauthnChallenge(session.username);
+      const creds = await getWebauthnCreds(session.username);
       const cred = creds.find(c => c.credentialID === req.body.id);
       if (!cred) return res.status(400).json({ error: 'Unknown credential' });
       try {
@@ -537,7 +506,7 @@ module.exports = async (req, res) => {
         }
         // Update counter
         cred.counter = verification.authenticationInfo.newCounter;
-        await redis('SET', `webauthn:creds:${session.username}`, JSON.stringify(creds));
+        await setWebauthnCreds(session.username, creds);
         return res.json({ ok: true, verified: true });
       } catch (e) {
         console.error('WebAuthn auth error:', e);
@@ -585,19 +554,16 @@ module.exports = async (req, res) => {
       // Set new password
       const newSalt = crypto.randomBytes(32).toString('hex');
       const newHash = await pbkdf2(newPassword, newSalt);
-      user.salt = newSalt;
-      user.passwordHash = newHash;
-      await redis('SET', `auth:user:${session.username}`, JSON.stringify(user));
+      await updateUser(session.username, { passwordHash: newHash, salt: newSalt });
 
       // Invalidate all sessions (force re-login on other devices)
       const sessionVer = crypto.randomBytes(4).toString('hex');
-      await redis('SET', `auth:sver:${session.username}`, sessionVer, 'EX', SESSION_TTL);
+      await setSessionVersion(session.username, sessionVer, SESSION_TTL);
       // Create new session for current device
       const token = crypto.randomBytes(32).toString('hex');
-      await redis('SET', `auth:session:${token}`, `${session.username}:${sessionVer}`);
-      await redis('EXPIRE', `auth:session:${token}`, SESSION_TTL);
+      await createSession(token, session.username, sessionVer, SESSION_TTL);
       // Delete old session
-      await redis('DEL', `auth:session:${session.token}`);
+      await deleteSession(session.token);
 
       res.setHeader('Set-Cookie', buildSetCookie(token));
       return res.json({ ok: true, token });
@@ -629,14 +595,9 @@ module.exports = async (req, res) => {
         return res.status(401).json({ error: 'Невірний пароль' });
       }
 
-      // Delete all user data
+      // Delete all user data (cascade deletes sessions, webauthn, etc.)
       const uname = session.username;
-      await redis('DEL', `auth:user:${uname}`);
-      await redis('DEL', `auth:sver:${uname}`);
-      await redis('DEL', `auth:session:${session.token}`);
-      await redis('DEL', `webauthn:creds:${uname}`);
-      await redis('DEL', `webauthn:challenge:${uname}`);
-      await redis('HDEL', 'push-subs', uname).catch(() => {});
+      await dbDeleteUser(uname);
       res.setHeader('Set-Cookie', clearSetCookie());
       return res.json({ ok: true, deleted: true });
     }
@@ -645,18 +606,14 @@ module.exports = async (req, res) => {
     if (action === 'csp-report') {
       const cspIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
       if (await rateLimit(`csp:${cspIp}`, 30, 60)) return res.status(204).end();
-      // Accept POST reports from browser, log to Redis for visibility
       try {
         const body = req.body || {};
         const report = body['csp-report'] || body;
-        const entry = JSON.stringify({
-          ts: new Date().toISOString(),
+        await insertCspReport({
           url: (report['document-uri'] || report.documentURL || '').slice(0, 200),
           violated: (report['violated-directive'] || report.effectiveDirective || '').slice(0, 100),
           blocked: (report['blocked-uri'] || report.blockedURL || '').slice(0, 200)
         });
-        await redis('LPUSH', 'csp:reports', entry);
-        await redis('LTRIM', 'csp:reports', 0, 99); // keep last 100
       } catch {}
       return res.status(204).end();
     }

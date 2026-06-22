@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { redis, parseRedisEntries, safeCompare, getSessionUsername } = require('./_lib/redis');
+const { safeCompare, getSessionUsername, getAllPushSubs, deletePushSub } = require('./_lib/db');
 const { decryptSubscription } = require('./_lib/push-crypto');
 const { ADMIN_USERNAMES } = require('./_lib/config');
 
@@ -69,9 +69,8 @@ module.exports = async function handler(req, res) {
       byGroup[group].push({ group, date, number, subject, teacher });
     }
 
-    // Get all subscriptions
-    const raw = await redis('HGETALL', 'push-subs');
-    const entries = parseRedisEntries(raw);
+    // Get all subscriptions from Supabase
+    const entries = await getAllPushSubs();
     if (entries.length === 0) {
       return res.status(200).json({ ok: true, sent: 0, message: 'No subscriptions found' });
     }
@@ -102,7 +101,7 @@ module.exports = async function handler(req, res) {
       } catch (err) {
         errors.push({ statusCode: err.statusCode });
         if (err.statusCode === 410 || err.statusCode === 404) {
-          await redis('HDEL', 'push-subs', entry.id);
+          await deletePushSub(entry.id);
         }
       }
     }

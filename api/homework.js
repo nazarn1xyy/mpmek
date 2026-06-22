@@ -1,4 +1,9 @@
-const { redis, parseRedisHash, rateLimit, safeKey, getSessionUsername, checkOrigin } = require('./_lib/redis');
+const {
+  rateLimit, safeKey, checkOrigin, getSessionUsername,
+  getUser: dbGetUser, getSchedule,
+  getHomework, setHomeworkText, deleteHomeworkText,
+  getHomeworkAttachments, addHomeworkAttachment, deleteHomeworkAttachment
+} = require('./_lib/db');
 const { put, del } = require('@vercel/blob');
 const { ADMIN_USERNAMES, TEACHER_ACCOUNTS } = require('./_lib/config');
 
@@ -13,23 +18,11 @@ function normalizeGroup(g) {
 function sameGroup(a, b) { return normalizeGroup(a) === normalizeGroup(b); }
 
 // Verify teacher actually teaches in this group (server-side check)
-// Caches schedule groups→teachers mapping in Redis for 5 min
 async function verifyTeacherGroup(teacherName, group) {
   if (!teacherName || !group) return false;
   const ng = normalizeGroup(group);
-  const cacheKey = `cache:teacher-groups:${teacherName}`;
   try {
-    const cached = await redis('GET', cacheKey);
-    if (cached) {
-      const groups = JSON.parse(cached);
-      return groups.includes(ng) || groups.includes(group);
-    }
-  } catch {}
-  try {
-    const baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'mpmek.site'}`;
-    const resp = await fetch(`${baseUrl}/schedule.json`);
-    if (!resp.ok) return false; // fail-closed: deny if schedule unavailable
-    const schedule = await resp.json();
+    const schedule = await getSchedule();
     const teacherGroups = [];
     for (const [gName, gData] of Object.entries(schedule)) {
       if (gName === '_settings' || !gData || typeof gData !== 'object') continue;
@@ -44,7 +37,6 @@ async function verifyTeacherGroup(teacherName, group) {
       }
       if (found) teacherGroups.push(normalizeGroup(gName));
     }
-    redis('SET', cacheKey, JSON.stringify(teacherGroups), 'EX', 300).catch(() => {});
     return teacherGroups.includes(ng) || teacherGroups.includes(group);
   } catch {
     return false; // fail-closed: deny on error
@@ -59,17 +51,14 @@ const ALLOWED_TYPES = ['image/webp', 'image/jpeg', 'image/png', 'application/pdf
 async function authenticate(req) {
   const uname = await getSessionUsername(req);
   if (!uname) return null;
-  const raw = await redis('GET', `auth:user:${uname}`);
-  if (!raw) return null;
-  try {
-    const user = JSON.parse(raw);
-    const isAdmin = ADMIN_USERNAMES.includes(uname);
-    const isStarosta = !isAdmin && (user.role === 'starosta');
-    const isTeacher = !isAdmin && !isStarosta && (!!TEACHER_ACCOUNTS[uname] || user.role === 'teacher');
-    const role = isAdmin ? 'admin' : isStarosta ? 'starosta' : isTeacher ? 'teacher' : 'user';
-    const teacherName = TEACHER_ACCOUNTS[uname] || user.teacherName || '';
-    return { username: uname, group: user.group || '', role, canEdit: isAdmin || isStarosta || isTeacher, teacherName };
-  } catch { return null; }
+  const user = await dbGetUser(uname);
+  if (!user) return null;
+  const isAdmin = ADMIN_USERNAMES.includes(uname);
+  const isStarosta = !isAdmin && (user.role === 'starosta');
+  const isTeacher = !isAdmin && !isStarosta && (!!TEACHER_ACCOUNTS[uname] || user.role === 'teacher');
+  const role = isAdmin ? 'admin' : isStarosta ? 'starosta' : isTeacher ? 'teacher' : 'user';
+  const teacherName = TEACHER_ACCOUNTS[uname] || user.teacherName || '';
+  return { username: uname, group: user.group || '', role, canEdit: isAdmin || isStarosta || isTeacher, teacherName };
 }
 
 module.exports = async function handler(req, res) {
@@ -99,47 +88,8 @@ module.exports = async function handler(req, res) {
       if (typeof group !== 'string' || group.length > 50) return res.status(400).json({ error: 'invalid group' });
 
       const ng = normalizeGroup(group);
-      const hwKey = `hw:${safeKey(ng)}`;
-      let raw = await redis('HGETALL', hwKey);
-      let hash = parseRedisHash(raw);
-
-      // One-time migration: move data from old key to normalized key
-      if (Object.keys(hash).length === 0 && ng !== group) {
-        const oldRaw = await redis('HGETALL', `hw:${safeKey(group)}`);
-        const oldHash = parseRedisHash(oldRaw);
-        if (Object.keys(oldHash).length > 0) {
-          const args = [];
-          for (const [f, v] of Object.entries(oldHash)) args.push(f, v);
-          await redis('HSET', hwKey, ...args);
-          await redis('DEL', `hw:${safeKey(group)}`);
-          hash = oldHash;
-        }
-      }
-
-      const result = {};
-      const files = {};
-      for (const [field, value] of Object.entries(hash)) {
-        if (field.endsWith(':files')) {
-          // attachment metadata: "day:num:files"
-          const parts = field.replace(/:files$/, '').split(':');
-          const key = `${group}|${parts[0]}|${parts[1]}`;
-          try {
-            const arr = JSON.parse(value);
-            // Deduplicate by name+size (same file uploaded multiple times)
-            const seen = new Set();
-            files[key] = arr.filter(f => {
-              const k = `${f.name}:${f.size}`;
-              if (seen.has(k)) return false;
-              seen.add(k);
-              return true;
-            });
-          } catch { files[key] = []; }
-        } else {
-          const [day, num] = field.split(':');
-          result[`${group}|${day}|${num}`] = value;
-        }
-      }
-      return res.json({ texts: result, files });
+      const { texts, files } = await getHomework(ng);
+      return res.json({ texts, files });
     }
 
     // ── Upload attachment ──
@@ -178,13 +128,11 @@ module.exports = async function handler(req, res) {
       if (!Number.isFinite(num) || num < 1 || num > 8) {
         return res.status(400).json({ error: 'invalid number' });
       }
-      const sg = safeKey(normalizeGroup(group));
-      const field = `${safeKey(day, 20)}:${num}:files`;
+      const ng = normalizeGroup(group);
+      const sd = safeKey(day, 20);
 
       // Check existing attachments count
-      const existingRaw = await redis('HGET', `hw:${sg}`, field);
-      let existing = [];
-      try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
+      const existing = await getHomeworkAttachments(ng, sd, num);
       if (existing.length >= MAX_ATTACHMENTS) {
         return res.status(400).json({ error: `Максимум ${MAX_ATTACHMENTS} файлів` });
       }
@@ -196,18 +144,19 @@ module.exports = async function handler(req, res) {
       }
 
       // Upload to Vercel Blob
+      const sg = safeKey(ng);
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
-      const blobPath = `hw/${sg}/${safeKey(day, 20)}/${num}/${Date.now()}_${safeName}`;
+      const blobPath = `hw/${sg}/${sd}/${num}/${Date.now()}_${safeName}`;
       const blob = await put(blobPath, buf, {
         access: 'public',
         contentType: mimeType,
         addRandomSuffix: false
       });
 
-      existing.push({ url: blob.url, name: fileName.slice(0, 100), type: mimeType, size: buf.length });
-      await redis('HSET', `hw:${sg}`, field, JSON.stringify(existing));
+      const att = { url: blob.url, name: fileName.slice(0, 100), type: mimeType, size: buf.length };
+      await addHomeworkAttachment(ng, sd, num, att);
 
-      return res.json({ ok: true, attachment: existing[existing.length - 1], total: existing.length });
+      return res.json({ ok: true, attachment: att, total: existing.length + 1 });
     }
 
     // ── Delete attachment ──
@@ -235,27 +184,19 @@ module.exports = async function handler(req, res) {
       if (!Number.isFinite(num) || num < 1 || num > 8) {
         return res.status(400).json({ error: 'invalid number' });
       }
-      const sg = safeKey(normalizeGroup(group));
-      const field = `${safeKey(day, 20)}:${num}:files`;
+      const ng = normalizeGroup(group);
+      const sd = safeKey(day, 20);
 
-      const existingRaw = await redis('HGET', `hw:${sg}`, field);
-      let existing = [];
-      try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
-
+      const existing = await getHomeworkAttachments(ng, sd, num);
       const idx = existing.findIndex(a => a.url === url);
       if (idx === -1) return res.status(404).json({ error: 'Файл не знайдено' });
 
       // Delete from Vercel Blob
       try { await del(url); } catch (e) { console.warn('Blob delete failed:', e); }
 
-      existing.splice(idx, 1);
-      if (existing.length > 0) {
-        await redis('HSET', `hw:${sg}`, field, JSON.stringify(existing));
-      } else {
-        await redis('HDEL', `hw:${sg}`, field);
-      }
+      await deleteHomeworkAttachment(ng, sd, num, url);
 
-      return res.json({ ok: true, remaining: existing.length });
+      return res.json({ ok: true, remaining: existing.length - 1 });
     }
 
     // Write operations (text) require authentication + starosta/admin role
@@ -298,8 +239,8 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'invalid number' });
       }
 
-      const sg = safeKey(normalizeGroup(group));
-      const field = `${safeKey(day, 20)}:${num}`;
+      const ng = normalizeGroup(group);
+      const sd = safeKey(day, 20);
 
       if (req.method === 'POST') {
         if (text !== undefined && typeof text !== 'string') {
@@ -307,13 +248,9 @@ module.exports = async function handler(req, res) {
         }
         if (text && text.length > 1000) return res.status(400).json({ error: 'text too long' });
 
-        if (text && text.trim()) {
-          await redis('HSET', `hw:${sg}`, field, text.trim().slice(0, 1000));
-        } else {
-          await redis('HDEL', `hw:${sg}`, field);
-        }
+        await setHomeworkText(ng, sd, num, text || '');
       } else {
-        await redis('HDEL', `hw:${sg}`, field);
+        await deleteHomeworkText(ng, sd, num);
       }
       return res.json({ ok: true });
     }

@@ -8,15 +8,18 @@
   },
   "scripts": {
     "build": "esbuild app/app.js --minify --allow-overwrite --outfile=app/app.js && esbuild app/sw.js --minify --allow-overwrite --outfile=app/sw.js && esbuild app/style.css --minify --allow-overwrite --outfile=app/style.css && esbuild app/admin/panel.js --minify --allow-overwrite --outfile=app/admin/panel.js && esbuild app/admin/admin.js --minify --allow-overwrite --outfile=app/admin/admin.js",
-    "test": "node tests/run-all.js"
+    "test": "node tests/run-all.js",
+    "migrate": "node -r dotenv/config scripts/migrate-to-supabase.js dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
     "@simplewebauthn/server": "^11.0.0",
+    "@supabase/supabase-js": "^2.49.4",
     "@vercel/blob": "^2.4.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "dotenv": "^16.4.5",
     "esbuild": "^0.21.0"
   }
 }

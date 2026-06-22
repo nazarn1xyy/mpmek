@@ -1,10 +1,6 @@
 const crypto = require('crypto');
-const { redis, rateLimit, getSessionUsername, checkOrigin } = require('./_lib/redis');
+const { rateLimit, getSessionUsername, checkOrigin, upsertPushSub, deletePushSub } = require('./_lib/db');
 const { encryptSubscription } = require('./_lib/push-crypto');
-
-async function getSession(req) {
-  return await getSessionUsername(req);
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
@@ -21,7 +17,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Require authenticated session for push management
-  const user = await getSession(req);
+  const user = await getSessionUsername(req);
   if (!user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -55,11 +51,12 @@ module.exports = async function handler(req, res) {
 
       // Encrypt subscription at rest (falls back to plaintext if key not configured)
       const encPayload = encryptSubscription(subscription);
-      await redis('HSET', 'push-subs', id, JSON.stringify({
-        ...encPayload,
+      await upsertPushSub(id, {
+        subscriptionEnc: encPayload.encrypted || null,
+        subscription: encPayload.encrypted ? null : subscription,
         group: group.slice(0, 80),
         notifyTime: nt
-      }));
+      });
 
       return res.status(200).json({ ok: true, id });
     }
@@ -79,7 +76,7 @@ module.exports = async function handler(req, res) {
         .digest('hex')
         .slice(0, 16);
 
-      await redis('HDEL', 'push-subs', id);
+      await deletePushSub(id);
 
       return res.status(200).json({ ok: true });
     }
