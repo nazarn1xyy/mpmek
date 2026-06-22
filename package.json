@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
+    "@resvg/resvg-js": "^2.6.2",
     "@simplewebauthn/server": "^11.0.0",
     "@supabase/supabase-js": "^2.49.4",
     "@vercel/blob": "^2.4.0",
+    "satori": "^0.10.14",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
