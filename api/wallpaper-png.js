@@ -210,7 +210,7 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
         props: {
           style: {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 64, height: 64, borderRadius: 32,
+            width: 64, height: 64, borderRadius: 40,
             background: t.numBg,
             flexShrink: 0
           },
@@ -224,7 +224,7 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
           style: {
             display: 'flex', flexDirection: 'row', gap: 32,
             paddingTop: 36, paddingBottom: 36, paddingLeft: 40, paddingRight: 40,
-            borderRadius: 20,
+            borderRadius: 32,
             background: t.cardBg,
             marginBottom: 24,
             alignItems: 'center'
