@@ -2993,14 +2993,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== Wallpaper Help Overlay =====
-function handleWallpaperHelpHash() {
+(function() {
+    var btn = document.getElementById('wallpaperHelpBtn');
     var overlay = document.getElementById('wallpaperHelp');
-    if (!overlay) return;
-    if (location.hash === '#wallpaperHelp') {
-        overlay.style.display = 'flex';
-    } else {
-        overlay.style.display = '';
-    }
-}
-window.addEventListener('hashchange', handleWallpaperHelpHash);
-handleWallpaperHelpHash();
+    var close = document.getElementById('wallpaperHelpClose');
+    if (!btn || !overlay) return;
+    btn.addEventListener('click', function() { overlay.style.display = 'flex'; });
+    if (close) close.addEventListener('click', function() { overlay.style.display = ''; });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.style.display = ''; });
+})();
