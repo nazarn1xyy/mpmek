@@ -1123,7 +1123,7 @@ input:checked + .slider:before {
     animation: fadeIn 0.3s ease;
 }
 
-.install-overlay:target {
+.install-overlay:not(#wallpaperHelp):target {
     display: flex !important;
 }
 
@@ -1151,6 +1151,8 @@ input:checked + .slider:before {
     align-items: center;
     justify-content: center;
     text-decoration: none;
+    z-index: 10;
+    pointer-events: auto;
 }
 
 .phone-mockup {
