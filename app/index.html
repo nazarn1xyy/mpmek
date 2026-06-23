@@ -392,7 +392,11 @@
                     </a>
                 </div>
                 <div class="setting-item">
-                    <span>Обої з розкладом</span>
+                    <span style="display:flex;align-items:center;gap:8px">Обої з розкладом
+                        <a href="#wallpaperHelp" aria-label="Як встановити обої" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--surface-color,#e0e0e0);color:var(--text-secondary,#888);text-decoration:none;font-size:12px;font-weight:700;line-height:1;flex-shrink:0">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </a>
+                    </span>
                     <a href="https://www.icloud.com/shortcuts/c87eb0e923e54db88da300f37ab13299" target="_blank" rel="noopener" class="btn" style="background-color:#2891F1;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.39 4.5c-.73 1.06-1.93 1.87-3.13 1.78-.14-1.17.49-2.42 1.17-3.18.73-.84 2.06-1.46 3.13-1.5.12 1.17-.42 2.31-.97 3.18zm.84 1.62c-1.72-.1-3.2.98-4.02.98-.84 0-2.1-.96-3.49-.94-1.79.03-3.46 1.04-4.38 2.66-1.88 3.26-.49 8.07 1.34 10.71.89 1.3 1.94 2.76 3.33 2.71 1.34-.05 1.84-.86 3.46-.86 1.62 0 2.08.86 3.49.84 1.44-.03 2.36-1.3 3.25-2.62 1.03-1.51 1.45-2.98 1.47-3.06-.03-.01-2.82-1.08-2.85-4.29-.03-2.68 2.19-3.96 2.29-4.02-1.25-1.83-3.18-2.04-3.89-2.11z"/></svg>
                         Встановити
@@ -510,6 +514,25 @@
             </div>
         </div>
     </div>
+    <!-- Wallpaper Help Overlay -->
+    <div id="wallpaperHelp" class="install-overlay" role="dialog" aria-modal="true" aria-labelledby="wallpaperHelpTitle">
+        <div class="install-content">
+            <a href="#" class="install-close" aria-label="Закрити">&times;</a>
+            <h2 id="wallpaperHelpTitle" class="install-title">Обої з розкладом</h2>
+            <p style="color:#aaa;font-size:14px;margin-bottom:1.5rem">Автоматичні обої на екран блокування iPhone з вашим розкладом на день.</p>
+            <div class="install-steps" style="text-align:left">
+                <p style="color:#fff;font-size:15px;margin-bottom:1rem"><strong style="color:#2891F1">1.</strong> Натисніть «Встановити» — відкриється iCloud Shortcut.</p>
+                <p style="color:#fff;font-size:15px;margin-bottom:1rem"><strong style="color:#2891F1">2.</strong> У Safari натисніть «Add Shortcut» → «Add Shortcut».</p>
+                <p style="color:#fff;font-size:15px;margin-bottom:1rem"><strong style="color:#2891F1">3.</strong> Відкрийте програму «Команди» (Shortcuts) → знайдіть «Розклад Студента».</p>
+                <p style="color:#fff;font-size:15px;margin-bottom:1rem"><strong style="color:#2891F1">4.</strong> Запустіть shortcut — він згенерує обої та запропонує встановити на екран блокування.</p>
+                <p style="color:#fff;font-size:15px;margin-bottom:1rem"><strong style="color:#2891F1">5.</strong> Оберіть свою групу при першому запуску. Обои оновлюватимуться автоматично щодня.</p>
+            </div>
+            <div style="margin-top:1.5rem;padding:1rem;background:rgba(40,145,241,0.15);border-radius:12px;border:1px solid rgba(40,145,241,0.3)">
+                <p style="color:#7BBFEE;font-size:13px;margin:0">💡 Порада: додайте widget «Команди» на екран блокування для швидкого оновлення обоїв.</p>
+            </div>
+        </div>
+    </div>
+
     <script src="inline-boot.js?v=1" defer></script>
 
     <!-- Bottom Navigation -->
