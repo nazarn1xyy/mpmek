@@ -1879,9 +1879,9 @@ input:checked + .slider:before {
         display: none;
     }
 
-    /* ── Hide install overlay on desktop ── */
-    .install-overlay,
-    .install-overlay:target {
+    /* ── Hide install overlay on desktop (except wallpaper help) ── */
+    .install-overlay:not(#wallpaperHelp),
+    .install-overlay:not(#wallpaperHelp):target {
         display: none !important;
     }
 
