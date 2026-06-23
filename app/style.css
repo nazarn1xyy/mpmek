@@ -1123,7 +1123,7 @@ input:checked + .slider:before {
     animation: fadeIn 0.3s ease;
 }
 
-.install-overlay:not(#wallpaperHelp):target {
+.install-overlay:target {
     display: flex !important;
 }
 
@@ -1151,8 +1151,6 @@ input:checked + .slider:before {
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    z-index: 10;
-    pointer-events: auto;
 }
 
 .phone-mockup {
@@ -1265,6 +1263,214 @@ input:checked + .slider:before {
 @keyframes slideUp {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
+}
+
+/* ===== Wallpaper Help Icon (inline ?) ===== */
+.wp-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wp-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--surface-color, #e6e6e6);
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.wp-help-icon:hover {
+    background: #2891F1;
+    color: #fff;
+    transform: scale(1.08);
+}
+
+.wp-help-icon:active {
+    transform: scale(0.95);
+}
+
+/* ===== Wallpaper Help Modal ===== */
+.wp-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+}
+
+.wp-modal[hidden] {
+    display: none;
+}
+
+.wp-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fadeIn 0.25s ease;
+}
+
+.wp-modal-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100dvh - 2.5rem);
+    overflow-y: auto;
+    background: var(--bg-color, #fff);
+    color: var(--text-color, #111);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 24px;
+    padding: 2rem 1.75rem 1.75rem;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    animation: wpModalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+}
+
+@keyframes wpModalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.wp-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--surface-color, #f0f0f0);
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.wp-modal-close:hover {
+    background: #ff453a;
+    color: #fff;
+}
+
+.wp-modal-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #2891F1, #1a6fd0);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(40, 145, 241, 0.35);
+}
+
+.wp-modal-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+}
+
+.wp-modal-subtitle {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-secondary, #777);
+    margin: 0 0 1.5rem;
+}
+
+.wp-steps {
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    text-align: left;
+}
+
+.wp-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.wp-step:last-child {
+    margin-bottom: 0;
+}
+
+.wp-step-num {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #2891F1;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wp-step-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-color, #222);
+    padding-top: 2px;
+}
+
+.wp-step-text strong {
+    color: #2891F1;
+}
+
+.wp-tip {
+    background: rgba(40, 145, 241, 0.1);
+    border: 1px solid rgba(40, 145, 241, 0.25);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-color, #333);
+    text-align: left;
+    margin-bottom: 1.25rem;
+}
+
+.wp-tip strong {
+    color: #2891F1;
+}
+
+.wp-modal-cta {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #2891F1;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 14px;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.wp-modal-cta:hover {
+    background: #1a7fe0;
+}
+
+.wp-modal-cta:active {
+    transform: scale(0.98);
 }
 
 /* ===== Saved Homework on Lesson Card ===== */
@@ -1881,9 +2087,9 @@ input:checked + .slider:before {
         display: none;
     }
 
-    /* ── Hide install overlay on desktop (except wallpaper help) ── */
-    .install-overlay:not(#wallpaperHelp),
-    .install-overlay:not(#wallpaperHelp):target {
+    /* ── Hide install overlay on desktop ── */
+    .install-overlay,
+    .install-overlay:target {
         display: none !important;
     }
 

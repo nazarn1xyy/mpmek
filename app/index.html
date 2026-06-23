@@ -55,7 +55,7 @@
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}.install-overlay,.install-overlay:target{display:none!important}}
     </style>
-    <link rel="stylesheet" href="style.css?v=40">
+    <link rel="stylesheet" href="style.css?v=41">
     <meta name="geo.region" content="UA-21">
     <meta name="geo.placename" content="Могилів-Подільський">
     <meta name="geo.position" content="48.4482;27.7998">
@@ -392,9 +392,9 @@
                     </a>
                 </div>
                 <div class="setting-item">
-                    <span style="display:flex;align-items:center;gap:8px">Обої з розкладом
-                        <button id="wallpaperHelpBtn" aria-label="Як встановити обої" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--surface-color,#e0e0e0);color:var(--text-secondary,#888);border:none;cursor:pointer;flex-shrink:0;padding:0">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span class="wp-label">Обої з розкладом
+                        <button id="wpHelpBtn" class="wp-help-icon" type="button" aria-label="Як встановити обої">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         </button>
                     </span>
                     <a href="https://www.icloud.com/shortcuts/c87eb0e923e54db88da300f37ab13299" target="_blank" rel="noopener" class="btn" style="background-color:#2891F1;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
@@ -514,33 +514,40 @@
             </div>
         </div>
     </div>
-    <!-- Wallpaper Help Overlay -->
-    <div id="wallpaperHelp" class="install-overlay" role="dialog" aria-modal="true" aria-labelledby="wallpaperHelpTitle">
-        <div class="install-content" style="max-width:420px">
-            <button id="wallpaperHelpClose" class="install-close" aria-label="Закрити">&times;</button>
-            <h2 id="wallpaperHelpTitle" class="install-title" style="margin-bottom:0.5rem">Обої з розкладом</h2>
-            <p style="color:#aaa;font-size:14px;margin-bottom:1.5rem;line-height:1.5">Щодня на вашому екрані блокування — актуальний розклад пар вашої групи.</p>
-            <div style="text-align:left">
-                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
-                    <span style="min-width:24px;height:24px;border-radius:50%;background:#2891F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">1</span>
-                    <p style="color:#fff;font-size:14px;margin:0;line-height:1.5">Натисніть кнопку <strong style="color:#2891F1">«Встановити»</strong> — відкриється сторінка з командою в iCloud.</p>
-                </div>
-                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
-                    <span style="min-width:24px;height:24px;border-radius:50%;background:#2891F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">2</span>
-                    <p style="color:#fff;font-size:14px;margin:0;line-height:1.5">У вікні, що відкрилось, натисніть <strong>«Add Shortcut»</strong> (Додати команду).</p>
-                </div>
-                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
-                    <span style="min-width:24px;height:24px;border-radius:50%;background:#2891F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">3</span>
-                    <p style="color:#fff;font-size:14px;margin:0;line-height:1.5">Відкрийте програму <strong>«Команди»</strong> (Shortcuts) і запустіть команду <strong>«Розклад Студента»</strong>.</p>
-                </div>
-                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
-                    <span style="min-width:24px;height:24px;border-radius:50%;background:#2891F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">4</span>
-                    <p style="color:#fff;font-size:14px;margin:0;line-height:1.5">При першому запуску оберіть свою групу. Команда згенерує обої і встановить їх на екран блокування.</p>
-                </div>
+    <!-- Wallpaper Help Modal -->
+    <div id="wpHelpModal" class="wp-modal" role="dialog" aria-modal="true" aria-labelledby="wpHelpTitle" hidden>
+        <div class="wp-modal-backdrop" data-wp-close></div>
+        <div class="wp-modal-card" role="document">
+            <button class="wp-modal-close" type="button" aria-label="Закрити" data-wp-close>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="wp-modal-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M17.39 4.5c-.73 1.06-1.93 1.87-3.13 1.78-.14-1.17.49-2.42 1.17-3.18.73-.84 2.06-1.46 3.13-1.5.12 1.17-.42 2.31-.97 3.18zm.84 1.62c-1.72-.1-3.2.98-4.02.98-.84 0-2.1-.96-3.49-.94-1.79.03-3.46 1.04-4.38 2.66-1.88 3.26-.49 8.07 1.34 10.71.89 1.3 1.94 2.76 3.33 2.71 1.34-.05 1.84-.86 3.46-.86 1.62 0 2.08.86 3.49.84 1.44-.03 2.36-1.3 3.25-2.62 1.03-1.51 1.45-2.98 1.47-3.06-.03-.01-2.82-1.08-2.85-4.29-.03-2.68 2.19-3.96 2.29-4.02-1.25-1.83-3.18-2.04-3.89-2.11z"/></svg>
             </div>
-            <div style="margin-top:1rem;padding:12px 16px;background:rgba(40,145,241,0.1);border-radius:12px;border:1px solid rgba(40,145,241,0.25);text-align:left">
-                <p style="color:#7BBFEE;font-size:13px;margin:0;line-height:1.5">Порада: додайте автоматизацію в програмі «Команди», щоб обої оновлювались щоранку автоматично.</p>
+            <h2 id="wpHelpTitle" class="wp-modal-title">Обої з розкладом</h2>
+            <p class="wp-modal-subtitle">Щодня на екрані блокування iPhone — актуальний розклад пар вашої групи.</p>
+            <ol class="wp-steps">
+                <li class="wp-step">
+                    <span class="wp-step-num">1</span>
+                    <span class="wp-step-text">Натисніть кнопку <strong>«Встановити»</strong> — відкриється команда в iCloud.</span>
+                </li>
+                <li class="wp-step">
+                    <span class="wp-step-num">2</span>
+                    <span class="wp-step-text">У вікні, що відкрилось, натисніть <strong>«Додати команду»</strong> (Add Shortcut).</span>
+                </li>
+                <li class="wp-step">
+                    <span class="wp-step-num">3</span>
+                    <span class="wp-step-text">Відкрийте програму <strong>«Команди»</strong> і запустіть <strong>«Розклад Студента»</strong>.</span>
+                </li>
+                <li class="wp-step">
+                    <span class="wp-step-num">4</span>
+                    <span class="wp-step-text">Оберіть свою групу — команда згенерує обої та встановить їх на екран блокування.</span>
+                </li>
+            </ol>
+            <div class="wp-tip">
+                <strong>Порада:</strong> додайте автоматизацію в програмі «Команди», щоб обої оновлювались щоранку самі.
             </div>
+            <a href="https://www.icloud.com/shortcuts/c87eb0e923e54db88da300f37ab13299" target="_blank" rel="noopener" class="wp-modal-cta">Встановити команду</a>
         </div>
     </div>
 
@@ -576,6 +583,6 @@
         </a>
     </nav>
 
-    <script src="app.js?v=45" defer></script>
+    <script src="app.js?v=46" defer></script>
 </body>
 </html>

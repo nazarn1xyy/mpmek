@@ -2992,13 +2992,26 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// ===== Wallpaper Help Overlay =====
+// ===== Wallpaper Help Modal =====
 (function() {
-    var btn = document.getElementById('wallpaperHelpBtn');
-    var overlay = document.getElementById('wallpaperHelp');
-    var close = document.getElementById('wallpaperHelpClose');
-    if (!btn || !overlay) return;
-    btn.addEventListener('click', function() { overlay.style.display = 'flex'; });
-    if (close) close.addEventListener('click', function() { overlay.style.display = ''; });
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.style.display = ''; });
+    var btn = document.getElementById('wpHelpBtn');
+    var modal = document.getElementById('wpHelpModal');
+    if (!btn || !modal) return;
+
+    function openModal() {
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    btn.addEventListener('click', openModal);
+    modal.addEventListener('click', function(e) {
+        if (e.target.closest('[data-wp-close]')) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.hidden) closeModal();
+    });
 })();
