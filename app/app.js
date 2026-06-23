@@ -2991,3 +2991,16 @@ document.addEventListener('keydown', (e) => {
         document.querySelector('.week-nav-btn[data-dir="1"]')?.click();
     }
 });
+
+// ===== Wallpaper Help Overlay =====
+function handleWallpaperHelpHash() {
+    var overlay = document.getElementById('wallpaperHelp');
+    if (!overlay) return;
+    if (location.hash === '#wallpaperHelp') {
+        overlay.style.display = 'flex';
+    } else {
+        overlay.style.display = '';
+    }
+}
+window.addEventListener('hashchange', handleWallpaperHelpHash);
+handleWallpaperHelpHash();
