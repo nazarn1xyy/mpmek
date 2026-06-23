@@ -152,12 +152,7 @@ async function loadFonts() {
 
 function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
   const t = THEMES[themeName] || THEMES.dark;
-  const activeIdx = findActiveLessonIndex(lessons, currentTime);
-  const currentMin = parseTimeToMinutes(currentTime);
-  const kyiv = getKyivDate();
-  const dateLabel = `${kyiv.getDate()} ${UK_MONTHS[kyiv.getMonth()]}`;
 
-  // Header removed — no group name, no day, no date (lock screen shows its own clock/date)
   let bodyChildren;
 
   if (lessons.length === 0) {
@@ -171,23 +166,12 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
       }
     ];
   } else {
-    bodyChildren = lessons.map((lesson, i) => {
+    bodyChildren = lessons.map((lesson) => {
       const times = LESSON_TIMES[lesson.number] || { start: '', end: '' };
-      const isActive = i === activeIdx;
-      const lessonEnd = parseTimeToMinutes(times.end);
-      const isPast = lessonEnd !== null && currentMin !== null && currentMin > lessonEnd;
-      const opacity = isPast ? 0.45 : 1;
 
       const subjectChildren = [
         { type: 'span', props: { style: { fontSize: 34, fontWeight: 700, color: t.textPrimary }, children: lesson.subject || lesson.name || '' } }
       ];
-
-      if (isActive) {
-        subjectChildren.push({
-          type: 'span',
-          props: { style: { fontSize: 22, fontWeight: 700, color: t.accent, marginLeft: 12 }, children: '● Зараз' }
-        });
-      }
 
       if (lesson.isSubstitution) {
         const isReplace = lesson.substitutionType === 'заміна';
@@ -227,34 +211,13 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
           style: {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 64, height: 64, borderRadius: 32,
-            background: isActive ? t.accent : t.numBg,
+            background: t.numBg,
             flexShrink: 0
           },
-          children: { type: 'span', props: { style: { fontSize: 28, fontWeight: 700, color: isActive ? '#FFFFFF' : t.numColor }, children: String(lesson.number) } }
+          children: { type: 'span', props: { style: { fontSize: 28, fontWeight: 700, color: t.numColor }, children: String(lesson.number) } }
         }
       };
 
-      // Active card: left accent bar + card body
-      if (isActive) {
-        return {
-          type: 'div',
-          props: {
-            style: { display: 'flex', flexDirection: 'row', marginBottom: 24, borderRadius: 20, opacity },
-            children: [
-              { type: 'div', props: { style: { display: 'flex', width: 6, background: t.accent, flexShrink: 0 } } },
-              {
-                type: 'div',
-                props: {
-                  style: { display: 'flex', flexDirection: 'row', flex: 1, gap: 32, paddingTop: 36, paddingBottom: 36, paddingLeft: 34, paddingRight: 40, background: t.cardActiveBg, alignItems: 'center' },
-                  children: [numCircle, cardContent]
-                }
-              }
-            ]
-          }
-        };
-      }
-
-      // Regular card
       return {
         type: 'div',
         props: {
@@ -263,7 +226,6 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
             paddingTop: 36, paddingBottom: 36, paddingLeft: 40, paddingRight: 40,
             borderRadius: 20,
             background: t.cardBg,
-            opacity,
             marginBottom: 24,
             alignItems: 'center'
           },
@@ -273,7 +235,6 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
     });
   }
 
-  // Footer: pushed to bottom, extra padding for lock screen flashlight/camera area
   const footer = {
     type: 'div',
     props: {
@@ -282,7 +243,6 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
     }
   };
 
-  // Wrap body in flex:1 container so footer is pushed to bottom
   const body = {
     type: 'div',
     props: {
@@ -291,8 +251,6 @@ function buildSatoriTree(dayName, lessons, currentTime, dateStr, themeName) {
     }
   };
 
-  // Lock screen layout: large top safe area for clock/date/widgets
-  // Content starts ~700px down (below iPhone lock screen clock + widgets)
   return {
     type: 'div',
     props: {
