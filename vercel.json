@@ -11,6 +11,12 @@
       "schedule": "0 5 * * 1-5"
     }
   ],
+  "rewrites": [
+    { "source": "/api/unsubscribe", "destination": "/api/subscribe?action=unsubscribe" },
+    { "source": "/api/telegram-setup", "destination": "/api/telegram?action=setup" },
+    { "source": "/api/telegram-notify", "destination": "/api/telegram?action=notify" },
+    { "source": "/api/tg-subscribe", "destination": "/api/telegram?action=subscribe" }
+  ],
   "headers": [
     {
       "source": "/admin/(.*)",
