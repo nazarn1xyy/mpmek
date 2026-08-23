@@ -212,6 +212,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOnlineStatus();
 
     // ===== Theme Management =====
+    function updateThemeSubtitle(dark) {
+        const sub = document.getElementById('themeSubtitle');
+        if (sub) {
+            sub.textContent = dark ? 'Темна тема увімкнена' : 'Світла тема увімкнена';
+        }
+    }
+
     function applyTheme(dark) {
         if (dark) {
             document.documentElement.setAttribute('data-theme', 'dark');
@@ -226,25 +233,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const meta = document.getElementById('metaThemeColor');
         if (meta) meta.setAttribute('content', dark ? '#000000' : '#ffffff');
+        if (themeToggle) themeToggle.checked = dark;
+        updateThemeSubtitle(dark);
     }
 
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    themeToggle.checked = initialDark;
     applyTheme(initialDark);
 
-    themeToggle.addEventListener('change', (e) => {
-        const dark = e.target.checked;
-        document.documentElement.classList.add('theme-transitioning');
-        document.body.classList.add('theme-transitioning');
-        applyTheme(dark);
-        localStorage.setItem('theme', dark ? 'dark' : 'light');
-        setTimeout(() => {
-            document.documentElement.classList.remove('theme-transitioning');
-            document.body.classList.remove('theme-transitioning');
-        }, 350);
-    });
+    if (themeToggle) {
+        themeToggle.addEventListener('change', (e) => {
+            const dark = e.target.checked;
+            document.documentElement.classList.add('theme-transitioning');
+            document.body.classList.add('theme-transitioning');
+            applyTheme(dark);
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            setTimeout(() => {
+                document.documentElement.classList.remove('theme-transitioning');
+                document.body.classList.remove('theme-transitioning');
+            }, 350);
+        });
+    }
 
     // ===== Install Overlay =====
     // Always show in browser, hide only if we are absolutely sure it's standalone
@@ -612,6 +622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <button class="btn-profile-auth" id="profileLoginCtaBtn">Увійти або зареєструватися</button>
                     </div>`;
             }
+        }
+
+        const groupSub = document.getElementById('settingsCurrentGroupSub');
+        if (groupSub && selectedGroup) {
+            groupSub.textContent = `Поточна група: ${selectedGroup}`;
         }
     }
 
@@ -1275,10 +1290,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Bells modal triggers
-        const bellsTrigger = e.target.closest('#openBellsBtn');
-        if (bellsTrigger) {
+        const bellsTrigger = e.target.closest('#openBellsBtn, #bellsSettingRow');
+        if (bellsTrigger && !e.target.closest('.setting-action-btn')) {
             e.preventDefault();
             openBellsModal();
+            return;
+        }
+        if (e.target.closest('#openBellsBtn')) {
+            e.preventDefault();
+            openBellsModal();
+            return;
+        }
+
+        // Theme row click trigger
+        const themeRowTrigger = e.target.closest('#themeSettingRow');
+        if (themeRowTrigger && !e.target.closest('.switch')) {
+            e.preventDefault();
+            if (themeToggle) {
+                themeToggle.checked = !themeToggle.checked;
+                themeToggle.dispatchEvent(new Event('change'));
+            }
+            return;
+        }
+
+        // Change group row trigger
+        const changeGroupTrigger = e.target.closest('#changeGroupBtn, #changeGroupRow');
+        if (changeGroupTrigger) {
+            e.preventDefault();
+            localStorage.removeItem('selectedGroup');
+            selectedGroup = null;
+            showScreen('onboarding');
+            renderGroupList();
             return;
         }
 
