@@ -587,6 +587,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (profileCard) {
+            const SVG_USER = `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
             if (currentUser) {
                 const name = currentUser.name || currentUser.username;
                 const initials = name.slice(0, 2).toUpperCase();
@@ -598,7 +599,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <div class="profile-meta">
                                 <span>@${escHtml(currentUser.username)}</span>
                                 ${currentUser.group ? `<span class="profile-group-pill">${escHtml(currentUser.group)}</span>` : ''}
-                                <span class="profile-sync-status">🟢 Синхронізовано</span>
+                                <span class="profile-sync-status"><span class="sync-dot"></span> Синхронізовано</span>
                             </div>
                         </div>
                         <button class="btn-profile-logout" id="profileLogoutBtn">Вийти</button>
@@ -606,7 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 profileCard.innerHTML = `
                     <div class="profile-card-header">
-                        <div class="profile-avatar guest-avatar">👤</div>
+                        <div class="profile-avatar guest-avatar">${SVG_USER}</div>
                         <div class="profile-info">
                             <div class="profile-name">Гість</div>
                             <div class="profile-meta">Створіть акаунт для збереження на всіх пристроях</div>
@@ -742,7 +743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 closeAuthModal();
                 renderProfileUI();
                 renderSchedule();
-                showToast(`Вітаємо, ${currentUser.name || currentUser.username}! Дані синхронізовано ✨`);
+                showToast(`Вітаємо, ${currentUser.name || currentUser.username}! Дані синхронізовано`);
             } catch (err) {
                 loginError.textContent = err.message;
                 loginError.classList.remove('hidden');
@@ -803,7 +804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 closeAuthModal();
                 renderProfileUI();
                 renderSchedule();
-                showToast(`Акаунт створено! Ласкаво просимо, ${currentUser.name}! 🎉`);
+                showToast(`Акаунт створено! Ласкаво просимо, ${currentUser.name}!`);
             } catch (err) {
                 registerError.textContent = err.message;
                 registerError.classList.remove('hidden');
@@ -830,7 +831,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Bells Schedule Modal =====
     const BELLS_SCHEDULE = [
         { num: 1, start: '08:30', end: '09:50', breakText: 'Перерва 10 хв' },
-        { num: 2, start: '10:00', end: '11:20', breakText: 'Велика перерва 30 хв ☕' },
+        { num: 2, start: '10:00', end: '11:20', breakText: 'Велика перерва 30 хв' },
         { num: 3, start: '11:50', end: '13:10', breakText: 'Перерва 10 хв' },
         { num: 4, start: '13:20', end: '14:40', breakText: 'Перерва 10 хв' },
         { num: 5, start: '14:50', end: '16:10', breakText: 'Перерва 10 хв' },
@@ -868,7 +869,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const isBreakNow = nowMin >= endMin && nowMin < nextStartMin;
 
                 html += `<div class="bell-break ${isBreakNow ? 'is-break-now' : ''}">
-                    <span>${isBreakNow ? '☕ ' : ''}${b.breakText}${isBreakNow ? ` (ще ${nextStartMin - nowMin} хв)` : ''}</span>
+                    <span>${b.breakText}${isBreakNow ? ` (ще ${nextStartMin - nowMin} хв)` : ''}</span>
                 </div>`;
             }
         }
@@ -923,8 +924,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const q = (lastSearchQuery || '').trim().toLowerCase();
 
         if (!q || q.length < 2) {
+            const SVG_SEARCH_LG = `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
             searchResults.innerHTML = `<div class="empty-search-prompt">
-                <div class="search-prompt-icon">🔍</div>
+                <div class="search-prompt-icon">${SVG_SEARCH_LG}</div>
                 <p>Введіть викладача, номер аудиторії або предмет</p>
                 <div class="search-suggestions">
                     <span class="search-suggestion-chip" data-search="Сабірова">Сабірова</span>
@@ -1031,8 +1033,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (results.length === 0) {
+            const SVG_SEARCH_LG = `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
             searchResults.innerHTML = `<div class="empty-search-prompt">
-                <div class="search-prompt-icon">🔍</div>
+                <div class="search-prompt-icon">${SVG_SEARCH_LG}</div>
                 <p>Нічого не знайдено за запитом <strong>«${escHtml(q)}»</strong></p>
                 <p class="search-prompt-hint">Спробуйте перевірити написання або ввести номер кабінету (напр. 69)</p>
             </div>`;
@@ -1144,8 +1147,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let savedHtml = '';
         if (hwItem && hwItem.text) {
+            const SVG_CAL = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
             const deadlineBadge = hwItem.deadline
-                ? `<div class="hw-deadline-badge ${isDeadlineUrgent(hwItem.deadline) ? 'is-urgent' : ''}">📅 до ${formatDeadline(hwItem.deadline)}</div>`
+                ? `<div class="hw-deadline-badge ${isDeadlineUrgent(hwItem.deadline) ? 'is-urgent' : ''}">${SVG_CAL}до ${formatDeadline(hwItem.deadline)}</div>`
                 : '';
             savedHtml = `<div class="hw-saved ${hwItem.done ? 'hw-done' : ''}">
                 <input type="checkbox" class="hw-checkbox" data-hw-key="${key}" aria-label="Позначити виконаним" ${hwItem.done ? 'checked' : ''}>
@@ -1242,7 +1246,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (targetInput) {
                 const isPwd = targetInput.type === 'password';
                 targetInput.type = isPwd ? 'text' : 'password';
-                togglePwdBtn.textContent = isPwd ? '🙈' : '👁️';
+                const SVG_EYE = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+                const SVG_EYE_OFF = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+                togglePwdBtn.innerHTML = isPwd ? SVG_EYE_OFF : SVG_EYE;
             }
             return;
         }
@@ -1671,8 +1677,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
+                const SVG_CAL = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
                 const deadlineBadge = entry.deadline
-                    ? `<div class="hw-deadline-badge ${isDeadlineUrgent(entry.deadline) ? 'is-urgent' : ''}">📅 до ${formatDeadline(entry.deadline)}</div>`
+                    ? `<div class="hw-deadline-badge ${isDeadlineUrgent(entry.deadline) ? 'is-urgent' : ''}">${SVG_CAL}до ${formatDeadline(entry.deadline)}</div>`
                     : '';
 
                 const card = document.createElement('div');
@@ -1853,12 +1860,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lines = pairs.map(p => {
             const time = LESSON_TIMES[p.number];
             const startTime = time ? time.split(' - ')[0] : '';
-            const sub = p.isSubstitution ? ' ⚡' : '';
+            const sub = p.isSubstitution ? ' (заміна)' : '';
             return `${p.number}. ${p.subject}${startTime ? ' — ' + startTime : ''}${sub}`;
         });
 
         return {
-            title: `📚 ${prefix} — ${dayName}`,
+            title: `${prefix} — ${dayName}`,
             body: lines.join('\n'),
             pairsCount: pairs.length,
             dateStr

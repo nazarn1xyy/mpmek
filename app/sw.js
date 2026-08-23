@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v44';
+const CACHE_NAME = 'rozklad-v45';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -198,11 +198,11 @@ async function showCachedScheduleNotification() {
 
     const lines = pairs.map(p => {
       const t = times[p.number] ? times[p.number].split(' - ')[0] || times[p.number] : '';
-      const sub = p.isSubstitution ? ' ⚡' : '';
+      const sub = p.isSubstitution ? ' (заміна)' : '';
       return `${p.number}. ${p.subject}${t ? ' — ' + t : ''}${sub}`;
     });
 
-    await self.registration.showNotification(`📚 ${prefix} — ${dayName}`, {
+    await self.registration.showNotification(`${prefix} — ${dayName}`, {
       body: lines.join('\n'),
       icon: './icon.png',
       badge: './icon.png',

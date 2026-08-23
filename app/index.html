@@ -13,15 +13,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="color-scheme" content="light dark">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=44">
-    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=44">
-    <link rel="manifest" href="manifest.json?v=44">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=45">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=45">
+    <link rel="manifest" href="manifest.json?v=45">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=44" as="style">
+    <link rel="preload" href="style.css?v=45" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=44" as="script">
+    <link rel="preload" href="app.js?v=45" as="script">
     <script>
         (function(){
             var t = localStorage.getItem('theme');
@@ -126,7 +126,11 @@
                 <div class="settings-group">
                     <div class="setting-item" id="themeSettingRow" style="cursor: pointer;">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge theme-badge">🌙</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Тема (Темна / Світла)</span>
                                 <span class="setting-subtitle" id="themeSubtitle">Темна тема</span>
@@ -140,7 +144,12 @@
 
                     <div class="setting-item" id="bellsSettingRow" style="cursor: pointer;">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge bells-badge">🔔</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Розклад дзвінків</span>
                                 <span class="setting-subtitle">Час пар та тривалість перерв</span>
@@ -154,7 +163,12 @@
                 <div class="settings-group">
                     <div class="setting-item" id="notifSettingRow">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge notif-badge">📬</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Сповіщення щоранку</span>
                                 <span class="setting-subtitle">Розклад на день о вибраній годині</span>
@@ -168,7 +182,12 @@
 
                     <div class="setting-item" id="notifTimeRow">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge time-badge">⏰</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Час сповіщення</span>
                             </div>
@@ -191,7 +210,12 @@
                 <div class="settings-group">
                     <div class="setting-item" id="changeGroupRow" style="cursor: pointer;">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge group-badge">🎓</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                    <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Змінити групу</span>
                                 <span class="setting-subtitle" id="settingsCurrentGroupSub">Обрати іншу спеціальність</span>
@@ -202,7 +226,12 @@
 
                     <div class="setting-item" id="installRow">
                         <div class="setting-item-left">
-                            <div class="setting-icon-badge install-badge">📲</div>
+                            <div class="setting-icon-badge">
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                                </svg>
+                            </div>
                             <div class="setting-text-group">
                                 <span class="setting-title">Додати на екран</span>
                                 <span class="setting-subtitle">Встановити як додаток PWA</span>
@@ -219,6 +248,11 @@
     <div id="authModal" class="modal-overlay hidden">
         <div class="modal-sheet auth-sheet">
             <div class="modal-handle"></div>
+            <div class="modal-header">
+                <h3 class="modal-title" id="authModalTitle">Вхід в акаунт</h3>
+            </div>
+
+            <!-- Segmented Switcher -->
             <div class="auth-segmented-control">
                 <button type="button" id="authTabLogin" class="auth-tab-btn active">Вхід</button>
                 <button type="button" id="authTabRegister" class="auth-tab-btn">Реєстрація</button>
@@ -234,7 +268,9 @@
                     <label for="loginPassword">Пароль</label>
                     <div class="auth-password-wrapper">
                         <input type="password" id="loginPassword" placeholder="Введіть пароль..." autocomplete="current-password" required class="auth-input">
-                        <button type="button" class="auth-toggle-pwd" data-target="loginPassword" aria-label="Показати пароль">👁️</button>
+                        <button type="button" class="auth-toggle-pwd" data-target="loginPassword" aria-label="Показати пароль">
+                            <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
                     </div>
                 </div>
                 <div id="loginError" class="auth-error-msg hidden"></div>
@@ -255,7 +291,9 @@
                     <label for="registerPassword">Пароль (від 4 символів)</label>
                     <div class="auth-password-wrapper">
                         <input type="password" id="registerPassword" placeholder="Придумайте пароль..." autocomplete="new-password" required class="auth-input">
-                        <button type="button" class="auth-toggle-pwd" data-target="registerPassword" aria-label="Показати пароль">👁️</button>
+                        <button type="button" class="auth-toggle-pwd" data-target="registerPassword" aria-label="Показати пароль">
+                            <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
                     </div>
                 </div>
                 <div class="auth-input-group">
@@ -393,7 +431,7 @@
         </a>
     </nav>
 
-    <script src="app.js?v=44" defer></script>
+    <script src="app.js?v=45" defer></script>
     <script>
         if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             var s = document.createElement('script');
