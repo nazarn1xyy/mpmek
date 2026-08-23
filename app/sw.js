@@ -1,11 +1,10 @@
-const CACHE_NAME = 'rozklad-v43';
+const CACHE_NAME = 'rozklad-v44';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
-
   './manifest.json',
   './icon.png',
   './icon-192.png'
@@ -28,7 +27,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first for JSON (always fresh data), stale-while-revalidate for static assets
+// Fetch strategy
 self.addEventListener('fetch', event => {
   // Skip caching for admin panel
   if (event.request.url.includes('/admin')) {
@@ -39,52 +38,37 @@ self.addEventListener('fetch', event => {
 
   // Network-first for API calls (schedule data)
   if (url.pathname.startsWith('/api/')) {
-    const cacheKey = new Request(url.origin + url.pathname);
     event.respondWith(
       fetch(event.request).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return networkResponse;
-      }).catch(() => caches.match(cacheKey))
+      }).catch(() => caches.match(event.request))
     );
     return;
   }
 
-  const isJSON = url.pathname.endsWith('.json');
-
-  if (isJSON) {
-    // Network-first for schedule data — always try fresh, fallback to cache
-    // Strip query params for cache key so cache-busted requests still match
-    const cacheKey = new Request(url.origin + url.pathname);
-    event.respondWith(
-      fetch(event.request).then(networkResponse => {
-        if (networkResponse && networkResponse.status === 200) {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
+  // Network-first for all static assets (HTML, JS, CSS, JSON) to guarantee fresh updates
+  event.respondWith(
+    fetch(event.request).then(networkResponse => {
+      if (networkResponse && networkResponse.status === 200) {
+        const clone = networkResponse.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return networkResponse;
+    }).catch(() => {
+      // Offline fallback: match request from cache
+      return caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          return caches.match('./') || caches.match('./index.html');
         }
-        return networkResponse;
-      }).catch(() => caches.match(cacheKey))
-    );
-  } else {
-    // Stale-while-revalidate for static assets (CSS, JS, HTML, images)
-    // Strip query params so cache-busted requests (e.g. app.js?v=31) match pre-cached app.js
-    const cacheKey = new Request(url.origin + url.pathname);
-    event.respondWith(
-      caches.match(cacheKey).then(cached => {
-        const fetchPromise = fetch(event.request).then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(cacheKey, clone));
-          }
-          return networkResponse;
-        }).catch(() => cached);
-
-        return cached || fetchPromise;
-      })
-    );
-  }
+        return null;
+      });
+    })
+  );
 });
 
 // ===== Notification click — open/focus the app and show today =====

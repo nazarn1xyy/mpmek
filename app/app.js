@@ -436,20 +436,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!document.hidden && selectedGroup) refreshSchedule(true);
     });
 
-    // ===== Load Data =====
-    try {
-        await refreshSchedule(false);
-        syncHomeworkFromServer().catch(() => {});
-    } catch (e) {
-        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p><button class="btn" onclick="location.reload()" style="margin-top:1rem">Спробувати знову</button></div>`;
-        return;
-    }
-
     // ===== Groups =====
     function renderGroupList(filter = '') {
+        if (!groupListContainer || !scheduleData) return;
         const frag = document.createDocumentFragment();
         const lowerFilter = filter.toLowerCase();
         const groups = Object.keys(scheduleData).filter(k => k !== '_settings');
+        let count = 0;
 
         for (let i = 0; i < groups.length; i++) {
             const group = groups[i];
@@ -460,9 +453,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             el.textContent = group;
             el.dataset.group = group;
             frag.appendChild(el);
+            count++;
         }
 
-        if (frag.children.length === 0) {
+        if (count === 0) {
             groupListContainer.innerHTML = '<div class="empty-state" style="padding:2rem 1rem;margin-top:0"><p class="empty-state-title" style="font-size:1.1rem">Групу не знайдено</p><p class="empty-state-desc">Перевірте правильність написання назви групи</p></div>';
             return;
         }
@@ -1289,27 +1283,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Bells modal triggers
-        const bellsTrigger = e.target.closest('#openBellsBtn, #bellsSettingRow');
-        if (bellsTrigger && !e.target.closest('.setting-action-btn')) {
-            e.preventDefault();
-            openBellsModal();
-            return;
-        }
-        if (e.target.closest('#openBellsBtn')) {
+        // Bells modal trigger (button, setting row, or diary pair time)
+        const bellsTrigger = e.target.closest('#openBellsBtn, #bellsSettingRow, [data-open-bells="true"]');
+        if (bellsTrigger) {
             e.preventDefault();
             openBellsModal();
             return;
         }
 
+        const bellsCloseTrigger = e.target.closest('#bellsModalClose');
+        if (bellsCloseTrigger) {
+            e.preventDefault();
+            closeBellsModal();
+            return;
+        }
+
         // Theme row click trigger
         const themeRowTrigger = e.target.closest('#themeSettingRow');
-        if (themeRowTrigger && !e.target.closest('.switch')) {
+        if (themeRowTrigger && !e.target.closest('.switch') && !e.target.closest('input')) {
             e.preventDefault();
-            if (themeToggle) {
-                themeToggle.checked = !themeToggle.checked;
-                themeToggle.dispatchEvent(new Event('change'));
-            }
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const nextDark = !isDark;
+            applyTheme(nextDark);
+            localStorage.setItem('theme', nextDark ? 'dark' : 'light');
             return;
         }
 
@@ -1321,20 +1317,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             selectedGroup = null;
             showScreen('onboarding');
             renderGroupList();
-            return;
-        }
-
-        const bellsCloseTrigger = e.target.closest('#bellsModalClose');
-        if (bellsCloseTrigger) {
-            e.preventDefault();
-            closeBellsModal();
-            return;
-        }
-
-        // Open Bells Modal on time click
-        const timeEl = e.target.closest('[data-open-bells="true"]');
-        if (timeEl) {
-            openBellsModal();
             return;
         }
 
@@ -2042,44 +2024,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, '', window.location.pathname);
     }
 
-    // ===== Init =====
-    if (!selectedGroup) {
-        showScreen('onboarding');
-        renderGroupList();
-    } else {
-        navItems[0].classList.add('active');
-        showScreen('schedule');
-        // Store config for SW background notifications
-        storeNotifConfig();
-        // Subscribe to server push if notifications already enabled
-        if (notificationsEnabled && Notification.permission === 'granted') {
-            subscribeToPush();
-        }
-        // Show daily notification
-        showDailyNotification();
-        // Show notification prompt banner if permission not yet granted
-        showNotifPrompt();
-        // If opened from notification, scroll to target day
-        if (viewParam) {
-            scrollToDay(dateParam);
+    // ===== Init (non-blocking) =====
+    (async () => {
+        try {
+            await refreshSchedule(false);
+            syncHomeworkFromServer().catch(() => {});
+        } catch (e) {
+            console.warn('Schedule load notice:', e);
         }
 
-        // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live (lightweight badge update)
-        setInterval(() => {
-            if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                renderSchedule();
-            }
-        }, 60000);
-
-        // Schedule test notification after new SW deployment
-        const DEPLOY_VERSION = 'rozklad-v38';
-        if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
-            localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
+        if (!selectedGroup) {
+            showScreen('onboarding');
+            renderGroupList();
+        } else {
+            navItems[0].classList.add('active');
+            showScreen('schedule');
+            storeNotifConfig();
             if (notificationsEnabled && Notification.permission === 'granted') {
-                setTimeout(() => showDailyNotification(true), 2 * 60 * 1000);
+                subscribeToPush();
+            }
+            showDailyNotification();
+            showNotifPrompt();
+            if (viewParam) {
+                scrollToDay(dateParam);
             }
         }
-    }
+    })();
+
+    // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
+    setInterval(() => {
+        if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+            renderSchedule();
+        }
+    }, 60000);
 });
 
 // PWA Service Worker Registration + Periodic Sync
