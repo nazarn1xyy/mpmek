@@ -13,15 +13,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="color-scheme" content="light dark">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=41">
-    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=41">
-    <link rel="manifest" href="manifest.json?v=41">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=42">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=42">
+    <link rel="manifest" href="manifest.json?v=42">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=41" as="style">
+    <link rel="preload" href="style.css?v=42" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=41" as="script">
+    <link rel="preload" href="app.js?v=42" as="script">
     <script>
         (function(){
             var t = localStorage.getItem('theme');
@@ -80,6 +80,9 @@
                     <button id="shareScheduleBtn" class="icon-btn share-btn" aria-label="Поділитися">
                         <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                     </button>
+                    <button id="profileNavBtn" class="icon-btn profile-nav-btn" aria-label="Мій акаунт">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </button>
                     <button id="weekTypeToggle" class="icon-btn">ОСНОВНИЙ</button>
                 </div>
             </header>
@@ -114,6 +117,9 @@
                 <h1>Налаштування</h1>
             </header>
             <main class="settings-container">
+                <div id="profileCard" class="profile-card">
+                    <!-- Injected dynamically -->
+                </div>
                 <div class="setting-item">
                     <span>Тема (Темна/Світла)</span>
                     <label class="switch">
@@ -155,6 +161,63 @@
                     <button id="changeGroupBtn" class="btn">Вибрати іншу</button>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Auth Modal (Login / Register) -->
+    <div id="authModal" class="modal-overlay hidden">
+        <div class="modal-sheet auth-sheet">
+            <div class="modal-handle"></div>
+            <div class="auth-segmented-control">
+                <button type="button" id="authTabLogin" class="auth-tab-btn active">Вхід</button>
+                <button type="button" id="authTabRegister" class="auth-tab-btn">Реєстрація</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form">
+                <div class="auth-input-group">
+                    <label for="loginUsername">Логін</label>
+                    <input type="text" id="loginUsername" placeholder="Введіть логін..." autocomplete="username" required class="auth-input">
+                </div>
+                <div class="auth-input-group">
+                    <label for="loginPassword">Пароль</label>
+                    <div class="auth-password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="Введіть пароль..." autocomplete="current-password" required class="auth-input">
+                        <button type="button" class="auth-toggle-pwd" data-target="loginPassword" aria-label="Показати пароль">👁️</button>
+                    </div>
+                </div>
+                <div id="loginError" class="auth-error-msg hidden"></div>
+                <button type="submit" id="loginSubmitBtn" class="btn btn-primary auth-submit-btn">Увійти в акаунт</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form hidden">
+                <div class="auth-input-group">
+                    <label for="registerName">Ім'я (як вас звати)</label>
+                    <input type="text" id="registerName" placeholder="Наприклад, Назарій" autocomplete="name" class="auth-input">
+                </div>
+                <div class="auth-input-group">
+                    <label for="registerUsername">Логін</label>
+                    <input type="text" id="registerUsername" placeholder="Придумайте логін (напр. nazar123)" autocomplete="username" required class="auth-input">
+                </div>
+                <div class="auth-input-group">
+                    <label for="registerPassword">Пароль (від 4 символів)</label>
+                    <div class="auth-password-wrapper">
+                        <input type="password" id="registerPassword" placeholder="Придумайте пароль..." autocomplete="new-password" required class="auth-input">
+                        <button type="button" class="auth-toggle-pwd" data-target="registerPassword" aria-label="Показати пароль">👁️</button>
+                    </div>
+                </div>
+                <div class="auth-input-group">
+                    <label for="registerGroupSelect">Ваша група</label>
+                    <select id="registerGroupSelect" class="auth-input auth-select">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
+                <div id="registerError" class="auth-error-msg hidden"></div>
+                <button type="submit" id="registerSubmitBtn" class="btn btn-primary auth-submit-btn">Створити акаунт</button>
+            </form>
+
+            <button id="authModalClose" type="button" class="modal-btn-cancel" style="width:100%;margin-top:1rem">Скасувати</button>
         </div>
     </div>
 
@@ -279,7 +342,7 @@
         </a>
     </nav>
 
-    <script src="app.js?v=41" defer></script>
+    <script src="app.js?v=42" defer></script>
     <script>
         if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             var s = document.createElement('script');

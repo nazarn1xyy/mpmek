@@ -170,6 +170,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bellsModalClose = document.getElementById('bellsModalClose');
     const bellsList = document.getElementById('bellsList');
 
+    const profileNavBtn = document.getElementById('profileNavBtn');
+    const profileCard = document.getElementById('profileCard');
+    const authModal = document.getElementById('authModal');
+    const authModalClose = document.getElementById('authModalClose');
+    const authTabLogin = document.getElementById('authTabLogin');
+    const authTabRegister = document.getElementById('authTabRegister');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginUsername = document.getElementById('loginUsername');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginError = document.getElementById('loginError');
+    const registerName = document.getElementById('registerName');
+    const registerUsername = document.getElementById('registerUsername');
+    const registerPassword = document.getElementById('registerPassword');
+    const registerGroupSelect = document.getElementById('registerGroupSelect');
+    const registerError = document.getElementById('registerError');
+
+    let currentUser = null;
+    try {
+        currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    } catch { currentUser = null; }
+    let authToken = localStorage.getItem('authToken') || null;
+
     let modalCurrentKey = null;
 
     // ===== Offline Status Management =====
@@ -336,6 +359,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             refreshSchedule(true);
         } else if (screenId === 'homework') {
             renderHomeworkTab();
+        } else if (screenId === 'settings') {
+            renderProfileUI();
         }
     }
 
@@ -519,12 +544,279 @@ document.addEventListener('DOMContentLoaded', async () => {
         setHomework(hw);
         const parts = modalCurrentKey.split('|');
         if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
+        syncUserDataToCloud();
         closeHomeworkModal();
         renderSchedule();
         if (screens.homework && !screens.homework.classList.contains('hidden')) {
             renderHomeworkTab();
         }
     });
+
+    // ===== Toast Notifications =====
+    function showToast(msg) {
+        let toast = document.getElementById('appToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'appToast';
+            toast.className = 'app-toast';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.className = 'app-toast is-visible';
+        setTimeout(() => {
+            toast.classList.remove('is-visible');
+        }, 3200);
+    }
+
+    // ===== User Profile & Cloud Sync =====
+    function renderProfileUI() {
+        if (profileNavBtn) {
+            if (currentUser) {
+                const name = currentUser.name || currentUser.username || 'Студент';
+                const initials = name.slice(0, 2).toUpperCase();
+                profileNavBtn.innerHTML = `<span style="font-weight:800;font-size:0.85rem">${escHtml(initials)}</span>`;
+                profileNavBtn.title = `@${currentUser.username}`;
+            } else {
+                profileNavBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+                profileNavBtn.title = 'Увійти в акаунт';
+            }
+        }
+
+        if (profileCard) {
+            if (currentUser) {
+                const name = currentUser.name || currentUser.username;
+                const initials = name.slice(0, 2).toUpperCase();
+                profileCard.innerHTML = `
+                    <div class="profile-card-header">
+                        <div class="profile-avatar">${escHtml(initials)}</div>
+                        <div class="profile-info">
+                            <div class="profile-name">${escHtml(name)}</div>
+                            <div class="profile-meta">
+                                <span>@${escHtml(currentUser.username)}</span>
+                                ${currentUser.group ? `<span class="profile-group-pill">${escHtml(currentUser.group)}</span>` : ''}
+                                <span class="profile-sync-status">🟢 Синхронізовано</span>
+                            </div>
+                        </div>
+                        <button class="btn-profile-logout" id="profileLogoutBtn">Вийти</button>
+                    </div>`;
+            } else {
+                profileCard.innerHTML = `
+                    <div class="profile-card-header">
+                        <div class="profile-avatar guest-avatar">👤</div>
+                        <div class="profile-info">
+                            <div class="profile-name">Гість</div>
+                            <div class="profile-meta">Створіть акаунт для збереження на всіх пристроях</div>
+                        </div>
+                    </div>
+                    <div class="profile-actions">
+                        <button class="btn-profile-auth" id="profileLoginCtaBtn">Увійти або зареєструватися</button>
+                    </div>`;
+            }
+        }
+    }
+
+    let _syncTimer = null;
+    function syncUserDataToCloud() {
+        if (!currentUser || !authToken) return;
+        clearTimeout(_syncTimer);
+        _syncTimer = setTimeout(async () => {
+            try {
+                await fetch('/api/auth?action=sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        username: currentUser.username,
+                        group: selectedGroup,
+                        homework: getHomework(),
+                        settings: {
+                            theme: localStorage.getItem('theme'),
+                            notifTime: localStorage.getItem('notifTime')
+                        }
+                    })
+                });
+            } catch (e) {
+                console.warn('Cloud sync error:', e);
+            }
+        }, 1000);
+    }
+
+    function populateRegisterGroups() {
+        if (!registerGroupSelect || !scheduleData) return;
+        const groups = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
+        registerGroupSelect.innerHTML = groups.map(g => `<option value="${escHtml(g)}" ${g === selectedGroup ? 'selected' : ''}>${escHtml(g)}</option>`).join('');
+    }
+
+    function openAuthModal(mode = 'login') {
+        if (!authModal) return;
+        populateRegisterGroups();
+        setAuthTab(mode);
+        if (loginError) loginError.classList.add('hidden');
+        if (registerError) registerError.classList.add('hidden');
+        authModal.classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+        if (authModal) authModal.classList.add('hidden');
+    }
+
+    function setAuthTab(tab) {
+        if (tab === 'login') {
+            authTabLogin.classList.add('active');
+            authTabRegister.classList.remove('active');
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            setTimeout(() => loginUsername && loginUsername.focus(), 50);
+        } else {
+            authTabRegister.classList.add('active');
+            authTabLogin.classList.remove('active');
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            setTimeout(() => registerName && registerName.focus(), 50);
+        }
+    }
+
+    if (authModalClose) authModalClose.addEventListener('click', closeAuthModal);
+    if (authModal) {
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) closeAuthModal();
+        });
+    }
+    if (authTabLogin) authTabLogin.addEventListener('click', () => setAuthTab('login'));
+    if (authTabRegister) authTabRegister.addEventListener('click', () => setAuthTab('register'));
+
+    // Handle Login Form Submit
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value;
+            if (!username || !password) return;
+
+            loginError.classList.add('hidden');
+            const submitBtn = document.getElementById('loginSubmitBtn');
+            const origText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Вхід...';
+
+            try {
+                const resp = await fetch('/api/auth?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.ok) {
+                    throw new Error(data.error || 'Невірний логін або пароль');
+                }
+
+                currentUser = data.user;
+                authToken = data.token;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                localStorage.setItem('authToken', authToken);
+
+                // Merge homework
+                if (data.homework && typeof data.homework === 'object') {
+                    const localHw = getHomework();
+                    const merged = { ...localHw, ...data.homework };
+                    setHomework(merged);
+                }
+
+                // Switch group if user has a preferred group
+                if (data.user.group && data.user.group !== selectedGroup) {
+                    selectedGroup = data.user.group;
+                    localStorage.setItem('selectedGroup', selectedGroup);
+                }
+
+                closeAuthModal();
+                renderProfileUI();
+                renderSchedule();
+                showToast(`Вітаємо, ${currentUser.name || currentUser.username}! Дані синхронізовано ✨`);
+            } catch (err) {
+                loginError.textContent = err.message;
+                loginError.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = origText;
+            }
+        });
+    }
+
+    // Handle Register Form Submit
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = registerName.value.trim();
+            const username = registerUsername.value.trim();
+            const password = registerPassword.value;
+            const group = registerGroupSelect ? registerGroupSelect.value : selectedGroup;
+
+            if (!username || !password) return;
+
+            registerError.classList.add('hidden');
+            const submitBtn = document.getElementById('registerSubmitBtn');
+            const origText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Створення...';
+
+            try {
+                const resp = await fetch('/api/auth?action=register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        username,
+                        password,
+                        group,
+                        initialData: {
+                            homework: getHomework(),
+                            settings: { theme: localStorage.getItem('theme'), notifTime: localStorage.getItem('notifTime') }
+                        }
+                    })
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.ok) {
+                    throw new Error(data.error || 'Помилка реєстрації');
+                }
+
+                currentUser = data.user;
+                authToken = data.token;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                localStorage.setItem('authToken', authToken);
+
+                if (group) {
+                    selectedGroup = group;
+                    localStorage.setItem('selectedGroup', selectedGroup);
+                }
+
+                closeAuthModal();
+                renderProfileUI();
+                renderSchedule();
+                showToast(`Акаунт створено! Ласкаво просимо, ${currentUser.name}! 🎉`);
+            } catch (err) {
+                registerError.textContent = err.message;
+                registerError.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = origText;
+            }
+        });
+    }
+
+    function handleLogout() {
+        if (confirm('Ви дійсно бажаєте вийти з акаунта?')) {
+            currentUser = null;
+            authToken = null;
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('authToken');
+            renderProfileUI();
+            showToast('Ви вийшли з акаунта');
+        }
+    }
+
+    renderProfileUI();
 
     // ===== Bells Schedule Modal =====
     const BELLS_SCHEDULE = [
@@ -904,6 +1196,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Event delegation (single listener on document) =====
     document.addEventListener('click', (e) => {
+        // Profile & Auth triggers
+        const profileTrigger = e.target.closest('#profileNavBtn, .profile-nav-btn');
+        if (profileTrigger) {
+            e.preventDefault();
+            if (currentUser) {
+                navItems.forEach(n => n.classList.remove('active'));
+                const settingsNav = document.querySelector('.nav-item[data-target="settings"]');
+                if (settingsNav) settingsNav.classList.add('active');
+                showScreen('settings');
+            } else {
+                openAuthModal('login');
+            }
+            return;
+        }
+
+        const profileLoginCta = e.target.closest('#profileLoginCtaBtn');
+        if (profileLoginCta) {
+            e.preventDefault();
+            openAuthModal('login');
+            return;
+        }
+
+        const profileLogout = e.target.closest('#profileLogoutBtn');
+        if (profileLogout) {
+            e.preventDefault();
+            handleLogout();
+            return;
+        }
+
+        // Toggle password visibility
+        const togglePwdBtn = e.target.closest('.auth-toggle-pwd');
+        if (togglePwdBtn && togglePwdBtn.dataset.target) {
+            e.preventDefault();
+            const targetInput = document.getElementById(togglePwdBtn.dataset.target);
+            if (targetInput) {
+                const isPwd = targetInput.type === 'password';
+                targetInput.type = isPwd ? 'text' : 'password';
+                togglePwdBtn.textContent = isPwd ? '🙈' : '👁️';
+            }
+            return;
+        }
+
         // Search button trigger
         const searchTrigger = e.target.closest('#searchBtn, .search-nav-btn');
         if (searchTrigger) {
