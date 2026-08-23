@@ -58,17 +58,19 @@ async function fetchSchedule() {
   return data;
 }
 
+function getWeekType(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+}
+
 function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
   const groupData = scheduleData[group];
   if (!groupData) return null;
   const dayName = UK_DAYS[dayIdx];
-
-  let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
-  if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
-    const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-    if (types.length === 0) return null;
-    weekData = groupData[types[0]];
-  }
 
   const today = new Date();
   const currentDow = today.getDay() || 7;
@@ -77,6 +79,14 @@ function getPairsForDay(scheduleData, group, dayIdx, weekOffset = 0) {
   const d = new Date(today);
   d.setDate(today.getDate() + offset);
   const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+
+  const targetWeekType = getWeekType(d);
+  let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'] || groupData[targetWeekType];
+  if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+    const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+    if (types.length === 0) return null;
+    weekData = groupData[types.includes(targetWeekType) ? targetWeekType : types[0]];
+  }
 
   let pairs = weekData[dayName] ? [...weekData[dayName]] : [];
   const subs = groupData['ПІДВІСКА'] || [];

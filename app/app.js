@@ -1,12 +1,14 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    // ===== Migration: clear stale push subscription key to force re-subscribe to new backend =====
-    localStorage.removeItem('lastPushSub');
+    // ===== Migration: clear stale push subscription key (one-time) =====
+    if (!localStorage.getItem('_migrated_push_v1')) {
+        localStorage.removeItem('lastPushSub');
+        localStorage.setItem('_migrated_push_v1', '1');
+    }
 
     // ===== State =====
     let scheduleData = null;
     let selectedGroup = localStorage.getItem('selectedGroup');
-    let currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
-    let isDarkTheme = localStorage.getItem('theme') === 'dark';
+    let currentWeekType = null; // determined dynamically from schedule data
     let _hwCache = null; // cached homework object
     let notificationsEnabled = localStorage.getItem('notifications') !== 'false';
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
@@ -26,7 +28,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const ukDays = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
 
+    function getWeekType(date) {
+        const d = new Date(date || new Date());
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+        return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+    }
+
+    // ===== XSS protection =====
+    const _escDiv = document.createElement('div');
+    function escHtml(str) {
+        _escDiv.textContent = str;
+        return _escDiv.innerHTML;
+    }
+
     // Homework storage with in-memory cache
+    function parseHw(val) {
+        if (!val) return null;
+        if (typeof val === 'string') {
+            return { text: val, done: false, deadline: '' };
+        }
+        return {
+            text: val.text || '',
+            done: !!val.done,
+            deadline: val.deadline || ''
+        };
+    }
+
+    function isDeadlineUrgent(deadlineStr) {
+        if (!deadlineStr) return false;
+        const d = new Date(deadlineStr);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((d - now) / 86400000);
+        return diffDays <= 1;
+    }
+
+    function formatDeadline(deadlineStr) {
+        if (!deadlineStr) return '';
+        const parts = deadlineStr.split('-');
+        if (parts.length < 3) return deadlineStr;
+        return `${parts[2]}.${parts[1]}`;
+    }
+
     function getHomework() {
         if (_hwCache) return _hwCache;
         try {
@@ -43,12 +89,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Homework server sync
-    async function syncHomeworkToServer(group, day, number, text) {
+    async function syncHomeworkToServer(group, day, number, val) {
         try {
+            const hwObj = parseHw(val);
             await fetch('/api/homework', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ group, day, number, text: text || '' })
+                body: JSON.stringify({ group, day, number, text: hwObj ? hwObj.text : '' })
             });
         } catch (e) { console.warn('HW sync push failed:', e); }
     }
@@ -103,42 +150,77 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notifTimeSelect = document.getElementById('notifTimeSelect');
     const notifTimeRow = document.getElementById('notifTimeRow');
     const installRow = document.getElementById('installRow');
-    const installBtn = document.getElementById('installBtn');
-    const installOverlay = document.getElementById('installOverlay');
     const installClose = document.getElementById('installClose');
     const hwModal = document.getElementById('hwModal');
     const hwModalTitle = document.getElementById('hwModalTitle');
     const hwModalSubject = document.getElementById('hwModalSubject');
     const hwModalInput = document.getElementById('hwModalInput');
+    const hwModalDeadline = document.getElementById('hwModalDeadline');
     const hwModalCancel = document.getElementById('hwModalCancel');
     const hwModalSave = document.getElementById('hwModalSave');
 
+    const offlineBanner = document.getElementById('offlineBanner');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchModal = document.getElementById('searchModal');
+    const searchModalClose = document.getElementById('searchModalClose');
+    const globalSearchInput = document.getElementById('globalSearchInput');
+    const searchResults = document.getElementById('searchResults');
+    const openBellsBtn = document.getElementById('openBellsBtn');
+    const bellsModal = document.getElementById('bellsModal');
+    const bellsModalClose = document.getElementById('bellsModalClose');
+    const bellsList = document.getElementById('bellsList');
+
     let modalCurrentKey = null;
 
-    // ===== Theme (sync, no reflow) =====
-    if (isDarkTheme) {
-        document.body.setAttribute('data-theme', 'dark');
-        themeToggle.checked = true;
+    // ===== Offline Status Management =====
+    function updateOnlineStatus() {
+        if (!offlineBanner) return;
+        if (!navigator.onLine) {
+            offlineBanner.classList.remove('hidden');
+        } else {
+            offlineBanner.classList.add('hidden');
+        }
     }
+    window.addEventListener('online', () => {
+        updateOnlineStatus();
+        refreshSchedule(true);
+    });
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
 
-    function updateThemeColor(dark) {
-        const color = dark ? '#000000' : '#ffffff';
+    // ===== Theme Management =====
+    function applyTheme(dark) {
+        if (dark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body.setAttribute('data-theme', 'dark');
+            document.documentElement.style.backgroundColor = '#000000';
+            document.body.style.backgroundColor = '#000000';
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            document.body.removeAttribute('data-theme');
+            document.documentElement.style.backgroundColor = '#ffffff';
+            document.body.style.backgroundColor = '#ffffff';
+        }
         const meta = document.getElementById('metaThemeColor');
-        if (meta) meta.setAttribute('content', color);
-        document.documentElement.style.backgroundColor = dark ? '#000' : '#fff';
+        if (meta) meta.setAttribute('content', dark ? '#000000' : '#ffffff');
     }
 
-    // Set initial theme color
-    updateThemeColor(document.body.getAttribute('data-theme') === 'dark');
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+    themeToggle.checked = initialDark;
+    applyTheme(initialDark);
 
     themeToggle.addEventListener('change', (e) => {
         const dark = e.target.checked;
+        document.documentElement.classList.add('theme-transitioning');
         document.body.classList.add('theme-transitioning');
-        document.body.setAttribute('data-theme', dark ? 'dark' : '');
-        if (!dark) document.body.removeAttribute('data-theme');
+        applyTheme(dark);
         localStorage.setItem('theme', dark ? 'dark' : 'light');
-        updateThemeColor(dark);
-        setTimeout(() => document.body.classList.remove('theme-transitioning'), 350);
+        setTimeout(() => {
+            document.documentElement.classList.remove('theme-transitioning');
+            document.body.classList.remove('theme-transitioning');
+        }, 350);
     });
 
     // ===== Install Overlay =====
@@ -324,7 +406,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await refreshSchedule(false);
         syncHomeworkFromServer().catch(() => {});
     } catch (e) {
-        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p></div>`;
+        diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Помилка завантаження</p><p class="empty-state-desc">Не вдалося завантажити розклад.</p><button class="btn" onclick="location.reload()" style="margin-top:1rem">Спробувати знову</button></div>`;
         return;
     }
 
@@ -343,6 +425,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             el.textContent = group;
             el.dataset.group = group;
             frag.appendChild(el);
+        }
+
+        if (frag.children.length === 0) {
+            groupListContainer.innerHTML = '<div class="empty-state" style="padding:2rem 1rem;margin-top:0"><p class="empty-state-title" style="font-size:1.1rem">Групу не знайдено</p><p class="empty-state-desc">Перевірте правильність написання назви групи</p></div>';
+            return;
         }
 
         groupListContainer.innerHTML = '';
@@ -367,11 +454,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Homework Modal =====
-    function openHomeworkModal(key, subject, dayLabel, existingText) {
+    // ===== Homework Modal Management =====
+    function openHomeworkModal(key, subject, dayLabel, existingVal) {
         modalCurrentKey = key;
+        const hwObj = parseHw(existingVal);
         hwModalSubject.textContent = `${subject} — ${dayLabel}`;
-        hwModalInput.value = existingText || '';
-        hwModalTitle.textContent = existingText ? 'Редагувати завдання' : 'Додати завдання';
+        hwModalInput.value = hwObj ? hwObj.text : '';
+        if (hwModalDeadline) hwModalDeadline.value = hwObj ? hwObj.deadline : '';
+        hwModalTitle.textContent = hwObj && hwObj.text ? 'Редагувати завдання' : 'Додати завдання';
         hwModal.classList.remove('hidden');
         
         // Auto-expand setup
@@ -394,6 +484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         hwModal.classList.add('hidden');
         modalCurrentKey = null;
         hwModalInput.value = '';
+        if (hwModalDeadline) hwModalDeadline.value = '';
     }
 
     hwModalCancel.addEventListener('click', closeHomeworkModal);
@@ -402,18 +493,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !hwModal.classList.contains('hidden')) {
-            closeHomeworkModal();
+        if (e.key === 'Escape') {
+            if (hwModal && !hwModal.classList.contains('hidden')) closeHomeworkModal();
+            if (bellsModal && !bellsModal.classList.contains('hidden')) closeBellsModal();
+            if (searchModal && !searchModal.classList.contains('hidden')) closeSearchModal();
         }
     });
 
     hwModalSave.addEventListener('click', () => {
         const text = hwModalInput.value.trim();
+        const deadline = hwModalDeadline ? hwModalDeadline.value : '';
         if (!modalCurrentKey) return;
 
         const hw = getHomework();
         if (text) {
-            hw[modalCurrentKey] = text;
+            const prev = parseHw(hw[modalCurrentKey]);
+            hw[modalCurrentKey] = {
+                text,
+                done: prev ? prev.done : false,
+                deadline: deadline || ''
+            };
         } else {
             delete hw[modalCurrentKey];
         }
@@ -422,7 +521,313 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (parts.length === 3) syncHomeworkToServer(parts[0], parts[1], parts[2], text).catch(() => {});
         closeHomeworkModal();
         renderSchedule();
+        if (screens.homework && !screens.homework.classList.contains('hidden')) {
+            renderHomeworkTab();
+        }
     });
+
+    // ===== Bells Schedule Modal =====
+    const BELLS_SCHEDULE = [
+        { num: 1, start: '08:30', end: '09:50', breakText: 'Перерва 10 хв' },
+        { num: 2, start: '10:00', end: '11:20', breakText: 'Велика перерва 30 хв ☕' },
+        { num: 3, start: '11:50', end: '13:10', breakText: 'Перерва 10 хв' },
+        { num: 4, start: '13:20', end: '14:40', breakText: 'Перерва 10 хв' },
+        { num: 5, start: '14:50', end: '16:10', breakText: 'Перерва 10 хв' },
+        { num: 6, start: '16:20', end: '17:40', breakText: null }
+    ];
+
+    function openBellsModal() {
+        if (!bellsModal || !bellsList) return;
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+
+        let html = '';
+        for (let i = 0; i < BELLS_SCHEDULE.length; i++) {
+            const b = BELLS_SCHEDULE[i];
+            const [sh, sm] = b.start.split(':').map(Number);
+            const [eh, em] = b.end.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+
+            const isLessonNow = nowMin >= startMin && nowMin < endMin;
+            const badgeNow = isLessonNow ? `<span class="bell-badge-now">Зараз • ще ${endMin - nowMin} хв</span>` : '';
+
+            html += `<div class="bell-item ${isLessonNow ? 'is-current' : ''}">
+                <div class="bell-item-left">
+                    <span class="bell-item-num">${b.num}</span>
+                    <span class="bell-item-time">${b.start} – ${b.end}</span>
+                </div>
+                ${badgeNow}
+            </div>`;
+
+            if (b.breakText && i < BELLS_SCHEDULE.length - 1) {
+                const nextB = BELLS_SCHEDULE[i + 1];
+                const [nsh, nsm] = nextB.start.split(':').map(Number);
+                const nextStartMin = nsh * 60 + nsm;
+                const isBreakNow = nowMin >= endMin && nowMin < nextStartMin;
+
+                html += `<div class="bell-break ${isBreakNow ? 'is-break-now' : ''}">
+                    <span>${isBreakNow ? '☕ ' : ''}${b.breakText}${isBreakNow ? ` (ще ${nextStartMin - nowMin} хв)` : ''}</span>
+                </div>`;
+            }
+        }
+
+        bellsList.innerHTML = html;
+        bellsModal.classList.remove('hidden');
+    }
+
+    function closeBellsModal() {
+        if (bellsModal) bellsModal.classList.add('hidden');
+    }
+
+    if (openBellsBtn) openBellsBtn.addEventListener('click', openBellsModal);
+    if (bellsModalClose) bellsModalClose.addEventListener('click', closeBellsModal);
+    if (bellsModal) {
+        bellsModal.addEventListener('click', (e) => {
+            if (e.target === bellsModal) closeBellsModal();
+        });
+    }
+
+    // ===== Search Teachers & Rooms Modal =====
+    function openSearchModal() {
+        if (!searchModal) return;
+        searchModal.classList.remove('hidden');
+        if (globalSearchInput) {
+            globalSearchInput.value = '';
+            setTimeout(() => globalSearchInput.focus(), 50);
+        }
+        renderSearchResults('');
+    }
+
+    function closeSearchModal() {
+        if (searchModal) searchModal.classList.add('hidden');
+    }
+
+    let searchCurrentDayFilter = 'all';
+    let lastSearchQuery = '';
+
+    const UK_DAYS_ORDER = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця", 'Субота'];
+    const UK_DAYS_SHORT = {
+        'Понеділок': 'Пн',
+        'Вівторок': 'Вт',
+        'Середа': 'Ср',
+        'Четвер': 'Чт',
+        "П'ятниця": 'Пт',
+        'Субота': 'Сб'
+    };
+
+    function renderSearchResults(query) {
+        if (!searchResults) return;
+        if (query !== undefined) lastSearchQuery = query;
+        const q = (lastSearchQuery || '').trim().toLowerCase();
+
+        if (!q || q.length < 2) {
+            searchResults.innerHTML = `<div class="empty-search-prompt">
+                <div class="search-prompt-icon">🔍</div>
+                <p>Введіть викладача, номер аудиторії або предмет</p>
+                <div class="search-suggestions">
+                    <span class="search-suggestion-chip" data-search="Сабірова">Сабірова</span>
+                    <span class="search-suggestion-chip" data-search="69">ауд. 69</span>
+                    <span class="search-suggestion-chip" data-search="Компанієць">Компанієць</span>
+                    <span class="search-suggestion-chip" data-search="Волков">Волков</span>
+                    <span class="search-suggestion-chip" data-search="Математика">Математика</span>
+                </div>
+            </div>`;
+            return;
+        }
+
+        if (!scheduleData) {
+            fetch('schedule.json').then(r => r.json()).then(d => {
+                if (d._settings) {
+                    if (d._settings.lessonTimes) LESSON_TIMES = d._settings.lessonTimes;
+                    delete d._settings;
+                }
+                scheduleData = d;
+                renderSearchResults();
+            }).catch(() => {});
+            return;
+        }
+
+        const results = [];
+        const seen = new Set();
+        const groups = Object.keys(scheduleData || {}).filter(k => k !== '_settings');
+
+        const now = new Date();
+        const todayName = ukDays[now.getDay()];
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+
+        for (const grp of groups) {
+            const groupData = scheduleData[grp];
+            for (const wt of Object.keys(groupData)) {
+                if (wt === 'ПІДВІСКА') {
+                    const subs = groupData[wt];
+                    if (Array.isArray(subs)) {
+                        for (const s of subs) {
+                            const matchTeacher = s.teacher && s.teacher.toLowerCase().includes(q);
+                            const matchRoom = s.room && String(s.room).toLowerCase().includes(q);
+                            const matchSubject = s.subject && s.subject.toLowerCase().includes(q);
+                            if (matchTeacher || matchRoom || matchSubject) {
+                                const key = `${grp}|${s.date}|${s.number}|${s.subject}|${s.teacher || ''}|${s.room || ''}`;
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    results.push({
+                                        group: grp,
+                                        day: s.date,
+                                        number: s.number,
+                                        subject: s.subject,
+                                        teacher: s.teacher || '',
+                                        room: s.room || '',
+                                        isSubstitution: true
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                const weekTable = groupData[wt];
+                if (typeof weekTable !== 'object' || Array.isArray(weekTable)) continue;
+
+                for (const day of Object.keys(weekTable)) {
+                    const pairs = weekTable[day];
+                    if (!Array.isArray(pairs)) continue;
+                    for (const p of pairs) {
+                        const matchTeacher = p.teacher && p.teacher.toLowerCase().includes(q);
+                        const matchRoom = p.room && String(p.room).toLowerCase().includes(q);
+                        const matchSubject = p.subject && p.subject.toLowerCase().includes(q);
+
+                        if (matchTeacher || matchRoom || matchSubject) {
+                            const key = `${grp}|${day}|${p.number}|${p.subject}|${p.teacher || ''}|${p.room || ''}|${wt}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                let isHappeningNow = false;
+                                if (day === todayName) {
+                                    const t = LESSON_TIMES[p.number];
+                                    if (t) {
+                                        const [s, e] = t.split(' - ');
+                                        const [sh, sm] = s.split(':').map(Number);
+                                        const [eh, em] = e.split(':').map(Number);
+                                        isHappeningNow = nowMin >= sh * 60 + sm && nowMin < eh * 60 + em;
+                                    }
+                                }
+
+                                results.push({
+                                    group: grp,
+                                    day,
+                                    number: p.number,
+                                    subject: p.subject,
+                                    teacher: p.teacher || '',
+                                    room: p.room || '',
+                                    isHappeningNow,
+                                    weekType: wt
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (results.length === 0) {
+            searchResults.innerHTML = `<div class="empty-search-prompt">
+                <div class="search-prompt-icon">🔍</div>
+                <p>Нічого не знайдено за запитом <strong>«${escHtml(q)}»</strong></p>
+                <p class="search-prompt-hint">Спробуйте перевірити написання або ввести номер кабінету (напр. 69)</p>
+            </div>`;
+            return;
+        }
+
+        // Group by Day
+        const grouped = {};
+        for (const item of results) {
+            const d = item.day || 'Інше';
+            if (!grouped[d]) grouped[d] = [];
+            grouped[d].push(item);
+        }
+
+        // Available days for filter
+        const daysWithResults = UK_DAYS_ORDER.filter(d => grouped[d] && grouped[d].length > 0);
+        Object.keys(grouped).forEach(d => {
+            if (!UK_DAYS_ORDER.includes(d) && !daysWithResults.includes(d)) daysWithResults.push(d);
+        });
+
+        // Filter chips HTML
+        let chipsHtml = `<div class="search-filter-chips">
+            <button class="search-chip ${searchCurrentDayFilter === 'all' ? 'active' : ''}" data-day="all">Всі (${results.length})</button>`;
+        for (const d of daysWithResults) {
+            const short = UK_DAYS_SHORT[d] || d;
+            chipsHtml += `<button class="search-chip ${searchCurrentDayFilter === d ? 'active' : ''}" data-day="${d}">${short} (${grouped[d].length})</button>`;
+        }
+        chipsHtml += `</div>`;
+
+        // Render days
+        let listHtml = '';
+        const targetDays = searchCurrentDayFilter === 'all' ? daysWithResults : [searchCurrentDayFilter];
+
+        for (const day of targetDays) {
+            const items = grouped[day];
+            if (!items || items.length === 0) continue;
+
+            // Sort by lesson number
+            items.sort((a, b) => a.number - b.number);
+
+            const isToday = day === todayName;
+
+            listHtml += `<div class="search-day-section">
+                <div class="search-day-header">
+                    <span class="search-day-title">${escHtml(day)} ${isToday ? '<span class="today-tag">СЬОГОДНІ</span>' : ''}</span>
+                    <span class="search-day-count">${items.length} ${items.length === 1 ? 'пара' : (items.length < 5 ? 'пари' : 'пар')}</span>
+                </div>
+                <div class="search-cards-grid">`;
+
+            for (const item of items) {
+                const liveBadge = item.isHappeningNow ? '<span class="search-live-badge"><span class="live-dot"></span>ЗАРАЗ</span>' : '';
+                const timeStr = LESSON_TIMES[item.number] || '';
+                const weekBadge = item.weekType && item.weekType !== 'ОСНОВНИЙ РОЗКЛАД' && !item.isSubstitution
+                    ? `<span class="search-week-pill">${escHtml(item.weekType.toLowerCase())}</span>`
+                    : '';
+                const subBadge = item.isSubstitution ? '<span class="search-sub-pill">ЗАМІНА</span>' : '';
+
+                listHtml += `<div class="search-card ${item.isHappeningNow ? 'is-live-card' : ''}">
+                    <div class="search-card-left">
+                        <div class="search-card-pair-badge">${item.number} пара</div>
+                        <div class="search-card-time">${timeStr}</div>
+                    </div>
+                    <div class="search-card-main">
+                        <div class="search-card-subject">${escHtml(item.subject)}</div>
+                        <div class="search-card-tags">
+                            <span class="search-tag-group">${escHtml(item.group)}</span>
+                            ${weekBadge}
+                            ${subBadge}
+                            ${liveBadge}
+                        </div>
+                        <div class="search-card-meta">
+                            ${item.teacher ? `<span class="search-meta-teacher"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${escHtml(item.teacher)}</span>` : ''}
+                            ${item.room ? `<span class="search-meta-room"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><circle cx="15" cy="12" r="1"/></svg> ауд. ${escHtml(item.room)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            listHtml += `</div></div>`;
+        }
+
+        searchResults.innerHTML = `${chipsHtml}${listHtml}`;
+    }
+
+    if (searchBtn) searchBtn.addEventListener('click', openSearchModal);
+    if (searchModalClose) searchModalClose.addEventListener('click', closeSearchModal);
+    if (searchModal) {
+        searchModal.addEventListener('click', (e) => {
+            if (e.target === searchModal) closeSearchModal();
+        });
+    }
+    if (globalSearchInput) {
+        globalSearchInput.addEventListener('input', (e) => {
+            renderSearchResults(e.target.value);
+        });
+    }
 
     // ===== SVG icon templates (avoid re-creating the same strings) =====
     const SVG_PLUS = '<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
@@ -434,17 +839,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Build lesson card (optimized: single innerHTML, cached hw) =====
     function buildLessonCard(pair, dayLabel, hw, lessonStatus) {
         const key = hwKey(selectedGroup, dayLabel, pair.number);
-        const savedText = hw[key] || '';
+        const hwItem = parseHw(hw[key]);
 
-        const savedHtml = savedText
-            ? `<div class="hw-saved"><span>${savedText}</span><button class="hw-delete-btn" data-key="${key}" aria-label="Видалити завдання">${SVG_X}</button></div>`
-            : '';
+        let savedHtml = '';
+        if (hwItem && hwItem.text) {
+            const deadlineBadge = hwItem.deadline
+                ? `<div class="hw-deadline-badge ${isDeadlineUrgent(hwItem.deadline) ? 'is-urgent' : ''}">📅 до ${formatDeadline(hwItem.deadline)}</div>`
+                : '';
+            savedHtml = `<div class="hw-saved ${hwItem.done ? 'hw-done' : ''}">
+                <input type="checkbox" class="hw-checkbox" data-hw-key="${key}" aria-label="Позначити виконаним" ${hwItem.done ? 'checked' : ''}>
+                <div class="hw-text-content" style="flex:1;min-width:0">
+                    <span>${escHtml(hwItem.text)}</span>
+                    ${deadlineBadge}
+                </div>
+                <button class="hw-delete-btn" data-key="${key}" aria-label="Видалити завдання">${SVG_X}</button>
+            </div>`;
+        }
 
-        const btnLabel = savedText ? 'Редагувати' : 'Додати завдання';
-        const btnIcon = savedText ? SVG_EDIT : SVG_PLUS;
+        const btnLabel = hwItem && hwItem.text ? 'Редагувати' : 'Додати завдання';
+        const btnIcon = hwItem && hwItem.text ? SVG_EDIT : SVG_PLUS;
         const roomHtml = pair.room ? `<span class="diary-item-room">ауд. ${pair.room}</span>` : '';
         const teacherHtml = (pair.teacher || pair.room) ? `<div class="diary-item-teacher">${pair.teacher || ''}${pair.teacher && pair.room ? ' · ' : ''}${roomHtml}</div>` : '';
-        const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time">${LESSON_TIMES[pair.number]}</span>` : '';
+        const timeHtml = LESSON_TIMES[pair.number] ? `<span class="diary-item-time" data-open-bells="true" style="cursor:pointer" title="Натисніть, щоб відкрити розклад дзвінків">${LESSON_TIMES[pair.number]}</span>` : '';
 
         let statusBadge = '';
         if (lessonStatus === 'now') {
@@ -475,22 +891,81 @@ document.addEventListener('DOMContentLoaded', async () => {
             div.classList.add('substitution');
         }
         
-        let subjectHtml = `<div class="diary-item-subject">${pair.subject}</div>`;
+        const escapedSubject = escHtml(pair.subject);
+        let subjectHtml = `<div class="diary-item-subject">${escapedSubject}</div>`;
         if (pair.isSubstitution) {
             const badgeText = pair.substitutionType === 'підвіска' ? 'ПІДВІСКА' : 'ЗАМІНА';
-            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${pair.subject}</div>`;
+            subjectHtml = `<div class="diary-item-subject"><span class="badge-substitution">${badgeText}</span> ${escapedSubject}</div>`;
         }
 
-        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${pair.subject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
+        div.innerHTML = `<div class="diary-item-header"><span class="diary-item-number">${pair.number} пара</span>${statusBadge}${timeHtml}</div>${subjectHtml}${teacherHtml}${savedHtml}<button class="homework-btn" data-key="${key}" data-subject="${escapedSubject}" data-day="${dayLabel}">${btnIcon} ${btnLabel}</button>`;
         return div;
     }
 
     // ===== Event delegation (single listener on document) =====
     document.addEventListener('click', (e) => {
+        // Search button trigger
+        const searchTrigger = e.target.closest('#searchBtn, .search-nav-btn');
+        if (searchTrigger) {
+            e.preventDefault();
+            openSearchModal();
+            return;
+        }
+
+        const searchCloseTrigger = e.target.closest('#searchModalClose');
+        if (searchCloseTrigger) {
+            e.preventDefault();
+            closeSearchModal();
+            return;
+        }
+
+        // Search day filter chip
+        const searchChip = e.target.closest('.search-chip');
+        if (searchChip && searchChip.dataset.day) {
+            e.preventDefault();
+            searchCurrentDayFilter = searchChip.dataset.day;
+            renderSearchResults();
+            return;
+        }
+
+        // Search suggestion chip
+        const searchSuggest = e.target.closest('.search-suggestion-chip');
+        if (searchSuggest && searchSuggest.dataset.search) {
+            e.preventDefault();
+            if (globalSearchInput) {
+                globalSearchInput.value = searchSuggest.dataset.search;
+                searchCurrentDayFilter = 'all';
+                renderSearchResults(searchSuggest.dataset.search);
+            }
+            return;
+        }
+
+        // Bells modal triggers
+        const bellsTrigger = e.target.closest('#openBellsBtn');
+        if (bellsTrigger) {
+            e.preventDefault();
+            openBellsModal();
+            return;
+        }
+
+        const bellsCloseTrigger = e.target.closest('#bellsModalClose');
+        if (bellsCloseTrigger) {
+            e.preventDefault();
+            closeBellsModal();
+            return;
+        }
+
+        // Open Bells Modal on time click
+        const timeEl = e.target.closest('[data-open-bells="true"]');
+        if (timeEl) {
+            openBellsModal();
+            return;
+        }
+
         const hwBtn = e.target.closest('.homework-btn');
         if (hwBtn) {
             const { key, subject, day } = hwBtn.dataset;
-            openHomeworkModal(key, subject, day, getHomework()[key] || '');
+            openHomeworkModal(key, subject, day, getHomework()[key] || null);
             return;
         }
 
@@ -521,26 +996,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hwEditCard = e.target.closest('.hw-card-edit');
         if (hwEditCard) {
             const { key, subject, day } = hwEditCard.dataset;
-            openHomeworkModal(key, subject, day, getHomework()[key] || '');
+            openHomeworkModal(key, subject, day, getHomework()[key] || null);
+            return;
+        }
+
+        // Week navigator (delegated to avoid listener leak on re-render)
+        const weekNavBtn = e.target.closest('.week-nav-btn');
+        if (weekNavBtn) {
+            weekOffset += parseInt(weekNavBtn.dataset.dir);
+            renderSchedule();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        const weekNavCenter = e.target.closest('.week-nav-center');
+        if (weekNavCenter && weekOffset !== 0) {
+            weekOffset = 0;
+            renderSchedule();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
     });
+
+    // Handle Homework checkbox toggles (Done / Undone)
+    document.addEventListener('change', (e) => {
+        const chk = e.target.closest('.hw-checkbox');
+        if (chk && chk.dataset.hwKey) {
+            const key = chk.dataset.hwKey;
+            const hw = getHomework();
+            const prev = parseHw(hw[key]);
+            if (prev) {
+                hw[key] = {
+                    ...prev,
+                    done: chk.checked
+                };
+                setHomework(hw);
+                const savedContainer = chk.closest('.hw-saved');
+                if (savedContainer) {
+                    savedContainer.classList.toggle('hw-done', chk.checked);
+                }
+                const cardContainer = chk.closest('.hw-card');
+                if (cardContainer) {
+                    cardContainer.classList.toggle('hw-done', chk.checked);
+                }
+            }
+        }
+    });
+
+    // ===== Touch Swipe Gestures for Weeks =====
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouching = false;
+
+    diaryContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isTouching = true;
+        }
+    }, { passive: true });
+
+    diaryContainer.addEventListener('touchend', (e) => {
+        if (!isTouching) return;
+        isTouching = false;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+
+        // Check horizontal swipe gesture (min 60px distance, > 1.5x horizontal dominance)
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0) {
+                // Swipe left -> Next week
+                weekOffset += 1;
+                renderSchedule();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                // Swipe right -> Previous week
+                weekOffset -= 1;
+                renderSchedule();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    }, { passive: true });
 
     // ===== Render Schedule (DocumentFragment for batch DOM insert) =====
     function renderSchedule() {
         if (!scheduleData[selectedGroup]) return;
         currentGroupTitle.textContent = selectedGroup;
 
-        let weekData = scheduleData[selectedGroup][currentWeekType];
+        const today = new Date();
+        const isSunday = today.getDay() === 0;
+        const currentDayOfWeek = isSunday ? 0 : today.getDay(); // 0 for Sun (points to upcoming Mon), 1-6 for Mon-Sat
+        const targetMon = new Date(today);
+        targetMon.setDate(today.getDate() + (1 - currentDayOfWeek + (weekOffset * 7)));
+        const targetParity = getWeekType(targetMon);
 
-        const isDataEmpty = !weekData || (Array.isArray(weekData) ? weekData.length === 0 : Object.keys(weekData).length === 0);
-        if (isDataEmpty) {
-            const availableTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
-            currentWeekType = availableTypes.includes('ОСНОВНИЙ РОЗКЛАД') ? 'ОСНОВНИЙ РОЗКЛАД' : availableTypes[0];
-            weekData = scheduleData[selectedGroup][currentWeekType];
-            if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
-            weekTypeToggle.textContent = currentWeekType.split(' ')[0] || 'РОЗКЛАД';
+        // Determine week type: prefer current choice if valid, else calculate parity
+        const availableTypes = Object.keys(scheduleData[selectedGroup]).filter(t => t !== 'ПІДВІСКА');
+        if (!currentWeekType || !availableTypes.includes(currentWeekType)) {
+            if (availableTypes.includes(targetParity)) {
+                currentWeekType = targetParity;
+            } else if (availableTypes.includes('ОСНОВНИЙ РОЗКЛАД')) {
+                currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
+            } else {
+                currentWeekType = availableTypes[0] || 'ОСНОВНИЙ РОЗКЛАД';
+            }
         }
+        if (!currentWeekType) currentWeekType = 'ОСНОВНИЙ РОЗКЛАД';
+        weekTypeToggle.textContent = currentWeekType.split(' ')[0] || 'РОЗКЛАД';
+
+        let weekData = scheduleData[selectedGroup][currentWeekType];
 
         if (!weekData || (Array.isArray(weekData) && weekData.length === 0)) {
             diaryContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_SCHEDULE}<p class="empty-state-title">Розклад відсутній</p><p class="empty-state-desc">Для вибраного тижня немає пар.</p></div>`;
@@ -550,8 +1114,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hw = getHomework(); // read once per render
         const frag = document.createDocumentFragment();
         
-        const today = new Date();
-        const currentDayOfWeek = today.getDay() || 7; // 1-7 (Mon-Sun)
         const todayLabel = ukDays[today.getDay()];
 
         // Compute DD.MM dates for Mon-Fri of the target week (with weekOffset)
@@ -636,13 +1198,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             frag.appendChild(dayEl);
         }
 
-        // Week navigator
+        // Week navigator — placed BEFORE days for easy access
         const weekNav = document.createElement('div');
         weekNav.className = 'week-nav';
 
         const mondayDate = weekDates['Понеділок'];
         const fridayDate = weekDates["П'ятниця"];
-        const weekLabel = weekOffset === 0 ? 'Поточний тиждень' : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
+        const weekLabel = weekOffset === 0 ? (isSunday ? 'Наступний тиждень' : 'Поточний тиждень') : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
 
         weekNav.innerHTML = `
             <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень">
@@ -657,27 +1219,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             </button>
         `;
 
-        weekNav.querySelectorAll('.week-nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                weekOffset += parseInt(btn.dataset.dir);
-                renderSchedule();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
-        });
-
-        // Reset to current week on tap center
-        weekNav.querySelector('.week-nav-center').addEventListener('click', () => {
-            if (weekOffset !== 0) {
-                weekOffset = 0;
-                renderSchedule();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        });
-
-        frag.appendChild(weekNav);
+        // Insert week nav FIRST, then days
+        const finalFrag = document.createDocumentFragment();
+        finalFrag.appendChild(weekNav);
+        // Move all day elements from frag into finalFrag
+        while (frag.firstChild) finalFrag.appendChild(frag.firstChild);
 
         diaryContainer.innerHTML = '';
-        diaryContainer.appendChild(frag);
+        diaryContainer.appendChild(finalFrag);
 
         if (weekOffset === 0 && currentWeekType !== 'ПІДВІСКА') {
             requestAnimationFrame(() => {
@@ -700,7 +1249,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (const key in hw) {
             if (key.startsWith(prefix)) {
                 const parts = key.split('|');
-                entries.push({ key, day: parts[1], number: parts[2], text: hw[key] });
+                const hwItem = parseHw(hw[key]);
+                if (hwItem && hwItem.text) {
+                    entries.push({
+                        key,
+                        day: parts[1],
+                        number: parseInt(parts[2]),
+                        text: hwItem.text,
+                        done: !!hwItem.done,
+                        deadline: hwItem.deadline || ''
+                    });
+                }
             }
         }
 
@@ -708,6 +1267,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             homeworkContainer.innerHTML = `<div class="empty-state-container">${SVG_EMPTY_HOMEWORK}<p class="empty-state-title">Немає завдань</p><p class="empty-state-desc">Ура! Ви ще не додали жодного домашнього завдання.</p></div>`;
             return;
         }
+
+        // Sort: undone first, then by deadline ascending, then by day/number
+        entries.sort((a, b) => {
+            if (a.done !== b.done) return a.done ? 1 : -1;
+            if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
+            if (a.deadline && !b.deadline) return -1;
+            if (!a.deadline && b.deadline) return 1;
+            return a.number - b.number;
+        });
 
         // Group by day
         const grouped = {};
@@ -722,11 +1290,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (const day in grouped) {
             const dayTitle = document.createElement('h2');
             dayTitle.className = 'diary-day';
-            dayTitle.style.cssText = 'font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem;margin-top:1rem;';
+            dayTitle.style.cssText = 'font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;margin-top:1.25rem;';
             dayTitle.textContent = day;
             frag.appendChild(dayTitle);
-
-            grouped[day].sort((a, b) => a.number - b.number);
 
             for (let i = 0; i < grouped[day].length; i++) {
                 const entry = grouped[day][i];
@@ -738,18 +1304,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     for (let w = 0; w < weekTypes.length; w++) {
                         const wd = scheduleData[selectedGroup][weekTypes[w]];
                         if (Array.isArray(wd)) {
-                            const found = wd.find(p => p.number === parseInt(entry.number) && p.date === day);
+                            const found = wd.find(p => p.number === entry.number && p.date === day);
                             if (found) { subjectName = found.subject; break; }
                         } else if (wd[day]) {
-                            const found = wd[day].find(p => p.number === parseInt(entry.number));
+                            const found = wd[day].find(p => p.number === entry.number);
                             if (found) { subjectName = found.subject; break; }
                         }
                     }
                 }
 
+                const deadlineBadge = entry.deadline
+                    ? `<div class="hw-deadline-badge ${isDeadlineUrgent(entry.deadline) ? 'is-urgent' : ''}">📅 до ${formatDeadline(entry.deadline)}</div>`
+                    : '';
+
                 const card = document.createElement('div');
-                card.className = 'hw-card';
-                card.innerHTML = `<div class="hw-card-subject">${subjectName}</div><div class="hw-card-meta">${entry.number} пара · ${day}</div><div class="hw-card-text">${entry.text}</div><div class="hw-card-actions"><button class="hw-card-edit" data-key="${entry.key}" data-subject="${subjectName}" data-day="${day}">${SVG_EDIT_SM} Редагувати</button><button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button></div>`;
+                card.className = `hw-card ${entry.done ? 'hw-done' : ''}`;
+                card.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px">
+                    <input type="checkbox" class="hw-checkbox" data-hw-key="${entry.key}" aria-label="Позначити виконаним" ${entry.done ? 'checked' : ''} style="margin-top:2px">
+                    <div style="flex:1;min-width:0">
+                        <div class="hw-card-subject">${escHtml(subjectName)}</div>
+                        <div class="hw-card-meta">${entry.number} пара · ${escHtml(day)}</div>
+                        ${deadlineBadge}
+                        <div class="hw-card-text">${escHtml(entry.text)}</div>
+                    </div>
+                </div>
+                <div class="hw-card-actions" style="margin-left:32px">
+                    <button class="hw-card-edit" data-key="${entry.key}" data-subject="${escHtml(subjectName)}" data-day="${escHtml(day)}">${SVG_EDIT_SM} Редагувати</button>
+                    <button class="hw-card-delete hw-delete" data-key="${entry.key}">${SVG_TRASH} Видалити</button>
+                </div>`;
                 frag.appendChild(card);
             }
         }
@@ -792,20 +1374,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const todayIdx = new Date().getDay();
 
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease';
+        overlay.className = 'modal-overlay';
 
         const sheet = document.createElement('div');
-        sheet.style.cssText = 'background:var(--surface-color,#f5f5f5);border-radius:20px 20px 0 0;padding:1.5rem;width:100%;max-width:500px;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))';
+        sheet.className = 'modal-sheet share-picker-sheet';
 
-        let html = '<div style="width:40px;height:4px;background:var(--border-color,#ddd);border-radius:2px;margin:0 auto 1rem"></div>';
-        html += '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;text-align:center">Оберіть день</h3>';
+        let html = '<div class="modal-handle"></div>';
+        html += '<h2 style="text-align:center;margin-bottom:1rem">Оберіть день</h2>';
 
-        html += `<button class="share-day-btn" data-day="week" style="display:flex;align-items:center;justify-content:center;width:100%;padding:.9rem 1rem;margin-bottom:.75rem;border:none;border-radius:14px;background:var(--accent-color,#000);color:var(--bg-color,#fff);font-size:1rem;font-weight:700;cursor:pointer;gap:8px"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Вся неділя</button>`;
+        html += `<button class="share-day-btn share-day-primary" data-day="week"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Весь тиждень</button>`;
 
         for (const day of days) {
             const isToday = day.idx === todayIdx;
             const badge = isToday ? ' <span style="font-size:.75rem;background:var(--accent-color);color:var(--bg-color);padding:2px 8px;border-radius:8px;margin-left:8px">Сьогодні</span>' : '';
-            html += `<button class="share-day-btn" data-day="${day.idx}" style="display:flex;align-items:center;width:100%;padding:.9rem 1rem;margin-bottom:.5rem;border:1px solid var(--border-color,#e0e0e0);border-radius:14px;background:var(--bg-color,#fff);color:var(--text-color,#1a1a1a);font-size:1rem;font-weight:${isToday ? '700' : '500'};cursor:pointer">${day.label}${badge}</button>`;
+            html += `<button class="share-day-btn share-day-option${isToday ? ' share-day-today' : ''}" data-day="${day.idx}">${day.label}${badge}</button>`;
         }
 
         sheet.innerHTML = html;
@@ -879,23 +1461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const groupData = scheduleData[selectedGroup];
         if (!groupData) return null;
 
-        let weekType = currentWeekType;
-        let weekData = groupData[weekType];
-        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
-            weekType = 'ОСНОВНИЙ РОЗКЛАД';
-            weekData = groupData[weekType];
-        }
-        if (!weekData) {
-            const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
-            if (types.length === 0) return null;
-            weekType = types[0];
-            weekData = groupData[weekType];
-        }
-        if (!weekData || !weekData[dayName]) return null;
-
-        let pairs = [...weekData[dayName]];
-
-        // Merge substitutions for the target day
+        // Calculate target day date
         const currentDayOfWeek = today.getDay() || 7;
         const targetDayOfWeek = dayIndex || 7;
         let offset = targetDayOfWeek - currentDayOfWeek;
@@ -904,6 +1470,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         d.setDate(today.getDate() + offset);
         const dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
 
+        const targetWeekType = getWeekType(d);
+        let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'] || groupData[targetWeekType];
+        if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
+            const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
+            if (types.length === 0) return null;
+            weekData = groupData[types.includes(targetWeekType) ? targetWeekType : types[0]];
+        }
+        if (!weekData || !weekData[dayName]) return null;
+
+        let pairs = [...weekData[dayName]];
+
+        // Merge substitutions for the target day
         const subs = groupData['ПІДВІСКА'] || [];
         const subsForDate = subs.filter(s => s.date === dateStr);
         subsForDate.forEach(sub => {
@@ -1110,15 +1688,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             scrollToDay(dateParam);
         }
 
-        // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live
+        // Auto-refresh every 60s to keep "ЗАРАЗ" indicator live (lightweight badge update)
         setInterval(() => {
             if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
                 renderSchedule();
             }
         }, 60000);
 
-        // Schedule test notification 5 min after new deployment
-        const DEPLOY_VERSION = 'rozklad-v31';
+        // Schedule test notification after new SW deployment
+        const DEPLOY_VERSION = 'rozklad-v38';
         if (localStorage.getItem('lastDeployNotif') !== DEPLOY_VERSION) {
             localStorage.setItem('lastDeployNotif', DEPLOY_VERSION);
             if (notificationsEnabled && Notification.permission === 'granted') {

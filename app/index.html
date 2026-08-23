@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Розклад Студента</title>
     <meta name="description" content="Зручний PWA додаток для перегляду розкладу пар студента">
     <meta property="og:title" content="Розклад Студента">
@@ -13,19 +13,29 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="color-scheme" content="light dark">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=8">
-    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=8">
-    <link rel="manifest" href="manifest.json?v=8">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=41">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon.png?v=41">
+    <link rel="manifest" href="manifest.json?v=41">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=33" as="style">
+    <link rel="preload" href="style.css?v=41" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=33" as="script">
+    <link rel="preload" href="app.js?v=41" as="script">
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme');
+            var isDark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.documentElement.style.backgroundColor = '#000000';
+            }
+        })();
+    </script>
     <style>
         /* Critical CSS — inlined for instant first paint */
-        :root{--bg-color:#fff;--text-color:#1a1a1a;--surface-color:#f5f5f5;--border-color:#e0e0e0;--accent-color:#000;--nav-bg:rgba(255,255,255,.9);--nav-border:#eee;--font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-        [data-theme="dark"]{--bg-color:#000;--text-color:#f5f5f5;--surface-color:#111;--border-color:#222;--accent-color:#fff;--nav-bg:rgba(0,0,0,.9);--nav-border:#1a1a1a}
+        :root{--bg-color:#fff;--text-color:#1a1a1a;--secondary-text:#737373;--text-muted:#8e8e93;--surface-color:#f5f5f5;--border-color:#e0e0e0;--accent-color:#000;--nav-bg:rgba(255,255,255,.9);--nav-border:#eee;--font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+        [data-theme="dark"]{--bg-color:#000;--text-color:#f5f5f5;--secondary-text:#a3a3a3;--text-muted:#8e8e93;--surface-color:#111;--border-color:#222;--accent-color:#fff;--nav-bg:rgba(0,0,0,.9);--nav-border:#1a1a1a}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         html{height:100%;background-color:var(--bg-color)}
         body{background-color:var(--bg-color);color:var(--text-color);font-family:var(--font-family);line-height:1.5;overflow-x:hidden;min-height:100vh;min-height:100dvh}
@@ -38,7 +48,7 @@
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#homework,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0 .75rem 1.5rem;gap:2px;border-top:none;border-right:1px solid var(--nav-border)}}
     </style>
-    <link rel="stylesheet" href="style.css?v=33">
+    <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
     <div id="app">
@@ -56,11 +66,19 @@
 
         <!-- Schedule Screen (Diary View) -->
         <div id="schedule" class="screen hidden">
+            <!-- Offline Banner -->
+            <div id="offlineBanner" class="offline-banner hidden">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                <span>Офлайн-режим (показано збережений розклад)</span>
+            </div>
             <header class="top-nav">
                 <h1 id="currentGroupTitle">Група</h1>
                 <div class="top-nav-actions">
+                    <button id="searchBtn" class="icon-btn search-nav-btn" aria-label="Пошук викладачів та аудиторій">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
                     <button id="shareScheduleBtn" class="icon-btn share-btn" aria-label="Поділитися">
-                        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                     </button>
                     <button id="weekTypeToggle" class="icon-btn">ОСНОВНИЙ</button>
                 </div>
@@ -104,6 +122,10 @@
                     </label>
                 </div>
                 <div class="setting-item">
+                    <span>Розклад дзвінків</span>
+                    <button id="openBellsBtn" class="icon-btn" style="min-height:38px;padding:6px 14px">Переглянути</button>
+                </div>
+                <div class="setting-item">
                     <span>Сповіщення про розклад</span>
                     <label class="switch">
                         <input type="checkbox" id="notifToggle">
@@ -126,7 +148,7 @@
                 </div>
                 <div class="setting-item" id="installRow">
                     <span>Додати на екран</span>
-                    <a href="#installOverlay" class="btn" style="background-color: #0A84FF; color: white; text-decoration: none;">Встановити</a>
+                    <a href="#installOverlay" class="btn btn-install">Встановити</a>
                 </div>
                 <div class="setting-item">
                     <span>Змінити групу</span>
@@ -143,10 +165,40 @@
             <h2 id="hwModalTitle">Додати завдання</h2>
             <p id="hwModalSubject" class="modal-subject"></p>
             <textarea id="hwModalInput" placeholder="Введіть домашнє завдання..." rows="4"></textarea>
+            <div class="modal-deadline-group">
+                <label for="hwModalDeadline">Дедлайн (необов'язково):</label>
+                <input type="date" id="hwModalDeadline" class="hw-date-input">
+            </div>
             <div class="modal-actions">
                 <button id="hwModalCancel" class="modal-btn-cancel">Скасувати</button>
                 <button id="hwModalSave" class="modal-btn-save">Зберегти</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Bells Modal (Bottom Sheet) -->
+    <div id="bellsModal" class="modal-overlay hidden">
+        <div class="modal-sheet bells-sheet">
+            <div class="modal-handle"></div>
+            <h2>Розклад дзвінків</h2>
+            <p class="modal-subject">Тривалість пари — 80 хв</p>
+            <div id="bellsList" class="bells-list">
+                <!-- Injected dynamically -->
+            </div>
+            <button id="bellsModalClose" class="modal-btn-cancel" style="width:100%;margin-top:1rem">Закрити</button>
+        </div>
+    </div>
+
+    <!-- Search Modal (Teachers & Rooms) -->
+    <div id="searchModal" class="modal-overlay hidden">
+        <div class="modal-sheet search-sheet">
+            <div class="modal-handle"></div>
+            <h2>Пошук розкладу</h2>
+            <input type="text" id="globalSearchInput" placeholder="Введіть викладача або ауд. (напр. 69, Сабірова)..." autocomplete="off" class="search-modal-input">
+            <div id="searchResults" class="search-results-list">
+                <div class="empty-search-prompt">Введіть прізвище викладача, номер аудиторії (напр. 69) або назву предмета</div>
+            </div>
+            <button id="searchModalClose" class="modal-btn-cancel" style="width:100%;margin-top:1rem">Закрити</button>
         </div>
     </div>
 
@@ -166,7 +218,7 @@
             <h2 class="install-title">Додати Розклад на екран</h2>
             <div class="install-steps">
                 <p>1. Натисніть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> на нижній панелі</p>
-                <p>2. Оберіть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" ry="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> <strong>На екран «Домой»</strong></p>
+                <p>2. Оберіть <svg viewBox="0 0 24 24" width="20" height="20" stroke="#0A84FF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" ry="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> <strong>«На Початковий екран»</strong></p>
             </div>
             <div class="install-tooltip">
                 Натисніть <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -223,11 +275,18 @@
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
-            <span>Налашт.</span>
+            <span>Налаштування</span>
         </a>
     </nav>
 
-    <script src="app.js?v=33" defer></script>
-    <script defer src="/_vercel/insights/script.js"></script>
+    <script src="app.js?v=41" defer></script>
+    <script>
+        if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            var s = document.createElement('script');
+            s.defer = true;
+            s.src = '/_vercel/insights/script.js';
+            document.head.appendChild(s);
+        }
+    </script>
 </body>
 </html>

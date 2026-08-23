@@ -2,6 +2,9 @@ const REDIS_URL = process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN;
 
 async function redis(...args) {
+  if (!REDIS_URL || !REDIS_TOKEN) {
+    throw new Error('KV_REST_API_URL or KV_REST_API_TOKEN is not configured');
+  }
   const resp = await fetch(REDIS_URL, {
     method: 'POST',
     headers: {

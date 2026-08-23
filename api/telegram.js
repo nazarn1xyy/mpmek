@@ -81,7 +81,7 @@ module.exports = async function handler(req, res) {
       results.push(makeResult(
         `${group}-week-${Date.now()}`,
         'week',
-        `${group} — Вся неділя`,
+        `${group} — Весь тиждень`,
         'Розклад на тиждень',
         'light'
       ));

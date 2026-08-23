@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Розклад — Віджет</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -126,8 +126,8 @@
         const dayName = UK_DAYS[dayIdx];
         const dateStr = String(now.getDate()).padStart(2,'0') + '.' + String(now.getMonth()+1).padStart(2,'0');
 
-        function getWeekType() {
-            const d = new Date(now);
+        function getWeekType(date) {
+            const d = new Date(date || now);
             d.setHours(0,0,0,0);
             d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
             const week1 = new Date(d.getFullYear(), 0, 4);
@@ -198,7 +198,7 @@
             const monDateStr = String(monday.getDate()).padStart(2,'0') + '.' + String(monday.getMonth()+1).padStart(2,'0');
             const monName = 'Понеділок';
             const base = (groupData['ОСНОВНИЙ РОЗКЛАД'] || {})[monName] || [];
-            const wt = getWeekType();
+            const wt = getWeekType(monday);
             const spec = (groupData[wt] || {})[monName] || [];
             const specNums = new Set(spec.map(p => p.number));
             let monPairs = base.filter(p => !specNums.has(p.number)).concat(spec);

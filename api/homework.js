@@ -1,13 +1,23 @@
 const { redis, parseRedisHash } = require('./_lib/redis');
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
+  const origin = req.headers.origin;
+  if (origin && (origin === 'https://mpmek.site' || origin.endsWith('.vercel.app') || origin.includes('localhost'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      if (req.method === 'GET') return res.json({});
+      return res.json({ ok: true, localOnly: true });
+    }
+
     if (req.method === 'GET') {
       const { group } = req.query;
       if (!group) return res.status(400).json({ error: 'group is required' });

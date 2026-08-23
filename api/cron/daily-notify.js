@@ -52,31 +52,34 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    // Filter by notifyTime matching current Kyiv time slot (HH:00 or HH:30)
-    const kyivParts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false
-    }).formatToParts(today);
-    const kyivH = kyivParts.find(p => p.type === 'hour').value;
-    const kyivM = parseInt(kyivParts.find(p => p.type === 'minute').value);
-    const currentSlot = `${kyivH}:${kyivM < 30 ? '00' : '30'}`;
-    const entries = allEntries.filter(e => (e.notifyTime || '08:00') === currentSlot);
+    // Helper: Calculate week parity (ЧИСЕЛЬНИК / ЗНАМЕННИК)
+    function getWeekType(date) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const week1 = new Date(d.getFullYear(), 0, 4);
+      const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+    }
+
+    const currentWeekType = getWeekType(today);
 
     let sent = 0;
     let failed = 0;
     const toDelete = [];
 
-    for (const entry of entries) {
+    for (const entry of allEntries) {
       try {
         const { id, subscription, group } = entry;
         const groupData = scheduleData[group];
         if (!groupData) continue;
 
-        // Find week schedule data
-        let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
+        // Find week schedule data using parity calculation
+        let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'] || groupData[currentWeekType];
         if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
           const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
           if (types.length === 0) continue;
-          weekData = groupData[types[0]];
+          weekData = groupData[types.includes(currentWeekType) ? currentWeekType : types[0]];
         }
 
         if (!weekData || !weekData[dayName] || weekData[dayName].length === 0) continue;
@@ -120,7 +123,7 @@ module.exports = async function handler(req, res) {
       await redis('HDEL', 'push-subs', id);
     }
 
-    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, slot: currentSlot, totalSubs: allEntries.length });
+    return res.status(200).json({ ok: true, sent, failed, cleaned: toDelete.length, weekType: currentWeekType, totalSubs: allEntries.length });
   } catch (error) {
     console.error('Cron error:', error);
     return res.status(500).json({ error: 'Internal server error' });

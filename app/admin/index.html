@@ -77,8 +77,8 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
 .lesson-row{display:grid;grid-template-columns:60px 1fr 1fr 36px;gap:8px;align-items:center}
 .lesson-row .input{padding:8px 10px;font-size:13px}
 .lesson-num-input{text-align:center}
-.btn-add-lesson{width:100%;padding:8px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s ease}
-.btn-add-lesson:hover{border-color:var(--text-muted);color:var(--text)}
+.btn-add-lesson{width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .15s ease}
+.btn-add-lesson:hover{border-color:var(--accent);color:var(--text)}
 .subs-controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 .subs-controls .select{max-width:250px}
 .subs-editor{display:flex;flex-direction:column;gap:12px}
@@ -214,7 +214,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
                 </button>
                 <button class="sidebar-item" data-section="config">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    <span>Налашт.</span>
+                    <span>Налаштування</span>
                 </button>
             </nav>
         </aside>
@@ -390,12 +390,12 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         return { dayIndex: d.getDay(), name: DAYS_FULL[d.getDay()], isPast: d < today };
     }
     const DEFAULT_TIMES = {
-        1: "08:30 - 10:05",
-        2: "10:20 - 11:55",
-        3: "12:10 - 13:45",
-        4: "14:15 - 15:50",
-        5: "16:00 - 17:35",
-        6: "17:40 - 19:15"
+        1: "08:30 - 09:50",
+        2: "10:00 - 11:20",
+        3: "11:50 - 13:10",
+        4: "13:20 - 14:40",
+        5: "14:50 - 16:10",
+        6: "16:20 - 17:40"
     };
 
     // ===== State =====
@@ -425,21 +425,25 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     let newSubsAdded = [];
 
     // ===== PIN Authentication =====
-    const ADMIN_PIN = '0411';
+    let authenticatedPin = '';
     let pinCode = '';
+    let failedAttempts = 0;
+    let lockoutUntil = 0;
 
     document.querySelectorAll('.pin-key[data-val]').forEach(btn => {
         btn.addEventListener('click', () => {
+            if (Date.now() < lockoutUntil) return;
             if (pinCode.length >= 4) return;
             pinCode += btn.dataset.val;
             updatePinDots();
             if (pinCode.length === 4) {
-                setTimeout(() => handlePinComplete(), 200);
+                setTimeout(() => handlePinComplete(), 150);
             }
         });
     });
 
     document.getElementById('pinDelete').addEventListener('click', () => {
+        if (Date.now() < lockoutUntil) return;
         pinCode = pinCode.slice(0, -1);
         updatePinDots();
         pinScreen.classList.remove('error');
@@ -451,12 +455,42 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         });
     }
 
-    function handlePinComplete() {
-        if (pinCode === ADMIN_PIN) {
-            unlockAdmin();
-        } else {
-            shakePin('Невірний PIN-код');
+    async function handlePinComplete() {
+        pinHint.textContent = 'Перевірка...';
+        const entered = pinCode;
+        try {
+            // Attempt server-side auth check
+            const resp = await fetch('/api/admin-config', {
+                headers: { 'X-Admin-Pin': entered }
+            });
+            if (resp.ok) {
+                authenticatedPin = entered;
+                failedAttempts = 0;
+                unlockAdmin();
+                return;
+            } else if (resp.status === 401) {
+                onPinFailed('Невірний PIN-код');
+                return;
+            }
+        } catch (e) {
+            // Network fallback: if local/offline test without server
+            if (entered === '0411') {
+                authenticatedPin = entered;
+                unlockAdmin();
+                return;
+            }
         }
+        onPinFailed('Невірний PIN-код');
+    }
+
+    function onPinFailed(msg) {
+        failedAttempts++;
+        if (failedAttempts >= 5) {
+            lockoutUntil = Date.now() + 30000;
+            shakePin('Забагато спроб. Зачекайте 30 сек');
+            return;
+        }
+        shakePin(msg);
     }
 
     function shakePin(msg) {
@@ -902,7 +936,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
     async function loadAdminConfig() {
         try {
             const resp = await fetch('/api/admin-config', {
-                headers: { 'X-Admin-Pin': ADMIN_PIN }
+                headers: { 'X-Admin-Pin': authenticatedPin }
             });
             if (resp.ok) {
                 const data = await resp.json();
@@ -935,7 +969,7 @@ body{background-color:var(--bg);color:var(--text);font-family:var(--font);line-h
         try {
             const resp = await fetch('/api/admin-config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': ADMIN_PIN },
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': authenticatedPin },
                 body: JSON.stringify(adminConfig)
             });
             if (resp.ok) {

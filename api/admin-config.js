@@ -4,7 +4,12 @@ const ADMIN_PIN = process.env.ADMIN_PIN;
 const REDIS_KEY = 'admin-config';
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
+  const origin = req.headers.origin;
+  if (origin && (origin === 'https://mpmek.site' || origin.endsWith('.vercel.app') || origin.includes('localhost'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://mpmek.site');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Pin');
 

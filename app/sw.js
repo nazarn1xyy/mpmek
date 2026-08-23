@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v37';
+const CACHE_NAME = 'rozklad-v41';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -7,7 +7,8 @@ const STATIC_ASSETS = [
   './app.js',
 
   './manifest.json',
-  './icon.png'
+  './icon.png',
+  './icon-192.png'
 ];
 
 // Pre-cache on install
@@ -172,11 +173,21 @@ async function showCachedScheduleNotification() {
 
     const dayName = UK_DAYS[dayIdx];
 
-    let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'];
+    function getWeekType(date) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const week1 = new Date(d.getFullYear(), 0, 4);
+      const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+    }
+
+    const currentWeekType = getWeekType(today);
+    let weekData = groupData['ОСНОВНИЙ РОЗКЛАД'] || groupData[currentWeekType];
     if (!weekData || typeof weekData !== 'object' || Array.isArray(weekData)) {
       const types = Object.keys(groupData).filter(t => t !== 'ПІДВІСКА');
       if (types.length === 0) return;
-      weekData = groupData[types[0]];
+      weekData = groupData[types.includes(currentWeekType) ? currentWeekType : types[0]];
     }
 
     if (!weekData || !weekData[dayName] || weekData[dayName].length === 0) return;
