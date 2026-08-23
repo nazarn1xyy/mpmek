@@ -439,26 +439,24 @@ input[type="text"]:focus {
 }
 
 .setting-icon-badge {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: rgba(120, 120, 128, 0.1);
-    color: var(--text-color);
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    color: var(--secondary-text);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 [data-theme="dark"] .setting-icon-badge {
-    background: rgba(255, 255, 255, 0.08);
-    color: #f5f5f7;
+    background: transparent;
+    color: #a1a1a6;
 }
 
 .setting-icon-badge svg {
-    width: 17px;
-    height: 17px;
+    width: 20px;
+    height: 20px;
     stroke: currentColor;
 }
 
@@ -2061,15 +2059,23 @@ input:checked + .slider:before {
 }
 
 .profile-avatar.guest-avatar {
-    background: rgba(120, 120, 128, 0.08);
+    width: 32px;
+    height: 32px;
+    background: transparent;
     color: var(--secondary-text);
-    border: 1px solid var(--border-color);
+    border: none;
     box-shadow: none;
 }
 
 [data-theme="dark"] .profile-avatar.guest-avatar {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: transparent;
+    border: none;
+    color: #a1a1a6;
+}
+
+.profile-avatar.guest-avatar svg {
+    width: 26px;
+    height: 26px;
 }
 
 .profile-info {
