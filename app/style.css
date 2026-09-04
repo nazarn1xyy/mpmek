@@ -137,12 +137,18 @@ body.theme-transitioning {
 }
 
 .search-nav-btn, .share-btn {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
     padding: 0;
     border-radius: 50%;
+    background: transparent;
+    border: none;
+}
+
+.search-nav-btn:hover, .share-btn:hover {
+    background: rgba(120, 120, 128, 0.08);
 }
 
 /* ===== Onboarding (Group Picker) ===== */
@@ -1221,17 +1227,21 @@ input:checked + .slider:before {
     }
 
     .sidebar-brand-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
+        width: 24px;
+        height: 24px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--text-color);
         flex-shrink: 0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .sidebar-brand-icon svg {
+        width: 22px;
+        height: 22px;
     }
 
     .sidebar-brand-text {
