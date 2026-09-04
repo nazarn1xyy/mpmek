@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bellsSettingRow = document.getElementById('bellsSettingRow');
     const openBellsBtn = document.getElementById('openBellsBtn');
     const installRow = document.getElementById('installRow');
+    const sidebarGroupBadge = document.getElementById('sidebarGroupBadge');
 
     const offlineBanner = document.getElementById('offlineBanner');
     const searchBtn = document.getElementById('searchBtn');
@@ -179,6 +180,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateSettingsUI() {
+        if (sidebarGroupBadge) {
+            sidebarGroupBadge.textContent = selectedGroup || 'Не обрано';
+        }
         if (settingsCurrentGroupSub) {
             settingsCurrentGroupSub.textContent = selectedGroup ? `Група: ${selectedGroup}` : 'Оберіть групу';
         }
@@ -747,6 +751,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (currentGroupTitle) currentGroupTitle.textContent = selectedGroup;
+        if (sidebarGroupBadge) sidebarGroupBadge.textContent = selectedGroup || 'Не обрано';
 
         const today = new Date();
         const isSunday = today.getDay() === 0;
