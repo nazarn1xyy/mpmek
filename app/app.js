@@ -187,6 +187,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             n.classList.toggle('active', n.dataset.target === screenId);
         });
 
+        const pill = document.getElementById('navIndicatorPill');
+        if (pill) {
+            pill.classList.toggle('nav-pill-settings', screenId === 'settings');
+        }
+
         if (screenId === 'schedule' && selectedGroup) {
             refreshSchedule(true);
         } else if (screenId === 'settings') {

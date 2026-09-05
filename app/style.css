@@ -602,68 +602,112 @@ input:checked + .slider:before {
     transform: translateX(20px);
 }
 
-/* ===== Bottom Navigation ===== */
+/* ===== Bottom Navigation (Floating Segmented Pill on Mobile) ===== */
 .sidebar-brand,
 .sidebar-footer {
     display: none;
 }
 
-.sidebar-nav-items {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-}
-
 .bottom-nav {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: calc(56px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background-color: var(--nav-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 0.5px solid var(--nav-border);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 290px;
+    height: 52px;
+    padding: 0;
+    background-color: #18181b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
     user-select: none;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    -webkit-transform: translateX(-50%) translateZ(0);
+    transform: translateX(-50%) translateZ(0);
+}
+
+[data-theme="light"] .bottom-nav,
+:root:not([data-theme="dark"]) .bottom-nav {
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar-nav-items {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
+    gap: 0;
+}
+
+/* Sliding active pill indicator (Liquid / Smooth glide) */
+.nav-indicator-pill {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    border-radius: 9999px;
+    background-color: #27272a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+    transform: translateX(0);
+    pointer-events: none;
+    z-index: 1;
+}
+
+[data-theme="light"] .nav-indicator-pill,
+:root:not([data-theme="dark"]) .nav-indicator-pill {
+    background-color: #f4f4f5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.nav-indicator-pill.nav-pill-settings {
+    transform: translateX(100%);
 }
 
 .nav-item {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    height: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
+    gap: 7px;
     text-decoration: none;
     color: var(--secondary-text);
-    gap: 3px;
-    flex: 1;
-    max-width: 180px;
-    height: 56px;
-    transition: color 0.15s, transform 0.15s;
-    border-radius: 12px;
+    border-radius: 9999px;
+    transition: color 0.2s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item:active {
-    transform: scale(0.94);
+    transform: scale(0.95);
 }
 
 .nav-item svg {
     opacity: 0.6;
-    transition: opacity 0.15s;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    width: 18px;
+    height: 18px;
 }
 
 .nav-item span {
-    font-size: 0.68rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    letter-spacing: 0.02em;
+    transition: font-weight 0.2s ease, color 0.2s ease;
 }
 
 .nav-item.active {
@@ -672,6 +716,11 @@ input:checked + .slider:before {
 
 .nav-item.active svg {
     opacity: 1;
+    transform: scale(1.04);
+}
+
+.nav-item.active span {
+    font-weight: 600;
 }
 
 /* ===== Modals & Sheets ===== */
@@ -1232,6 +1281,10 @@ input:checked + .slider:before {
         color: var(--secondary-text);
         line-height: 1.2;
         font-weight: 400;
+    }
+
+    .nav-indicator-pill {
+        display: none !important;
     }
 
     .sidebar-nav-items {
