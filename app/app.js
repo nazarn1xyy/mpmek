@@ -92,7 +92,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeToggle = document.getElementById('themeToggle');
     const bellsSettingRow = document.getElementById('bellsSettingRow');
     const openBellsBtn = document.getElementById('openBellsBtn');
-    const exportCalendarRow = document.getElementById('exportCalendarRow');
     const installRow = document.getElementById('installRow');
     const sidebarGroupBadge = document.getElementById('sidebarGroupBadge');
 
@@ -425,9 +424,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         bellsSettingRow.addEventListener('click', (e) => {
             if (e.target !== openBellsBtn) openBellsModal();
         });
-    }
-    if (exportCalendarRow) {
-        exportCalendarRow.addEventListener('click', exportCalendarICS);
     }
     if (bellsModalClose) bellsModalClose.addEventListener('click', closeBellsModal);
     if (bellsModal) {
@@ -979,154 +975,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
-    // ===== Calendar Export (.ics) =====
-    function generateScheduleICS(group) {
-        if (!scheduleData || !scheduleData[group]) return { ics: '', eventCount: 0 };
-        const groupData = scheduleData[group];
 
-        const pad = (n) => String(n).padStart(2, '0');
-        const formatIcsDate = (date, timeStr) => {
-            const [hh, mm] = timeStr.split(':').map(Number);
-            const y = date.getFullYear();
-            const m = pad(date.getMonth() + 1);
-            const d = pad(date.getDate());
-            return `${y}${m}${d}T${pad(hh)}${pad(mm)}00`;
-        };
-
-        const escapeIcal = (str) => {
-            if (!str) return '';
-            return String(str)
-                .replace(/\\/g, '\\\\')
-                .replace(/;/g, '\\;')
-                .replace(/,/g, '\\,')
-                .replace(/\n/g, '\\n');
-        };
-
-        const now = new Date();
-        const nowStamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
-
-        const lines = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//MPMEK//Розклад Студента//UK',
-            'CALSCALE:GREGORIAN',
-            'METHOD:PUBLISH',
-            `X-WR-CALNAME:Розклад ${group}`,
-            'X-WR-TIMEZONE:Europe/Kyiv',
-            'BEGIN:VTIMEZONE',
-            'TZID:Europe/Kyiv',
-            'X-LIC-LOCATION:Europe/Kyiv',
-            'BEGIN:STANDARD',
-            'TZOFFSETFROM:+0300',
-            'TZOFFSETTO:+0200',
-            'TZNAME:EET',
-            'DTSTART:19701025T030000',
-            'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
-            'END:STANDARD',
-            'BEGIN:DAYLIGHT',
-            'TZOFFSETFROM:+0200',
-            'TZOFFSETTO:+0300',
-            'TZNAME:EEST',
-            'DTSTART:19700329T030000',
-            'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
-            'END:DAYLIGHT',
-            'END:VTIMEZONE'
-        ];
-
-        // Start from Monday of current week
-        const curDay = now.getDay();
-        const diffToMon = (curDay + 6) % 7;
-        const startMonday = new Date(now);
-        startMonday.setDate(now.getDate() - diffToMon);
-        startMonday.setHours(0, 0, 0, 0);
-
-        // Generate for 14 weeks ahead
-        const WEEKS_COUNT = 14;
-        let eventCount = 0;
-
-        for (let w = 0; w < WEEKS_COUNT; w++) {
-            for (let d = 0; d < 6; d++) {
-                const dayDate = new Date(startMonday);
-                dayDate.setDate(startMonday.getDate() + (w * 7) + d);
-                const dayName = UK_DAYS_ORDER[d];
-                const weekType = getWeekType(dayDate);
-                const weekSchedule = groupData[weekType] || groupData['ОСНОВНИЙ'];
-
-                if (!weekSchedule || !weekSchedule[dayName]) continue;
-
-                const lessons = weekSchedule[dayName];
-                for (const lesson of lessons) {
-                    if (!lesson || !lesson.subject) continue;
-                    const bell = BELLS_SCHEDULE.find(b => b.num === lesson.number) || { start: '08:30', end: '09:50' };
-                    const dtStart = formatIcsDate(dayDate, bell.start);
-                    const dtEnd = formatIcsDate(dayDate, bell.end);
-                    const datePrefix = `${dayDate.getFullYear()}${pad(dayDate.getMonth() + 1)}${pad(dayDate.getDate())}`;
-                    const uid = `${datePrefix}-${lesson.number}-${group.replace(/[^a-zA-Z0-9]/g, '')}-${w}@mpmek.site`;
-
-                    lines.push(
-                        'BEGIN:VEVENT',
-                        `UID:${uid}`,
-                        `DTSTAMP:${nowStamp}`,
-                        `DTSTART;TZID=Europe/Kyiv:${dtStart}`,
-                        `DTEND;TZID=Europe/Kyiv:${dtEnd}`,
-                        `SUMMARY:${lesson.number}. ${escapeIcal(lesson.subject)}`,
-                        `DESCRIPTION:${escapeIcal(`Викладач: ${lesson.teacher || '—'}\nАудиторія: ${lesson.room || '—'}\nГрупа: ${group} (${weekType})`)}`,
-                        `LOCATION:${escapeIcal(lesson.room ? `ауд. ${lesson.room}` : '')}`,
-                        'STATUS:CONFIRMED',
-                        'END:VEVENT'
-                    );
-                    eventCount++;
-                }
-            }
-        }
-
-        lines.push('END:VCALENDAR');
-        return { ics: lines.join('\r\n'), eventCount };
-    }
-
-    async function exportCalendarICS() {
-        if (!selectedGroup || !scheduleData || !scheduleData[selectedGroup]) {
-            alert('Спочатку оберіть групу');
-            return;
-        }
-
-        const { ics, eventCount } = generateScheduleICS(selectedGroup);
-        if (!ics || eventCount === 0) {
-            alert('Не знайдено занять для експорту');
-            return;
-        }
-
-        const cleanGroupName = selectedGroup.replace(/[^a-zA-Z0-9А-Яа-яіІїЇєЄґҐ]/g, '_');
-        const filename = `Rozklad_${cleanGroupName}.ics`;
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-
-        if (navigator.canShare) {
-            try {
-                const file = new File([blob], filename, { type: 'text/calendar' });
-                if (navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: `Розклад ${selectedGroup}`,
-                        text: `Розклад занять для групи ${selectedGroup}`
-                    });
-                    return;
-                }
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-            }
-        }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 1500);
-    }
 
     function showShareDayPicker() {
         const days = [
@@ -1145,9 +994,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let html = '<div class="modal-handle"></div>';
         html += '<h2 style="text-align:center;margin-bottom:1rem">Оберіть дію</h2>';
-        html += `<button class="share-day-btn share-day-primary" id="exportIcsFromPickerBtn" style="margin-bottom:0.75rem;background:var(--surface-color);color:var(--text-color);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;gap:8px">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Додати в Календар (.ics)
-        </button>`;
         html += `<button class="share-day-btn share-day-primary" data-day="week">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Поділитися картинкою тижня
         </button>`;
@@ -1169,13 +1015,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         sheet.querySelector('.share-picker-cancel').addEventListener('click', closePicker);
-        const pickerIcsBtn = sheet.querySelector('#exportIcsFromPickerBtn');
-        if (pickerIcsBtn) {
-            pickerIcsBtn.addEventListener('click', () => {
-                closePicker();
-                exportCalendarICS();
-            });
-        }
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closePicker(); });
 
         sheet.querySelectorAll('.share-day-btn').forEach(btn => {
