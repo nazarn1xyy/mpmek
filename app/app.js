@@ -916,33 +916,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             frag.appendChild(dayEl);
         }
 
-        // Week Navigator
-        const weekNav = document.createElement('div');
-        weekNav.className = 'week-nav';
-
+        // Week Navigator (Injected into sticky top header)
         const mondayDate = weekDates['Понеділок'];
         const fridayDate = weekDates["П'ятниця"];
         const weekLabel = weekOffset === 0 ? (isSunday ? 'Наступний тиждень' : 'Поточний тиждень') : weekOffset === 1 ? 'Наступний тиждень' : weekOffset === -1 ? 'Минулий тиждень' : `${mondayDate} — ${fridayDate}`;
 
-        weekNav.innerHTML = `
-            <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div class="week-nav-center">
-                <span class="week-nav-label">${weekLabel}</span>
-                <span class="week-nav-dates">${mondayDate} — ${fridayDate}</span>
+        const weekNavHtml = `
+            <div class="week-nav">
+                <button class="week-nav-btn" data-dir="-1" aria-label="Попередній тиждень">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div class="week-nav-center">
+                    <span class="week-nav-label">${weekLabel}</span>
+                    <span class="week-nav-dates">${mondayDate} — ${fridayDate}</span>
+                </div>
+                <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
             </div>
-            <button class="week-nav-btn" data-dir="1" aria-label="Наступний тиждень">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
         `;
 
-        const finalFrag = document.createDocumentFragment();
-        finalFrag.appendChild(weekNav);
-        while (frag.firstChild) finalFrag.appendChild(frag.firstChild);
-
-        diaryContainer.innerHTML = '';
-        diaryContainer.appendChild(finalFrag);
+        const weekNavSlot = document.getElementById('weekNavSlot');
+        if (weekNavSlot) {
+            weekNavSlot.innerHTML = weekNavHtml;
+            diaryContainer.innerHTML = '';
+            diaryContainer.appendChild(frag);
+        } else {
+            const weekNav = document.createElement('div');
+            weekNav.innerHTML = weekNavHtml;
+            const finalFrag = document.createDocumentFragment();
+            finalFrag.appendChild(weekNav.firstElementChild);
+            while (frag.firstChild) finalFrag.appendChild(frag.firstChild);
+            diaryContainer.innerHTML = '';
+            diaryContainer.appendChild(finalFrag);
+        }
 
         if (weekOffset === 0 && currentWeekType !== 'ПІДВІСКА') {
             requestAnimationFrame(() => {

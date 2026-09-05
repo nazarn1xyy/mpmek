@@ -19,9 +19,9 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=64" as="style">
+    <link rel="preload" href="style.css?v=65" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=64" as="script">
+    <link rel="preload" href="app.js?v=65" as="script">
     <script>
         (function(){
             var t = localStorage.getItem('theme');
@@ -46,7 +46,7 @@
         @media(max-width:767px){.bottom-nav{position:fixed;bottom:max(10px,calc(4px + env(safe-area-inset-bottom,0px)));left:0;right:0;margin:0 auto;width:calc(100% - 32px);max-width:280px;height:52px;background-color:var(--surface-color);border-radius:9999px;border:1px solid var(--border-color);display:flex;justify-content:center;align-items:center;z-index:100;user-select:none}}
         @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#settings{margin-left:240px}.bottom-nav{position:fixed;top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:space-between;align-items:stretch;padding:1.5rem 1rem 1.25rem 1rem;gap:0;border-top:none;border-right:1px solid var(--nav-border);background-color:var(--surface-color);border-radius:0}}}
     </style>
-    <link rel="stylesheet" href="style.css?v=64">
+    <link rel="stylesheet" href="style.css?v=65">
 </head>
 <body>
     <div id="app">
@@ -71,17 +71,20 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
                 <span>Офлайн-режим (показано збережений розклад)</span>
             </div>
-            <header class="top-nav">
-                <h1 id="currentGroupTitle">Група</h1>
-                <div class="top-nav-actions">
-                    <button id="searchBtn" class="icon-btn search-nav-btn" aria-label="Пошук викладачів та аудиторій">
-                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    </button>
-                    <button id="shareScheduleBtn" class="icon-btn share-btn" aria-label="Поділитися">
-                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                    </button>
-                    <button id="weekTypeToggle" class="icon-btn">ОСНОВНИЙ</button>
+            <header class="top-nav schedule-top-nav">
+                <div class="top-nav-row">
+                    <h1 id="currentGroupTitle">Група</h1>
+                    <div class="top-nav-actions">
+                        <button id="searchBtn" class="icon-btn search-nav-btn" aria-label="Пошук викладачів та аудиторій">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </button>
+                        <button id="shareScheduleBtn" class="icon-btn share-btn" aria-label="Поділитися">
+                            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        </button>
+                        <button id="weekTypeToggle" class="icon-btn">ОСНОВНИЙ</button>
+                    </div>
                 </div>
+                <div id="weekNavSlot" class="week-nav-slot"></div>
             </header>
             <main id="diaryContainer" class="diary-container">
                 <!-- Diary entries will be injected here -->
@@ -233,7 +236,7 @@
         </div>
     </nav>
 
-    <script src="app.js?v=64" defer></script>
+    <script src="app.js?v=65" defer></script>
     <script>
         if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             var s = document.createElement('script');

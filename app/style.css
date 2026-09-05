@@ -109,6 +109,23 @@ body.theme-transitioning {
     border-bottom: 0.5px solid var(--border-color);
 }
 
+.schedule-top-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.top-nav-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.week-nav-slot {
+    width: 100%;
+}
+
 .top-nav h1 {
     font-size: 1.25rem;
     font-weight: 700;
@@ -1406,6 +1423,14 @@ input:checked + .slider:before {
         max-width: 720px;
         padding: 2rem 1.5rem;
     }
+
+    .schedule-top-nav .top-nav-row,
+    .schedule-top-nav .week-nav {
+        max-width: 720px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+    }
 }
 
 /* ===== Mobile Ergonomic & Touch-Friendly Top Bar, Week Nav & Schedule ===== */
@@ -1472,12 +1497,17 @@ input:checked + .slider:before {
         padding: 0.5rem 1rem 5.5rem 1rem;
     }
 
+    .schedule-top-nav {
+        padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem 1rem;
+        gap: 6px;
+    }
+
     .week-nav {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 4px;
-        margin: 0.5rem 0 1rem 0;
+        padding: 0 2px;
+        margin: 0;
         width: 100%;
     }
 
@@ -1552,6 +1582,7 @@ input:checked + .slider:before {
 
 /* ===== Performance & 60-120 FPS Optimizations ===== */
 .diary-day {
+    scroll-margin-top: calc(130px + env(safe-area-inset-top, 0px));
     content-visibility: auto;
     contain-intrinsic-size: 0 380px;
 }
