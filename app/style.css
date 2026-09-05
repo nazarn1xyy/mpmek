@@ -610,7 +610,7 @@ input:checked + .slider:before {
 
 .bottom-nav {
     position: fixed;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    bottom: max(10px, calc(4px + env(safe-area-inset-bottom, 0px)));
     left: 0;
     right: 0;
     margin: 0 auto;
