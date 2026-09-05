@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const weekTypeToggle = document.getElementById('weekTypeToggle');
     const shareScheduleBtn = document.getElementById('shareScheduleBtn');
 
-    const changeGroupBtn = document.getElementById('changeGroupBtn');
+    const changeGroupBtn = null; // removed from UI
     const changeGroupRow = document.getElementById('changeGroupRow');
     const settingsCurrentGroupSub = document.getElementById('settingsCurrentGroupSub');
     const themeSettingRow = document.getElementById('themeSettingRow');
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sidebarGroupBadge.textContent = selectedGroup || 'Не обрано';
         }
         if (settingsCurrentGroupSub) {
-            settingsCurrentGroupSub.textContent = selectedGroup ? `Група: ${selectedGroup}` : 'Оберіть групу';
+            settingsCurrentGroupSub.textContent = selectedGroup || '—';
         }
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (themeToggle) themeToggle.checked = isDark;

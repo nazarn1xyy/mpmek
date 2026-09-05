@@ -479,113 +479,61 @@ input[type="text"]:focus {
     color: var(--secondary-text);
 }
 
-/* ===== Settings Screen (Apple Inset-Grouped) ===== */
+/* ===== Settings ===== */
 .settings-container {
-    padding: 1.25rem;
-    max-width: 600px;
+    padding: 1.5rem 1.25rem;
+    max-width: 480px;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
 }
 
 .settings-group {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-[data-theme="dark"] .settings-group {
-    background: #141417;
-    border-color: rgba(255, 255, 255, 0.08);
-}
-
-.setting-item {
+.setting-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 16px;
-    min-height: 56px;
+    padding: 14px 0;
     border-bottom: 1px solid var(--border-color);
-    transition: background-color 0.15s ease;
+    cursor: pointer;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-[data-theme="dark"] .setting-item {
-    border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
-.setting-item:last-child {
+.setting-row:last-child {
     border-bottom: none;
 }
 
-.setting-item:active {
-    background-color: rgba(120, 120, 128, 0.06);
+.setting-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color);
 }
 
-.setting-item-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-}
-
-.setting-icon-badge {
-    width: 28px;
-    height: 28px;
+.setting-value {
+    font-size: 0.88rem;
     color: var(--secondary-text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    text-align: right;
+    max-width: 55%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.setting-chevron {
+    color: var(--secondary-text);
+    opacity: 0.5;
+    cursor: pointer;
     flex-shrink: 0;
 }
 
-.setting-icon-badge svg {
-    width: 20px;
-    height: 20px;
-    stroke: currentColor;
-}
-
-.setting-text-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-
-.setting-title {
-    font-size: 0.94rem;
-    font-weight: 600;
-    color: var(--text-color);
-    line-height: 1.25;
-}
-
-.setting-subtitle {
-    font-size: 0.78rem;
+.setting-link {
+    font-size: 0.88rem;
     color: var(--secondary-text);
-    line-height: 1.2;
-}
-
-.setting-action-btn {
-    padding: 6px 14px;
-    border-radius: 10px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
     text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    transition: all 0.15s ease;
-}
-
-[data-theme="dark"] .setting-action-btn {
-    background: #242428;
-    border-color: rgba(255, 255, 255, 0.1);
+    font-weight: 500;
 }
 
 /* Switch */
