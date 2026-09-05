@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v55';
+const CACHE_NAME = 'rozklad-v56';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
@@ -50,7 +50,43 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first for all static assets (HTML, JS, CSS, JSON) to guarantee fresh updates
+  // Fast Stale-While-Revalidate for schedule.json
+  if (url.pathname.endsWith('schedule.json')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache => {
+        return cache.match(event.request).then(cachedResponse => {
+          const fetchPromise = fetch(event.request).then(networkResponse => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          }).catch(() => cachedResponse);
+
+          return cachedResponse || fetchPromise;
+        });
+      })
+    );
+    return;
+  }
+
+  // Cache-First for versioned static assets (CSS, JS, images with ?v=)
+  if (url.searchParams.has('v') || url.pathname.endsWith('.png') || url.pathname.endsWith('.svg') || url.pathname.endsWith('.ico')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // Network-first for HTML pages with fast offline fallback
   event.respondWith(
     fetch(event.request).then(networkResponse => {
       if (networkResponse && networkResponse.status === 200) {
@@ -59,7 +95,6 @@ self.addEventListener('fetch', event => {
       }
       return networkResponse;
     }).catch(() => {
-      // Offline fallback: match request from cache
       return caches.match(event.request).then(cached => {
         if (cached) return cached;
         if (event.request.mode === 'navigate') {

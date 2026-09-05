@@ -5,6 +5,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentWeekType = null;
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
 
+    // Instant local cache recovery for 0ms initial load
+    try {
+        const cachedRaw = localStorage.getItem('cached_schedule_data');
+        if (cachedRaw) {
+            const cachedParsed = JSON.parse(cachedRaw);
+            if (cachedParsed && typeof cachedParsed === 'object') {
+                if (cachedParsed._settings && cachedParsed._settings.lessonTimes) {
+                    LESSON_TIMES = cachedParsed._settings.lessonTimes;
+                }
+                scheduleData = cachedParsed;
+            }
+        }
+    } catch (_) {}
+
     let LESSON_TIMES = {
         1: "08:30 - 09:50",
         2: "10:00 - 11:20",
@@ -310,6 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const resp = await fetch('schedule.json');
             const data = await resp.json();
+            try {
+                localStorage.setItem('cached_schedule_data', JSON.stringify(data));
+            } catch (_) {}
             if (data._settings) {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
                 delete data._settings;
@@ -625,9 +642,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (e.target === searchModal) e.preventDefault();
         }, { passive: false });
     }
+    let globalSearchTimer = null;
     if (globalSearchInput) {
         globalSearchInput.addEventListener('input', (e) => {
-            renderSearchResults(e.target.value);
+            clearTimeout(globalSearchTimer);
+            const val = e.target.value;
+            globalSearchTimer = setTimeout(() => {
+                renderSearchResults(val);
+            }, 120);
         });
     }
 
@@ -1165,19 +1187,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== App Initialization =====
-    try {
-        await refreshSchedule(false);
-    } catch (e) {
-        console.warn('Initial schedule fetch warning:', e);
-    }
-
     if (!selectedGroup) {
         showScreen('onboarding');
-        renderGroupList();
+        if (scheduleData) renderGroupList();
     } else {
         navItems[0].classList.add('active');
         showScreen('schedule');
+        if (scheduleData) {
+            renderSchedule();
+        }
     }
+
+    // Background Stale-While-Revalidate refresh
+    refreshSchedule(!scheduleData).catch(e => {
+        console.warn('Schedule background refresh warning:', e);
+    });
 
     // Live update interval for 'ЗАРАЗ' indicator every 60s
     setInterval(() => {

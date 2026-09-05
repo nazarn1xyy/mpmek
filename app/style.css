@@ -1344,3 +1344,17 @@ input:checked + .slider:before {
     }
 }
 
+
+/* ===== Performance & 60-120 FPS Optimizations ===== */
+.diary-day {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 380px;
+}
+
+.modal-sheet,
+.bottom-nav {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform;
+}
