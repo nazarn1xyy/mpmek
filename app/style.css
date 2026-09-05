@@ -1317,9 +1317,11 @@ input:checked + .slider:before {
     .sidebar-nav-items {
         display: flex;
         flex-direction: column;
+        justify-content: space-between !important;
         align-items: stretch;
-        gap: 4px;
         flex: 1;
+        gap: 0;
+        margin: 0.25rem 0;
     }
 
     .nav-item {
