@@ -879,6 +879,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', "П'ятниця"];
         const substitutionsList = scheduleData[selectedGroup]['ПІДВІСКА'] || [];
+        const renderedDayIndices = [];
 
         for (let d = 0; d < days.length; d++) {
             const day = days[d];
@@ -900,10 +901,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (pairs.length === 0) continue;
 
+            renderedDayIndices.push(d);
+
             pairs.sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
             const dayEl = document.createElement('div');
             dayEl.className = 'diary-day';
+            dayEl.id = 'day-section-' + d;
+            dayEl.dataset.dayIndex = d;
 
             const title = document.createElement('h2');
             title.innerHTML = `${day} <span class="date-badge">${dateStr}</span>`;
@@ -981,6 +986,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             diaryContainer.appendChild(finalFrag);
         }
 
+        // Render Day Selector Bar [ПН] [ВТ] [СР] [ЧТ] [ПТ]
+        const daySelectorSlot = document.getElementById('daySelectorBar');
+        if (daySelectorSlot) {
+            if (renderedDayIndices.length === 0) {
+                daySelectorSlot.innerHTML = '';
+            } else {
+                const dayShortLabels = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ'];
+                let defaultActiveIdx = -1;
+                if (weekOffset === 0 && currentWeekType !== 'ПІДВІСКА') {
+                    const todayIdx = days.indexOf(todayLabel);
+                    if (todayIdx !== -1 && renderedDayIndices.includes(todayIdx)) {
+                        defaultActiveIdx = todayIdx;
+                    }
+                }
+                if (defaultActiveIdx === -1 && renderedDayIndices.length > 0) {
+                    defaultActiveIdx = renderedDayIndices[0];
+                }
+
+                let barHtml = '';
+                for (let d = 0; d < days.length; d++) {
+                    const dName = days[d];
+                    const dNum = weekDates[dName] ? weekDates[dName].split('.')[0] : '';
+                    const isToday = weekOffset === 0 && currentWeekType !== 'ПІДВІСКА' && dName === todayLabel;
+                    const hasPairs = renderedDayIndices.includes(d);
+                    const isActive = d === defaultActiveIdx;
+                    
+                    barHtml += `
+                        <button type="button" class="day-chip${isActive ? ' is-active' : ''}${isToday ? ' is-today' : ''}${!hasPairs ? ' is-empty' : ''}" data-day-index="${d}" data-day-name="${dName}" aria-label="${dName}, ${weekDates[dName]}" ${!hasPairs ? 'disabled' : ''}>
+                            <span class="day-chip-label">${dayShortLabels[d]}</span>
+                            <span class="day-chip-date">${dNum}</span>
+                            ${isToday ? '<span class="day-chip-dot" aria-hidden="true"></span>' : ''}
+                        </button>
+                    `;
+                }
+                daySelectorSlot.innerHTML = barHtml;
+            }
+        }
+
+        if (typeof updateDayScrollSpy === 'function') {
+            updateDayScrollSpy();
+        }
+
         if (weekOffset === 0 && currentWeekType !== 'ПІДВІСКА') {
             requestAnimationFrame(() => {
                 const todayMarker = document.getElementById('today-marker');
@@ -992,6 +1039,56 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     }
+
+
+    // ===== Day Selector Bar Logic & Scroll-Spy =====
+    let isDayProgrammaticScroll = false;
+    let dayProgrammaticScrollTimer = null;
+    let dayScrollObserver = null;
+
+    function updateDayScrollSpy() {
+        if (dayScrollObserver) {
+            dayScrollObserver.disconnect();
+            dayScrollObserver = null;
+        }
+        const sections = document.querySelectorAll('.diary-day[id^="day-section-"]');
+        if (sections.length === 0 || typeof IntersectionObserver === 'undefined') return;
+
+        dayScrollObserver = new IntersectionObserver((entries) => {
+            if (isDayProgrammaticScroll) return;
+            const visible = entries.filter(e => e.isIntersecting);
+            if (visible.length > 0) {
+                visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+                const activeId = visible[0].target.id.replace('day-section-', '');
+                document.querySelectorAll('.day-chip').forEach(c => {
+                    c.classList.toggle('is-active', c.dataset.dayIndex === activeId);
+                });
+            }
+        }, {
+            root: null,
+            rootMargin: '-120px 0px -55% 0px',
+            threshold: [0, 0.1]
+        });
+
+        sections.forEach(s => dayScrollObserver.observe(s));
+    }
+
+    document.addEventListener('click', (e) => {
+        const chip = e.target.closest('.day-chip');
+        if (!chip || chip.disabled || chip.classList.contains('is-empty')) return;
+        const dayIdx = chip.dataset.dayIndex;
+        const targetEl = document.getElementById('day-section-' + dayIdx);
+        if (targetEl) {
+            isDayProgrammaticScroll = true;
+            clearTimeout(dayProgrammaticScrollTimer);
+            document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('is-active'));
+            chip.classList.add('is-active');
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            dayProgrammaticScrollTimer = setTimeout(() => {
+                isDayProgrammaticScroll = false;
+            }, 800);
+        }
+    });
 
     // ===== Share Schedule =====
     async function _fetchAndShare(url, filename, title, text) {
