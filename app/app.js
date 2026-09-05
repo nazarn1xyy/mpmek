@@ -185,14 +185,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         navItems.forEach(n => {
             const isActive = n.dataset.target === screenId;
             n.classList.toggle('active', isActive);
-            if (isActive) {
-                const icon = n.querySelector('.nav-icon');
-                if (icon) {
-                    icon.classList.remove('animate-active');
-                    void icon.offsetWidth;
-                    icon.classList.add('animate-active');
-                }
-            }
         });
 
         const pill = document.getElementById('navIndicatorPill');
@@ -219,6 +211,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateThemeSubtitle(isDark);
     }
 
+    function triggerIconAnimation(iconEl) {
+        if (!iconEl) return;
+        iconEl.classList.remove('animate-active');
+        if (typeof iconEl.getBoundingClientRect === 'function') {
+            void iconEl.getBoundingClientRect();
+        }
+        requestAnimationFrame(() => {
+            iconEl.classList.add('animate-active');
+        });
+        clearTimeout(iconEl._animTimeout);
+        iconEl._animTimeout = setTimeout(() => {
+            iconEl.classList.remove('animate-active');
+        }, 700);
+    }
+
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -226,9 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!target) return;
             const icon = item.querySelector('.nav-icon');
             if (icon) {
-                icon.classList.remove('animate-active');
-                void icon.offsetWidth;
-                icon.classList.add('animate-active');
+                triggerIconAnimation(icon);
             }
             showScreen(target);
         });
