@@ -343,6 +343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function unlockBody() {
         document.body.style.overflow = '';
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+            document.activeElement.blur();
+        }
+        window.scrollTo(window.scrollX, window.scrollY);
     }
 
     function openBellsModal() {
@@ -402,6 +406,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         bellsModal.addEventListener('click', (e) => {
             if (e.target === bellsModal) closeBellsModal();
         });
+        bellsModal.addEventListener('touchmove', (e) => {
+            if (e.target === bellsModal) e.preventDefault();
+        }, { passive: false });
     }
 
     // ===== Search Teachers & Rooms Modal =====
@@ -610,6 +617,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         searchModal.addEventListener('click', (e) => {
             if (e.target === searchModal) closeSearchModal();
         });
+        searchModal.addEventListener('touchmove', (e) => {
+            if (e.target === searchModal) e.preventDefault();
+        }, { passive: false });
     }
     if (globalSearchInput) {
         globalSearchInput.addEventListener('input', (e) => {

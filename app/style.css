@@ -621,6 +621,8 @@ input:checked + .slider:before {
     align-items: center;
     z-index: 100;
     user-select: none;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 .nav-item {
@@ -673,6 +675,8 @@ input:checked + .slider:before {
     align-items: flex-end;
     justify-content: center;
     animation: fadeIn 0.18s ease;
+    overscroll-behavior: contain;
+    touch-action: none;
 }
 
 .modal-sheet {
@@ -683,6 +687,8 @@ input:checked + .slider:before {
     padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
     animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
     border-top: 1px solid var(--border-color);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 .modal-handle {
