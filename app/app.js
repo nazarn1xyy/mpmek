@@ -277,6 +277,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (changeGroupBtn) changeGroupBtn.addEventListener('click', handleGroupChangePrompt);
+    const sidebarGroupBtn = document.getElementById('sidebarGroupBtn');
+    if (sidebarGroupBtn) sidebarGroupBtn.addEventListener('click', handleGroupChangePrompt);
     if (changeGroupRow) {
         changeGroupRow.addEventListener('click', (e) => {
             if (e.target !== changeGroupBtn) handleGroupChangePrompt();
