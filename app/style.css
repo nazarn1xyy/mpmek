@@ -631,9 +631,9 @@ input:checked + .slider:before {
     left: 0;
     right: 0;
     margin: 0 auto;
-    width: calc(100% - 32px);
-    max-width: 280px;
-    height: 52px;
+    width: calc(100% - 48px);
+    max-width: 230px;
+    height: 58px;
     padding: 4px;
     background-color: #18181b;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -698,10 +698,11 @@ input:checked + .slider:before {
     flex: 1;
     height: 100%;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 3px;
+    padding: 4px 0;
     text-decoration: none;
     color: var(--secondary-text);
     border-radius: 9999px;
@@ -719,13 +720,15 @@ input:checked + .slider:before {
 .nav-item svg {
     opacity: 0.6;
     transition: opacity 0.2s ease, transform 0.2s ease;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
 }
 
 .nav-item span {
-    font-size: 0.82rem;
+    font-size: 0.68rem;
     font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
     transition: font-weight 0.2s ease, color 0.2s ease;
 }
 

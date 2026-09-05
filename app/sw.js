@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rozklad-v66';
+const CACHE_NAME = 'rozklad-v67';
 const NOTIF_CACHE = 'notif-config';
 const STATIC_ASSETS = [
   './',
