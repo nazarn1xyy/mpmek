@@ -169,7 +169,7 @@ body.theme-transitioning {
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: calc(2rem + env(safe-area-inset-top, 0px)) 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
+    padding: 0 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px)) 1.25rem;
 }
 
 .onboarding-content {
@@ -181,17 +181,27 @@ body.theme-transitioning {
     flex: 1;
 }
 
-.onboarding-content h1 {
+.onboarding-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: var(--bg-color);
+    padding-top: calc(1.75rem + env(safe-area-inset-top, 0px));
+    padding-bottom: 0.75rem;
+    transition: background-color 0.25s ease;
+}
+
+.onboarding-header h1 {
     font-size: 2.2rem;
     font-weight: 800;
     letter-spacing: -0.03em;
     margin-bottom: 0.35rem;
 }
 
-.onboarding-content p {
+.onboarding-header p {
     color: var(--secondary-text);
     font-size: 0.95rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 input[type="text"] {
@@ -203,7 +213,7 @@ input[type="text"] {
     color: var(--text-color);
     font-size: 0.98rem;
     font-family: inherit;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     outline: none;
     transition: border-color 0.2s, background-color 0.2s;
 }
@@ -219,6 +229,7 @@ input[type="text"]:focus {
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    padding-top: 0.5rem;
     padding-bottom: 2rem;
     scrollbar-width: none;
 }
