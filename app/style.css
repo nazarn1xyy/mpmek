@@ -745,6 +745,87 @@ input:checked + .slider:before {
     font-weight: 600;
 }
 
+
+/* ===== Navbar Micro-Animations (Calendar Leaf Lift & Gear Spin) ===== */
+.nav-icon {
+    display: inline-block;
+    overflow: visible;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.nav-icon-calendar {
+    perspective: 120px;
+    transform-style: preserve-3d;
+}
+
+.cal-leaf {
+    transform-origin: 12px 10.5px;
+    transform-box: fill-box;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    backface-visibility: hidden;
+}
+
+.nav-icon-calendar.animate-active {
+    animation: cal-icon-bounce 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.nav-icon-calendar.animate-active .cal-leaf {
+    animation: cal-leaf-lift 0.65s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes cal-icon-bounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.92) translateY(1px); }
+    65% { transform: scale(1.06) translateY(-1px); }
+    100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes cal-leaf-lift {
+    0% {
+        transform: rotateX(0deg) translateY(0);
+        filter: drop-shadow(0 0 0 transparent);
+    }
+    38% {
+        transform: rotateX(-70deg) translateY(-2px);
+        filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+    }
+    68% {
+        transform: rotateX(-18deg) translateY(-0.8px);
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    }
+    85% {
+        transform: rotateX(5deg) translateY(0.2px);
+    }
+    100% {
+        transform: rotateX(0deg) translateY(0);
+        filter: drop-shadow(0 0 0 transparent);
+    }
+}
+
+.nav-icon-gear .gear-cog {
+    transform-origin: 12px 12px;
+    transform-box: fill-box;
+}
+
+.nav-icon-gear.animate-active .gear-cog {
+    animation: gear-spin 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes gear-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    55% {
+        transform: rotate(135deg);
+    }
+    80% {
+        transform: rotate(115deg);
+    }
+    100% {
+        transform: rotate(120deg);
+    }
+}
+
 /* ===== Modals & Sheets ===== */
 .modal-overlay {
     position: fixed;

@@ -183,7 +183,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         navItems.forEach(n => {
-            n.classList.toggle('active', n.dataset.target === screenId);
+            const isActive = n.dataset.target === screenId;
+            n.classList.toggle('active', isActive);
+            if (isActive) {
+                const icon = n.querySelector('.nav-icon');
+                if (icon) {
+                    icon.classList.remove('animate-active');
+                    void icon.offsetWidth;
+                    icon.classList.add('animate-active');
+                }
+            }
         });
 
         const pill = document.getElementById('navIndicatorPill');
@@ -215,6 +224,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             const target = item.dataset.target;
             if (!target) return;
+            const icon = item.querySelector('.nav-icon');
+            if (icon) {
+                icon.classList.remove('animate-active');
+                void icon.offsetWidth;
+                icon.classList.add('animate-active');
+            }
             showScreen(target);
         });
     });
