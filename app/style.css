@@ -84,6 +84,13 @@ body.theme-transitioning {
     transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+/* ===== Screen Layout ===== */
+.screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+}
+
 .hidden {
     display: none !important;
 }
@@ -107,6 +114,8 @@ body.theme-transitioning {
     -webkit-backdrop-filter: blur(16px);
     z-index: 20;
     border-bottom: 0.5px solid var(--border-color);
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 .schedule-top-nav {
@@ -802,12 +811,11 @@ input:checked + .slider:before {
     }
 }
 
-.nav-icon-gear .gear-cog {
-    transform-origin: 12px 12px;
-    transform-box: fill-box;
+.nav-icon-gear {
+    transform-origin: 50% 50%;
 }
 
-.nav-icon-gear.animate-active .gear-cog {
+.nav-icon-gear.animate-active {
     animation: gear-spin 0.65s cubic-bezier(0.25, 1, 0.5, 1);
 }
 

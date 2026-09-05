@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Screen Navigation =====
     function showScreen(screenId) {
+        window.scrollTo(0, 0);
         Object.values(screens).forEach(s => s && s.classList.add('hidden'));
         if (screens[screenId]) {
             screens[screenId].classList.remove('hidden');
