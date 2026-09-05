@@ -1408,116 +1408,144 @@ input:checked + .slider:before {
     }
 }
 
-/* ===== Mobile Compact Top Bar, Week Nav & Schedule Styling ===== */
+/* ===== Mobile Ergonomic & Touch-Friendly Top Bar, Week Nav & Schedule ===== */
 @media (max-width: 767px) {
     .top-nav {
-        padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem 1rem;
+        padding: calc(0.65rem + env(safe-area-inset-top, 0px)) 1rem 0.65rem 1rem;
     }
 
     .top-nav h1 {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
+        font-weight: 700;
     }
 
     .top-nav-actions {
-        gap: 6px;
+        gap: 8px;
     }
 
     .search-nav-btn,
     .share-btn {
-        width: 32px;
-        height: 32px;
-        min-height: 32px;
+        width: 40px;
+        height: 40px;
+        min-height: 40px;
         padding: 0;
         border-radius: 50%;
-        background: rgba(125, 125, 125, 0.1);
+        background: rgba(125, 125, 125, 0.12);
         border: none;
         display: flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .search-nav-btn:active,
+    .share-btn:active {
+        transform: scale(0.92);
+        background: rgba(125, 125, 125, 0.22);
     }
 
     .search-nav-btn svg,
     .share-btn svg {
-        width: 17px;
-        height: 17px;
+        width: 20px;
+        height: 20px;
     }
 
     #weekTypeToggle {
-        height: 30px;
-        min-height: 30px;
-        padding: 0 10px;
-        font-size: 0.72rem;
+        height: 38px;
+        min-height: 38px;
+        padding: 0 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
         border-radius: 9999px;
         background: rgba(125, 125, 125, 0.12);
         border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    #weekTypeToggle:active {
+        transform: scale(0.94);
     }
 
     .diary-container {
-        padding: 0.4rem 1rem;
+        padding: 0.5rem 1rem 5.5rem 1rem;
     }
 
     .week-nav {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 0;
-        margin: 0.35rem 0 0.75rem 0;
+        justify-content: space-between;
+        padding: 0 4px;
+        margin: 0.5rem 0 1rem 0;
         width: 100%;
     }
 
     .week-nav-btn {
-        width: 30px;
-        height: 30px;
-        min-height: 30px;
+        width: 42px;
+        height: 42px;
+        min-height: 42px;
         border-radius: 50%;
-        background: rgba(125, 125, 125, 0.1);
+        background: rgba(125, 125, 125, 0.12);
         border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .week-nav-btn:active {
+        transform: scale(0.9);
+        background: rgba(125, 125, 125, 0.22);
     }
 
     .week-nav-btn svg {
-        width: 15px;
-        height: 15px;
+        width: 20px;
+        height: 20px;
     }
 
     .week-nav-center {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
-        gap: 6px;
-        padding: 5px 12px;
+        gap: 3px;
+        padding: 6px 16px;
         background: rgba(125, 125, 125, 0.08);
-        border-radius: 9999px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .week-nav-center:active {
+        transform: scale(0.96);
+        background: rgba(125, 125, 125, 0.18);
     }
 
     .week-nav-label {
-        font-size: 0.78rem;
+        font-size: 0.92rem;
         font-weight: 600;
+        line-height: 1.2;
     }
 
     .week-nav-dates {
-        font-size: 0.72rem;
+        font-size: 0.78rem;
         color: var(--secondary-text);
-    }
-
-    .week-nav-dates::before {
-        content: "·";
-        margin-right: 6px;
-        font-weight: bold;
+        line-height: 1.2;
     }
 
     .diary-day {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1.35rem;
     }
 
     .diary-day h2 {
-        font-size: 0.95rem;
-        margin-bottom: 0.4rem;
+        font-size: 1.05rem;
+        margin-bottom: 0.5rem;
     }
 
     .diary-item {
-        padding: 0.8rem 0.95rem;
-        margin-bottom: 0.5rem;
+        padding: 0.95rem 1.05rem;
+        margin-bottom: 0.65rem;
         border-radius: 14px;
     }
 }
