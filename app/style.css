@@ -1408,6 +1408,120 @@ input:checked + .slider:before {
     }
 }
 
+/* ===== Mobile Compact Top Bar, Week Nav & Schedule Styling ===== */
+@media (max-width: 767px) {
+    .top-nav {
+        padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem 1rem;
+    }
+
+    .top-nav h1 {
+        font-size: 1.15rem;
+    }
+
+    .top-nav-actions {
+        gap: 6px;
+    }
+
+    .search-nav-btn,
+    .share-btn {
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
+        padding: 0;
+        border-radius: 50%;
+        background: rgba(125, 125, 125, 0.1);
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .search-nav-btn svg,
+    .share-btn svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    #weekTypeToggle {
+        height: 30px;
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 0.72rem;
+        border-radius: 9999px;
+        background: rgba(125, 125, 125, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .diary-container {
+        padding: 0.4rem 1rem;
+    }
+
+    .week-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0;
+        margin: 0.35rem 0 0.75rem 0;
+        width: 100%;
+    }
+
+    .week-nav-btn {
+        width: 30px;
+        height: 30px;
+        min-height: 30px;
+        border-radius: 50%;
+        background: rgba(125, 125, 125, 0.1);
+        border: none;
+    }
+
+    .week-nav-btn svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .week-nav-center {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        background: rgba(125, 125, 125, 0.08);
+        border-radius: 9999px;
+    }
+
+    .week-nav-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .week-nav-dates {
+        font-size: 0.72rem;
+        color: var(--secondary-text);
+    }
+
+    .week-nav-dates::before {
+        content: "·";
+        margin-right: 6px;
+        font-weight: bold;
+    }
+
+    .diary-day {
+        margin-bottom: 1.25rem;
+    }
+
+    .diary-day h2 {
+        font-size: 0.95rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .diary-item {
+        padding: 0.8rem 0.95rem;
+        margin-bottom: 0.5rem;
+        border-radius: 14px;
+    }
+}
+
 /* ===== Performance & 60-120 FPS Optimizations ===== */
 .diary-day {
     content-visibility: auto;
