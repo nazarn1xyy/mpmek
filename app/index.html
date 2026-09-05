@@ -19,9 +19,9 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta id="metaThemeColor" name="theme-color" content="#ffffff">
-    <link rel="preload" href="style.css?v=58" as="style">
+    <link rel="preload" href="style.css?v=59" as="style">
     <link rel="preload" href="schedule.json" as="fetch" crossorigin>
-    <link rel="preload" href="app.js?v=58" as="script">
+    <link rel="preload" href="app.js?v=59" as="script">
     <script>
         (function(){
             var t = localStorage.getItem('theme');
@@ -43,14 +43,10 @@
         body::-webkit-scrollbar{display:none}
         .hidden{display:none!important}
         #app{min-height:100vh;min-height:100dvh;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
-        .bottom-nav{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:290px;height:52px;background-color:var(--surface-color);border-radius:9999px;border:1px solid var(--border-color);display:flex;justify-content:center;align-items:center;z-index:100;user-select:none}
-        .skeleton{background:var(--surface-color,#f5f5f5);border-radius:20px;animation:pulse 1.5s ease-in-out infinite}
-        .skeleton-header{height:60px;margin-bottom:1rem;border-radius:12px}
-        .skeleton-card{height:88px;margin-bottom:1rem}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#settings{margin-left:240px}.bottom-nav{top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:1.5rem .75rem;gap:4px;border-top:none;border-right:1px solid var(--nav-border)}}
+        @media(max-width:767px){.bottom-nav{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;margin:0 auto;width:calc(100% - 32px);max-width:280px;height:52px;background-color:var(--surface-color);border-radius:9999px;border:1px solid var(--border-color);display:flex;justify-content:center;align-items:center;z-index:100;user-select:none}}
+        @media(min-width:768px){#app{padding-bottom:0!important}#schedule,#settings{margin-left:240px}.bottom-nav{position:fixed;top:0;left:0;bottom:0;right:auto;width:240px;height:100%;flex-direction:column;justify-content:space-between;align-items:stretch;padding:1.5rem 1rem 1.25rem 1rem;gap:0;border-top:none;border-right:1px solid var(--nav-border);background-color:var(--surface-color);border-radius:0}}}
     </style>
-    <link rel="stylesheet" href="style.css?v=58">
+    <link rel="stylesheet" href="style.css?v=59">
 </head>
 <body>
     <div id="app">
@@ -201,8 +197,16 @@
     </script>
 
     <!-- Bottom Navigation -->
-    <nav id="bottomNav" class="bottom-nav hidden">
+        <nav id="bottomNav" class="bottom-nav hidden">
         <div class="sidebar-brand">
+            <div class="sidebar-brand-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+            </div>
             <div class="sidebar-brand-text">
                 <span class="sidebar-brand-title">МПМЕК</span>
                 <span class="sidebar-brand-sub">Розклад занять</span>
@@ -228,19 +232,12 @@
             </a>
         </div>
         <div class="sidebar-footer">
-            <button class="sidebar-group-btn" id="sidebarGroupBtn" aria-label="Змінити групу" title="Натисніть, щоб змінити групу">
-                <div class="sidebar-group-info">
-                    <span class="sidebar-group-label">Група</span>
-                    <span class="sidebar-group-name" id="sidebarGroupBadge">—</span>
-                </div>
-                <svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-            </button>
+            <span class="sidebar-footer-label">Обрана група</span>
+            <span class="sidebar-group-badge" id="sidebarGroupBadge">—</span>
         </div>
     </nav>
 
-    <script src="app.js?v=58" defer></script>
+    <script src="app.js?v=59" defer></script>
     <script>
         if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             var s = document.createElement('script');
