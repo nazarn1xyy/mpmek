@@ -173,11 +173,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ===== Screen Navigation =====
     function showScreen(screenId) {
+        if (!screenId || !screens[screenId]) return;
+
         window.scrollTo(0, 0);
-        Object.values(screens).forEach(s => s && s.classList.add('hidden'));
-        if (screens[screenId]) {
-            screens[screenId].classList.remove('hidden');
-        }
+
+        Object.keys(screens).forEach(id => {
+            if (screens[id]) {
+                screens[id].classList.toggle('hidden', id !== screenId);
+            }
+        });
 
         if (bottomNav) {
             bottomNav.classList.toggle('hidden', screenId === 'onboarding');
@@ -193,10 +197,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             pill.classList.toggle('nav-pill-settings', screenId === 'settings');
         }
 
-        if (screenId === 'schedule' && selectedGroup) {
-            refreshSchedule(true);
-        } else if (screenId === 'settings') {
-            updateSettingsUI();
+        try {
+            if (screenId === 'schedule' && selectedGroup) {
+                refreshSchedule(true);
+            } else if (screenId === 'settings') {
+                updateSettingsUI();
+            }
+        } catch (err) {
+            console.error('Error during screen transition:', err);
         }
     }
 
@@ -230,6 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const target = item.dataset.target;
             if (!target) return;
             const icon = item.querySelector('.nav-icon');

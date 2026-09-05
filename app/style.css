@@ -716,10 +716,15 @@ input:checked + .slider:before {
     color: var(--secondary-text);
     border-radius: 9999px;
     border: none;
+    outline: none;
     box-shadow: none;
     background: transparent;
     transition: color 0.2s ease, transform 0.15s ease;
     -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .nav-item:active {
