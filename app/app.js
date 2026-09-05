@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
         const week1 = new Date(d.getFullYear(), 0, 4);
         const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-        return weekNum % 2 === 0 ? 'ЗНАМЕННИК' : 'ЧИСЕЛЬНИК';
+        return weekNum % 2 === 0 ? 'ЧИСЕЛЬНИК' : 'ЗНАМЕННИК';
     }
 
     // ===== XSS protection =====
@@ -671,6 +671,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (weekNavBtn) {
             e.preventDefault();
             weekOffset += parseInt(weekNavBtn.dataset.dir);
+            currentWeekType = null;
             renderSchedule();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
@@ -680,6 +681,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (weekNavCenter && weekOffset !== 0) {
             e.preventDefault();
             weekOffset = 0;
+            currentWeekType = null;
             renderSchedule();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
@@ -751,6 +753,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dy = e.changedTouches[0].clientY - touchStartY;
 
             if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                currentWeekType = null;
                 if (dx < 0) {
                     weekOffset += 1;
                     renderSchedule();

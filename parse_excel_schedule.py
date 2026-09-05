@@ -16,7 +16,7 @@ import openpyxl
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 EXCEL_FILE = PROJECT_ROOT / "Розклад І семестр 26-27 н.р. на 01.09.26.xlsx"
 SCHEDULE_OUT_BOT = PROJECT_ROOT / "schedule.json"
-SCHEDULE_OUT_WEB = Path("/Users/nazariyshikircloud.com/Downloads/mpmek-main/app/schedule.json")
+SCHEDULE_OUT_WEB = Path("/Users/nazariyshikircloud.com/Какая то идея/app/schedule.json")
 OOBJECT_FILE = PROJECT_ROOT / "OOBJECT.py"
 REMOTE_SCHEDULE_URL = "https://mpmek.site/schedule.json"
 
