@@ -338,8 +338,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Bells Schedule Modal =====
+    let _scrollY = 0;
+    function lockBody() {
+        _scrollY = window.scrollY;
+        document.body.classList.add('modal-open');
+        document.body.style.top = `-${_scrollY}px`;
+    }
+    function unlockBody() {
+        document.body.classList.remove('modal-open');
+        document.body.style.top = '';
+        window.scrollTo(0, _scrollY);
+    }
+
     function openBellsModal() {
         if (!bellsModal || !bellsList) return;
+        lockBody();
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -380,6 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function closeBellsModal() {
         if (bellsModal) bellsModal.classList.add('hidden');
+        unlockBody();
     }
 
     if (openBellsBtn) openBellsBtn.addEventListener('click', openBellsModal);
@@ -398,6 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== Search Teachers & Rooms Modal =====
     function openSearchModal() {
         if (!searchModal) return;
+        lockBody();
         searchModal.classList.remove('hidden');
         if (globalSearchInput) {
             globalSearchInput.value = '';
@@ -408,6 +423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function closeSearchModal() {
         if (searchModal) searchModal.classList.add('hidden');
+        unlockBody();
     }
 
     let searchCurrentDayFilter = 'all';
