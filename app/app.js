@@ -338,16 +338,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ===== Bells Schedule Modal =====
-    let _scrollY = 0;
     function lockBody() {
-        _scrollY = window.scrollY;
-        document.body.classList.add('modal-open');
-        document.body.style.top = `-${_scrollY}px`;
+        document.body.style.overflow = 'hidden';
     }
     function unlockBody() {
-        document.body.classList.remove('modal-open');
-        document.body.style.top = '';
-        window.scrollTo(0, _scrollY);
+        document.body.style.overflow = '';
     }
 
     function openBellsModal() {

@@ -1327,11 +1327,3 @@ input:checked + .slider:before {
     }
 }
 
-
-/* Body lock when modal is open */
-body.modal-open {
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-    height: 100%;
-}
