@@ -1032,45 +1032,115 @@ document.addEventListener('DOMContentLoaded', async () => {
             requestAnimationFrame(() => {
                 const todayMarker = document.getElementById('today-marker');
                 if (todayMarker) {
-                    setTimeout(() => {
-                        todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 50);
+                    isDayProgrammaticScroll = true;
+                    clearTimeout(dayProgrammaticScrollTimer);
+                    todayMarker.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    dayProgrammaticScrollTimer = setTimeout(() => {
+                        isDayProgrammaticScroll = false;
+                        if (typeof checkActiveDay === 'function') checkActiveDay();
+                    }, 600);
                 }
             });
         }
     }
 
 
-    // ===== Day Selector Bar Logic & Scroll-Spy =====
+    // ===== Day Selector Bar Logic & Robust Focal Scroll-Spy =====
     let isDayProgrammaticScroll = false;
     let dayProgrammaticScrollTimer = null;
-    let dayScrollObserver = null;
+    let currentActiveDayId = null;
+    let scrollSpyTicking = false;
+
+    function setActiveChip(dayIdx) {
+        if (dayIdx === null || dayIdx === undefined || currentActiveDayId === dayIdx) return;
+        currentActiveDayId = dayIdx;
+        const chips = document.querySelectorAll('.day-chip');
+        chips.forEach(c => {
+            c.classList.toggle('is-active', c.dataset.dayIndex === String(dayIdx));
+        });
+    }
+
+    function checkActiveDay() {
+        const sections = Array.from(document.querySelectorAll('.diary-day[id^="day-section-"]'));
+        if (sections.length === 0) return;
+
+        // 1. If user is at or near the very bottom of the page -> activate the last day (e.g. Friday)
+        const scrollBottom = window.innerHeight + window.scrollY;
+        const pageHeight = document.documentElement.scrollHeight;
+        if (pageHeight - scrollBottom <= 70) {
+            const lastSec = sections[sections.length - 1];
+            setActiveChip(lastSec.id.replace('day-section-', ''));
+            return;
+        }
+
+        // 2. If user is at the very top -> activate the first day
+        if (window.scrollY < 40) {
+            const firstSec = sections[0];
+            setActiveChip(firstSec.id.replace('day-section-', ''));
+            return;
+        }
+
+        // 3. Focal line detection: position right below sticky header
+        const header = document.querySelector('.schedule-top-nav');
+        const headerBottom = header ? header.getBoundingClientRect().bottom : 155;
+        const activationLine = headerBottom + 45;
+
+        let candidateId = null;
+        for (let i = 0; i < sections.length; i++) {
+            const rect = sections[i].getBoundingClientRect();
+            // The section has reached or passed the focal line and is still visible below the header
+            if (rect.top <= activationLine && rect.bottom > headerBottom + 10) {
+                candidateId = sections[i].id.replace('day-section-', '');
+            }
+        }
+
+        if (candidateId === null) {
+            // Fallback: find section closest to activationLine
+            let minDistance = Infinity;
+            sections.forEach(sec => {
+                const rect = sec.getBoundingClientRect();
+                const dist = Math.abs(rect.top - activationLine);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    candidateId = sec.id.replace('day-section-', '');
+                }
+            });
+        }
+
+        if (candidateId !== null) {
+            setActiveChip(candidateId);
+        }
+    }
+
+    function onScheduleScroll() {
+        if (isDayProgrammaticScroll) {
+            clearTimeout(dayProgrammaticScrollTimer);
+            dayProgrammaticScrollTimer = setTimeout(() => {
+                isDayProgrammaticScroll = false;
+                checkActiveDay();
+            }, 180);
+            return;
+        }
+
+        if (!scrollSpyTicking) {
+            requestAnimationFrame(() => {
+                checkActiveDay();
+                scrollSpyTicking = false;
+            });
+            scrollSpyTicking = true;
+        }
+    }
+
+    window.addEventListener('scroll', onScheduleScroll, { passive: true });
+    window.addEventListener('resize', () => {
+        if (!isDayProgrammaticScroll) checkActiveDay();
+    }, { passive: true });
 
     function updateDayScrollSpy() {
-        if (dayScrollObserver) {
-            dayScrollObserver.disconnect();
-            dayScrollObserver = null;
-        }
-        const sections = document.querySelectorAll('.diary-day[id^="day-section-"]');
-        if (sections.length === 0 || typeof IntersectionObserver === 'undefined') return;
-
-        dayScrollObserver = new IntersectionObserver((entries) => {
-            if (isDayProgrammaticScroll) return;
-            const visible = entries.filter(e => e.isIntersecting);
-            if (visible.length > 0) {
-                visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-                const activeId = visible[0].target.id.replace('day-section-', '');
-                document.querySelectorAll('.day-chip').forEach(c => {
-                    c.classList.toggle('is-active', c.dataset.dayIndex === activeId);
-                });
-            }
-        }, {
-            root: null,
-            rootMargin: '-120px 0px -55% 0px',
-            threshold: [0, 0.1]
+        currentActiveDayId = null;
+        requestAnimationFrame(() => {
+            checkActiveDay();
         });
-
-        sections.forEach(s => dayScrollObserver.observe(s));
     }
 
     document.addEventListener('click', (e) => {
@@ -1081,12 +1151,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (targetEl) {
             isDayProgrammaticScroll = true;
             clearTimeout(dayProgrammaticScrollTimer);
-            document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('is-active'));
-            chip.classList.add('is-active');
+            setActiveChip(dayIdx);
             targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
             dayProgrammaticScrollTimer = setTimeout(() => {
                 isDayProgrammaticScroll = false;
-            }, 800);
+                checkActiveDay();
+            }, 600);
         }
     });
 
