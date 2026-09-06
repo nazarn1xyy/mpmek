@@ -1004,6 +1004,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== App Initialization =====
+    if (sidebarGroupBadge && selectedGroup) {
+        sidebarGroupBadge.textContent = selectedGroup;
+    }
     if (!selectedGroup) {
         showScreen('onboarding');
         if (scheduleData) renderGroupList();
