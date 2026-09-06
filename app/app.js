@@ -4,20 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedGroup = localStorage.getItem('selectedGroup');
     let currentWeekType = null;
     let weekOffset = 0; // 0 = current week, 1 = next week, -1 = previous week
-
-    // Instant local cache recovery for 0ms initial load
-    try {
-        const cachedRaw = localStorage.getItem('cached_schedule_data');
-        if (cachedRaw) {
-            const cachedParsed = JSON.parse(cachedRaw);
-            if (cachedParsed && typeof cachedParsed === 'object') {
-                if (cachedParsed._settings && cachedParsed._settings.lessonTimes) {
-                    LESSON_TIMES = cachedParsed._settings.lessonTimes;
-                }
-                scheduleData = cachedParsed;
-            }
-        }
-    } catch (_) {}
+    let sortedGroupList = null;
 
     let LESSON_TIMES = {
         1: "08:30 - 09:50",
@@ -27,6 +14,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         5: "14:50 - 16:10",
         6: "16:20 - 17:40"
     };
+
+    // Instant local cache recovery for true 0ms initial load
+    try {
+        const cachedRaw = localStorage.getItem('cached_schedule_data');
+        if (cachedRaw) {
+            const cachedParsed = JSON.parse(cachedRaw);
+            if (cachedParsed && typeof cachedParsed === 'object') {
+                if (cachedParsed._settings && cachedParsed._settings.lessonTimes) {
+                    LESSON_TIMES = cachedParsed._settings.lessonTimes;
+                }
+                scheduleData = cachedParsed;
+                sortedGroupList = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
+            }
+        }
+    } catch (_) {}
 
     const BELLS_SCHEDULE = [
         { num: 1, start: '08:30', end: '09:50', breakText: 'Перерва 10 хв' },
@@ -250,7 +252,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!groupListContainer || !scheduleData) return;
         const frag = document.createDocumentFragment();
         const lowerFilter = filter.toLowerCase().trim();
-        const groups = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
+        if (!sortedGroupList) {
+            sortedGroupList = Object.keys(scheduleData).filter(k => k !== '_settings').sort();
+        }
+        const groups = sortedGroupList;
         let count = 0;
 
         for (let i = 0; i < groups.length; i++) {
@@ -363,13 +368,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (data._settings.lessonTimes) LESSON_TIMES = data._settings.lessonTimes;
                 delete data._settings;
             }
+            sortedGroupList = Object.keys(data).sort();
+            const dataChanged = !scheduleData || (selectedGroup && JSON.stringify(data[selectedGroup]) !== JSON.stringify(scheduleData[selectedGroup]));
             scheduleData = data;
             _lastFetchTime = Date.now();
-            if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-                renderSchedule();
-            }
-            if (screens.onboarding && !screens.onboarding.classList.contains('hidden')) {
-                renderGroupList(groupSearch ? groupSearch.value : '');
+            if (dataChanged) {
+                if (selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
+                    renderSchedule();
+                }
+                if (screens.onboarding && !screens.onboarding.classList.contains('hidden')) {
+                    renderGroupList(groupSearch ? groupSearch.value : '');
+                }
+            } else {
+                updateLiveStatusBadges();
             }
         } catch (e) {
             if (scheduleData && silent) {
@@ -1009,10 +1020,68 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Schedule background refresh warning:', e);
     });
 
-    // Live update interval for 'ЗАРАЗ' indicator every 60s
+
+    // ===== In-Place Live Status Badge Updates (No DOM tearing) =====
+    function updateLiveStatusBadges() {
+        if (!scheduleData || !selectedGroup || weekOffset !== 0 || currentWeekType === 'ПІДВІСКА') return;
+        const todayMarker = document.getElementById('today-marker');
+        if (!todayMarker) return;
+
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const items = todayMarker.querySelectorAll('.diary-item');
+        let foundNext = false;
+
+        items.forEach(item => {
+            const numEl = item.querySelector('.diary-item-number');
+            if (!numEl) return;
+            const pairNum = parseInt(numEl.textContent);
+            const timeStr = LESSON_TIMES[pairNum];
+            if (!timeStr) return;
+
+            const [s, e] = timeStr.split(' - ');
+            const [sh, sm] = s.split(':').map(Number);
+            const [eh, em] = e.split(':').map(Number);
+            const sMin = sh * 60 + sm;
+            const eMin = eh * 60 + em;
+
+            let badgeHtml = '';
+            let isNow = false;
+            let isNext = false;
+
+            if (nowMin >= sMin && nowMin < eMin) {
+                isNow = true;
+                const remaining = eMin - nowMin;
+                badgeHtml = `<span class="badge-now">ЗАРАЗ • ще ${remaining} хв</span>`;
+            } else if (nowMin < sMin && !foundNext) {
+                isNext = true;
+                foundNext = true;
+                const until = sMin - nowMin;
+                badgeHtml = `<span class="badge-next">НАСТУПНА • через ${until} хв</span>`;
+            }
+
+            item.classList.toggle('is-now', isNow);
+            item.classList.toggle('is-next', isNext);
+
+            const header = item.querySelector('.diary-item-header');
+            if (header) {
+                const existingBadge = header.querySelector('.badge-now, .badge-next');
+                if (existingBadge) existingBadge.remove();
+                if (badgeHtml) {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = badgeHtml;
+                    const badgeEl = temp.firstElementChild;
+                    const timeEl = header.querySelector('.diary-item-time');
+                    if (timeEl) header.insertBefore(badgeEl, timeEl);
+                    else header.appendChild(badgeEl);
+                }
+            }
+        });
+    }
+    // Live update interval for 'ЗАРАЗ' indicator every 60s (in-place targeted DOM update)
     setInterval(() => {
         if (scheduleData && selectedGroup && screens.schedule && !screens.schedule.classList.contains('hidden')) {
-            renderSchedule();
+            updateLiveStatusBadges();
         }
     }, 60000);
 });

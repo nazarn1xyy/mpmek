@@ -12,54 +12,93 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/unsubscribe", "destination": "/api/subscribe?action=unsubscribe" },
-    { "source": "/api/telegram-setup", "destination": "/api/telegram?action=setup" },
-    { "source": "/api/telegram-notify", "destination": "/api/telegram?action=notify" },
-    { "source": "/api/tg-subscribe", "destination": "/api/telegram?action=subscribe" }
+    {
+      "source": "/api/unsubscribe",
+      "destination": "/api/subscribe?action=unsubscribe"
+    },
+    {
+      "source": "/api/telegram-setup",
+      "destination": "/api/telegram?action=setup"
+    },
+    {
+      "source": "/api/telegram-notify",
+      "destination": "/api/telegram?action=notify"
+    },
+    {
+      "source": "/api/tg-subscribe",
+      "destination": "/api/telegram?action=subscribe"
+    }
   ],
   "headers": [
     {
       "source": "/admin/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
       ]
     },
     {
       "source": "/(.*).json",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=600, stale-while-revalidate=86400" },
-        { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        }
       ]
     },
     {
       "source": "/(.*).css",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/(.*).js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/(.*).html",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     },
     {
       "source": "/(.*).svg",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        }
       ]
     }
   ]
