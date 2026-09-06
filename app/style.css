@@ -1175,6 +1175,7 @@ input:checked + .slider:before {
         display: none !important;
     }
 
+    /* ===== Sidebar (macOS Native Panel Aesthetics) ===== */
     .bottom-nav {
         position: fixed !important;
         left: 0 !important;
@@ -1210,11 +1211,11 @@ input:checked + .slider:before {
     }
 
     .sidebar-brand-icon {
-        width: 24px;
-        height: 24px;
-        background: transparent;
-        border: none;
-        box-shadow: none;
+        width: 22px;
+        height: 22px;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1223,8 +1224,8 @@ input:checked + .slider:before {
     }
 
     .sidebar-brand-icon svg {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
     }
 
     .sidebar-brand-text {
@@ -1252,7 +1253,7 @@ input:checked + .slider:before {
         justify-content: space-between !important;
         align-items: stretch;
         flex: 1;
-        gap: 0;
+        gap: 4px;
         margin: 0.25rem 0;
     }
 
@@ -1264,17 +1265,19 @@ input:checked + .slider:before {
         justify-content: flex-start;
         width: 100% !important;
         max-width: 100% !important;
-        height: 42px !important;
+        height: 40px !important;
         padding: 0 12px !important;
-        border-radius: 10px;
+        border-radius: 8px !important;
+        border: none !important;
+        box-shadow: none !important;
         gap: 10px;
         color: var(--secondary-text);
         text-decoration: none;
-        transition: background-color 0.15s, color 0.15s;
+        transition: background-color 0.15s ease, color 0.15s ease;
     }
 
     .nav-item:hover {
-        background-color: rgba(120, 120, 128, 0.08);
+        background-color: rgba(120, 120, 128, 0.07);
         color: var(--text-color);
     }
 
@@ -1283,25 +1286,32 @@ input:checked + .slider:before {
     }
 
     .nav-item.active {
-        background-color: var(--card-bg) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
         color: var(--text-color) !important;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    [data-theme="light"] .nav-item.active {
+        background-color: rgba(0, 0, 0, 0.06) !important;
     }
 
     .nav-item svg {
         width: 18px;
         height: 18px;
-        opacity: 0.7;
+        opacity: 0.75;
+        flex-shrink: 0;
     }
 
     .nav-item.active svg {
         opacity: 1;
+        color: var(--text-color);
     }
 
     .nav-item span {
-        font-size: 0.92rem !important;
+        font-size: 0.9rem !important;
         font-weight: 600;
+        letter-spacing: -0.01em;
     }
 
     .sidebar-footer {
@@ -1313,41 +1323,408 @@ input:checked + .slider:before {
     }
 
     .sidebar-footer-label {
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         color: var(--secondary-text);
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         font-weight: 600;
     }
 
     .sidebar-group-badge {
-        display: inline-block;
-        padding: 6px 10px;
-        background: var(--card-bg);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 11px;
+        background: rgba(125, 125, 125, 0.06);
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        font-size: 0.85rem;
+        font-size: 0.84rem;
         font-weight: 700;
         color: var(--text-color);
+        letter-spacing: -0.01em;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
     }
 
-    .diary-container, .settings-container {
-        max-width: 720px;
-        padding: 2rem 1.5rem;
+    .sidebar-group-badge:hover {
+        background: rgba(125, 125, 125, 0.12);
+        border-color: rgba(255, 255, 255, 0.15);
     }
 
-    .schedule-top-nav .top-nav-row,
-    .schedule-top-nav .week-nav,
-    .schedule-top-nav .day-selector-bar {
+    /* ===== Desktop Top Navigation & Controls ===== */
+    .schedule-top-nav {
+        padding: 1.15rem 1.75rem 0.85rem 1.75rem;
+        gap: 6px;
+    }
+
+    .schedule-top-nav .top-nav-row {
         max-width: 720px;
         margin-left: auto;
         margin-right: auto;
         width: 100%;
+        padding: 0 2px;
+    }
+
+    .schedule-top-nav .top-nav-row h1 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+    }
+
+    .schedule-top-nav .share-btn {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        padding: 0;
+        border-radius: 7px;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: var(--secondary-text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .schedule-top-nav .share-btn:hover {
+        background: rgba(120, 120, 128, 0.1) !important;
+        color: var(--text-color);
+    }
+
+    .schedule-top-nav .share-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .schedule-top-nav #weekTypeToggle {
+        height: 30px;
+        min-height: 30px;
+        padding: 0 11px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        border-radius: 7px;
+        background: rgba(125, 125, 125, 0.07);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .schedule-top-nav #weekTypeToggle:hover {
+        background: rgba(125, 125, 125, 0.14);
+        border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    /* Centered Week Navigator (Compact Frame, No 700px Gap) */
+    .schedule-top-nav .week-nav-slot {
+        max-width: 720px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .schedule-top-nav .week-nav {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 2px auto !important;
+        padding: 0 !important;
+    }
+
+    .schedule-top-nav .week-nav-btn {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        border: none !important;
+        background: transparent !important;
+        border-radius: 7px;
+        box-shadow: none !important;
+        color: var(--secondary-text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    }
+
+    .schedule-top-nav .week-nav-btn:hover {
+        background: rgba(120, 120, 128, 0.1) !important;
+        color: var(--text-color);
+    }
+
+    .schedule-top-nav .week-nav-btn:active {
+        transform: scale(0.94);
+    }
+
+    .schedule-top-nav .week-nav-btn svg {
+        width: 18px;
+        height: 18px;
+        stroke-width: 2.2;
+    }
+
+    .schedule-top-nav .week-nav-center {
+        display: flex;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        background: transparent;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .schedule-top-nav .week-nav-center:hover {
+        background: rgba(120, 120, 128, 0.08);
+    }
+
+    .schedule-top-nav .week-nav-label {
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--text-color);
+    }
+
+    .schedule-top-nav .week-nav-dates {
+        font-size: 0.8rem;
+        color: var(--secondary-text);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Day Selector Bar (Apple-style Centered Segmented Control) */
+    .schedule-top-nav .day-selector-bar {
+        max-width: 440px !important;
+        margin: 6px auto 0 auto !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        padding: 3px !important;
+        background: rgba(125, 125, 125, 0.08) !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--border-subtle) !important;
+    }
+
+    .schedule-top-nav .day-chip {
+        flex: 1 !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        border-radius: 7px !important;
+        background: transparent !important;
+        border: none !important;
+        color: var(--secondary-text) !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 0 4px !important;
+        cursor: pointer !important;
+        box-shadow: none !important;
+        transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease !important;
+    }
+
+    .schedule-top-nav .day-chip:hover:not(:disabled):not(.is-active) {
+        background: rgba(120, 120, 128, 0.1) !important;
+        color: var(--text-color) !important;
+    }
+
+    .schedule-top-nav .day-chip.is-active {
+        background: var(--card-bg) !important;
+        color: var(--text-color) !important;
+        font-weight: 700 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 0.5px rgba(255, 255, 255, 0.1) !important;
+    }
+
+    [data-theme="light"] .schedule-top-nav .day-chip.is-active {
+        background: #ffffff !important;
+        color: var(--text-color) !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .schedule-top-nav .day-chip-label {
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: -0.01em;
+    }
+
+    .schedule-top-nav .day-chip-date {
+        font-size: 0.74rem;
+        font-weight: 500;
+        opacity: 0.75;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .schedule-top-nav .day-chip.is-today:not(.is-active) {
+        color: var(--accent-blue, #0284c7) !important;
+        background: rgba(2, 132, 199, 0.08) !important;
+    }
+
+    [data-theme="dark"] .schedule-top-nav .day-chip.is-today:not(.is-active) {
+        color: #38bdf8 !important;
+        background: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    .schedule-top-nav .day-chip.is-today .day-chip-dot {
+        display: none !important;
+    }
+
+    /* ===== Main Container & Lesson Cards Layout ===== */
+    .diary-container, .settings-container {
+        max-width: 720px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 1.75rem 1.5rem 3rem 1.5rem;
+    }
+
+    .diary-day {
+        margin-bottom: 2.2rem;
+        scroll-margin-top: 155px;
+    }
+
+    .diary-day h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+        margin-bottom: 0.85rem;
+        color: var(--text-color);
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .diary-item {
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.1rem 1.35rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .diary-item:hover {
+        background-color: var(--card-bg);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    [data-theme="light"] .diary-item:hover {
+        border-color: rgba(0, 0, 0, 0.12);
+    }
+
+    .diary-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.84rem;
+    }
+
+    .diary-item-number {
+        font-weight: 700;
+        color: var(--secondary-text);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .diary-item-time {
+        font-size: 0.82rem;
+        color: var(--secondary-text);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        padding: 2px 6px;
+        border-radius: 6px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .diary-item-time:hover {
+        background-color: rgba(120, 120, 128, 0.1);
+        color: var(--text-color);
+    }
+
+    .diary-item-subject {
+        font-size: 1.05rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        line-height: 1.35;
+        color: var(--text-color);
+    }
+
+    .diary-item-teacher {
+        font-size: 0.88rem;
+        color: var(--secondary-text);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .diary-item-room {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 7px;
+        border-radius: 6px;
+        background: rgba(125, 125, 125, 0.1);
+        border: 1px solid rgba(125, 125, 125, 0.14);
+        color: var(--text-color);
+        font-size: 0.8rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Active Pair (Now) - Clean Apple Accent Line */
+    .diary-item.is-now {
+        border-left: 3.5px solid var(--accent-blue, #0284c7) !important;
+        background: rgba(2, 132, 199, 0.03) !important;
+    }
+
+    [data-theme="dark"] .diary-item.is-now {
+        border-left: 3.5px solid #38bdf8 !important;
+        background: rgba(56, 189, 248, 0.04) !important;
+    }
+
+    /* Next Pair - Subtle indicator */
+    .diary-item.is-next {
+        border-left: 3px solid rgba(120, 120, 128, 0.3);
+    }
+
+    /* Modals on desktop - Clean centered dialog */
+    .modal-overlay {
+        align-items: center !important;
+        padding: 1.5rem !important;
+    }
+
+    .modal-sheet {
+        border-radius: 16px !important;
+        border: 1px solid var(--border-color) !important;
+        max-width: 440px !important;
+        padding: 1.5rem !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+        animation: fadeIn 0.18s ease !important;
+    }
+
+    .modal-handle {
+        display: none !important;
     }
 }
+
 
 /* ===== Mobile Ergonomic & Touch-Friendly Top Bar, Week Nav & Schedule ===== */
 @media (max-width: 767px) {
